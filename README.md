@@ -1,0 +1,204 @@
+# Histology Analysis Toolkit (HAT)
+
+For the training and evaluation of nuclei detection and cell classification
+models on multi-organ histology whole slide images (WSI). Supported organs are:
+placenta
+
+In the future we hope to directly support liver and adipocyte histology, along with 
+segmentation techniques.
+
+Currently, a sqlite database (and Peewee orm) is used for the evaluation part of
+the pipeline. The training part of the pipeline will be integrated with the
+database soon.
+
+## Project/Repo Structure
+
+This repo is intended to supply all H&E multi-organ analysis. It is split up into 
+'core' code which is (ideally) general enough to be used across organs and 'project'
+code which is specific to a single project/organ. 
+
+'project' code is found under `projects/{projectname}` with project names generally 
+being named after the organ or study of interest (e.g. placenta or adipocyte). 
+'core' code is everything else. Within 'core' there is also the source code, 
+`hat`, which gets installed as a package for use anywhere. 
+
+All project-specific code, entry points, datasets, results, analysis, etc, should live 
+in the `projects/{projectname}` directory and use of any 'core' analysis should save the 
+results into the project directory as well. Please see `projects/placenta` for an 
+example.
+
+Any changes made to 'core' code must be discussed and made via a branch and pull 
+request into master. This pull request should contain only the specific changes to core
+and will be subject to rigorous pull request review. Other project-specific 
+changes which we may want to merge into master should also be made via a reviewed pull 
+request but this review won't be so strict.
+
+All checked in code is expected to be documented (public functions with Google style 
+docstring), tested (pytest unit and integration tests), and formatted with Black code 
+formatter. The GitHub Actions (coming soon) will check as much of this as possible. 
+(Saying all of this I'm well aware that 'core' isn't fully compliant with this, and 
+I'm working on it!)
+
+Parts of 'core' (e.g. training) are still under a fairly major refactor right now and 
+are very likely broken so apologies if you encounter problems, please do Slack me with 
+any issues!
+
+
+## Setup
+
+On first setup you will need to create and activate a conda environment. After this,
+the make command will handle the rest of the setup (it may take a while).
+
+### Rescomp:
+
+This is for running training and evaluation on rescomp's GPUs and is the expected 
+workflow since WSIs are stored on rescomp.
+
+You will need to ssh into a GPU server before setup (this ensures GPU versions are 
+installed correctly). If you haven't made a .condarc file, check the note bellow.
+
+```bash
+conda create -n {envname} python=3.8
+conda {envname} activate
+module load libvips/8.9.2-foss-2019a
+export PATH=/{PathToYourUserDirWithSpace}/conda_stuff/my_envs/{envname}/bin/:$PATH
+make environment
+```
+
+**Note:** if you are setting this up on rescomp with a teeny home directory, you will 
+need to make a `.condarc` file at your home which tells conda where to put the installed
+packages. Something like bellow:
+
+```
+envs_dirs:
+    - /{PathToYourUserDirWithSpace}/conda_stuff/my_envs
+
+pkgs_dirs:
+    - /{PathToYourUserDirWithSpace}/conda_stuff/pkgs
+```
+
+### Local:
+
+This is for running tests and bits of analysis locally. Assumes you're using a CPU.
+
+```bash
+conda create -n {envname} python=3.8
+conda {envname} activate
+make environment_cpu
+```
+
+**Note:** On mac if you get a gcc error relating to 'javabridge' you may need to 
+install the dev version manually with this command: 
+```
+pip install git+https://github.com/LeeKamentsky/python-javabridge.git#egg=javabridge
+```
+
+I'm sure there will be some setup errors (state is a fickle beast) so let me know.
+
+## How To Use
+
+### Rescomp:
+
+Before every use on rescomp you will need to load the modules, setup your path, and 
+activate the conda environment (in that order). You can use a simple shell script for 
+automating this:
+
+```bash
+source start_up_script.sh
+```
+
+start_up_script.sh:
+
+```bash
+#!/usr/bin/bash
+module load libvips/8.9.2-foss-2019a
+export PATH=/{PathToYourUserDirWithSpace}/conda_stuff/my_envs/{envname}/bin/:$PATH
+eval "$(conda shell.bash hook)"
+conda activate {envname}
+```
+
+
+### Evaluation
+
+For evaluation across a WSI use `python /projects/{yourproject}/eval.py`. 
+This can be used to initialise a new run, continue an unfinished one, or do nuclei 
+detection or cell classification separately. Each full evaluation run is treated as a 
+separate entity and, as such, gets its own entry in the database. Using the unique 
+run_id is the easiest way to access associated information about the run, including 
+the model's predictions for that run.
+
+Slides and their respective lab and patient information can be added to the
+database with `hat/db/add_slides.py`. This needs to be done prior to
+evaluation so that the code knows the slides' paths and metadata which will be used 
+during the run.
+
+All model predictions are saved directly to the database and can be turned into
+.tsv files that QuPath can read with `/qupath/coord_to_tsv.py`.
+
+Embedding vectors of the cell classifier, their class predictions, and WSI
+(x,y) coordinates are saved as an hdf5 file in 
+`projects/{projectname}/results/embeddings/{lab_id}/{slide_name}/{run_id}.hdf5`.
+
+### Analysis
+
+(Currently needs work to make sure results are saved to project-specific directories 
+and inputs are properly parameterised using typer.)
+
+To generate and visualise UMAP embeddings from WSI predictions of the cell
+classifier look in `analysis/embeddings/`. Make sure to set the start and
+end index values to control how much data to include in your embeddings.
+Indicies are saved sorted ascending by (x,y) so these values will take 'chunks'
+of predictions out of your image.
+
+To visualise fewer data points using Seaborn use `/simple_embeddings.py` (note:
+this is prone to overplotting if you have too much data). For more data points 
+or to get an interactive hover use `/emebddings_interactive.py`. 
+To combine two WSI into one embedding use `/joint_embeddings.py`, for just one cell 
+class use `/single_class.py`, for filtering network confidence predictions use 
+`/single_confidence.py`, and for (small) 3d embeddings use `/embedding_3d.py`.
+
+To visualise the top 100 outliers in the embedding vectors use 
+`analysis/outliers/embeddings_outliers.py`. This can be useful for finding image 
+artefacts or unusual cell types/features. Currently, this just prints the respective 
+(x,y) coordinates and saves a figure containing the 100 outliers but more informative 
+plotting might be added in the future.
+
+You can also visualise your nuclei detector's box or centre predictions on any
+image (including other organs) using `analysis/visualisations/vis_nuclei_preds.py`.
+
+### Training
+
+(Currently under major refactor. Will update when refactor is complete.)
+
+Main training scripts for nuclei detector and cell classifier are found in
+`/projects/{yourproject}/nuc_train.py` and `/projects/{yourproject}/celltrain.py` 
+respectively. As mentioned earlier, these have not currently been integrated with the 
+database.
+
+Raw training dataset images go in `/projects/{yourproject}/datasets/` and their ground 
+truth annotation csv files go in `/projects/{yourproject}/annotations/`. Separate 
+training datasets can be combined into one training/validation dataset by the dataloader 
+so long as the directory structure convention is followed.
+
+Training metrics can be visualised using Visdom.
+
+Training metrics, the specific parameters of the training run, and the
+best model weights are saved to 
+`/projects/{yourproject}/results/{model_type}/{exp_name}/{timestamp}/`.
+
+### Making Training Data
+
+After correcting model predictions in QuPath to generate training data, those 
+corrections can be extracted to csv files using Groovy scripts (I will add these scripts
+to this repo soon). 
+
+You can then use `/hat/microscopefile/make_tile_dataset.py` to generate corresponding 
+images and annotation csvs from the files generated by the Groovy scripts. These 
+should be saved to your project directory.
+
+
+## Warnings
+
+* As model training isn't integrated with the database yet, models, and the
+  training runs that created them, will need to be added to the dataset manually
+  before using them for WSI evaluation.
