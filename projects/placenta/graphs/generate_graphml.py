@@ -7,9 +7,9 @@ from torch_cluster import knn_graph
 from torch_geometric.data import Data
 from torch_geometric.utils.convert import to_networkx
 
-import nucnet.db.eval_runs_interface as db
-from nucnet.utils.utils import print_gpu_stats
-from nucnet.hdf5.utils import get_datasets_in_patch
+import happy.db.eval_runs_interface as db
+from happy.utils.utils import print_gpu_stats
+from happy.hdf5.utils import get_datasets_in_patch
 
 
 def main(

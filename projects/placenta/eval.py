@@ -2,12 +2,13 @@ import time
 
 import typer
 
-from nucnet.utils.utils import print_gpu_stats
-from nucnet.eval import nuclei_eval, cell_eval
-import nucnet.db.eval_runs_interface as db
+from happy.utils.utils import print_gpu_stats
+from happy.eval import nuclei_eval, cell_eval
+import happy.db.eval_runs_interface as db
 
 
 def main(
+    project_name: str = "placenta",
     nuc_model_id: int = -1,
     cell_model_id: int = -1,
     run_id: int = -1,
@@ -73,6 +74,7 @@ def main(
         start = time.time()
         # Perform all nuclei evaluation
         cell_eval_pipeline(
+            project_name,
             cell_model_id,
             run_id,
             num_cells,
@@ -101,7 +103,13 @@ def nuclei_eval_pipeline(
 
 
 def cell_eval_pipeline(
-    model_id, run_id, out_features, batch_size, num_workers, cell_saving=True
+    project_name,
+    model_id,
+    run_id,
+    out_features,
+    batch_size,
+    num_workers,
+    cell_saving=True,
 ):
     # Load model weights and push to cuda device
     model, model_architecture = cell_eval.setup_model(model_id, out_features)
@@ -115,7 +123,9 @@ def cell_eval_pipeline(
         cell_saving=cell_saving,
     )
     # Setup or get path to embeddings hdf5 save location
-    embeddings_path = cell_eval.setup_embedding_saving(run_id, cell_saving)
+    embeddings_path = cell_eval.setup_embedding_saving(
+        project_name, run_id, cell_saving
+    )
     # Predict cell classes
     cell_eval.run_cell_eval(dataloader, model, pred_saver, embeddings_path, cell_saving)
     cell_eval.clean_up(pred_saver)

@@ -12,15 +12,15 @@ from PIL import ImageFile
 from sklearn.metrics import confusion_matrix
 from torch.optim.lr_scheduler import StepLR
 
-from nucnet.data.transforms.collaters import cell_collater
-from nucnet.utils.hyperparameters import Hyperparameters
-from nucnet.utils.utils import print_gpu_stats
-from nucnet.train.utils import confusion_matrix
-from nucnet.utils.vis_plotter import VisdomLinePlotter
-from nucnet.models.model_builder import build_cell_classifer
-from nucnet.data.setup_data import get_cell_dataset
-from nucnet.data.setup_dataloader import get_cell_dataloader
-from nucnet.logger.logger import Logger
+from happy.data.transforms.collaters import cell_collater
+from happy.utils.hyperparameters import Hyperparameters
+from happy.utils.utils import print_gpu_stats
+from happy.train.utils import confusion_matrix
+from happy.utils.vis_plotter import VisdomLinePlotter
+from happy.models.model_builder import build_cell_classifer
+from happy.data.setup_data import get_cell_dataset
+from happy.data.setup_dataloader import get_cell_dataloader
+from happy.logger.logger import Logger
 
 
 use_gpu = True  # a debug flag to allow non GPU testing of stuff. default true

@@ -7,7 +7,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-import nucnet.db.eval_runs_interface as db
+import happy.db.eval_runs_interface as db
 
 
 def main():
@@ -38,8 +38,7 @@ def main():
         "SYN2": "#0f0cad", "VEN2": "#731406"
     }
 
-    embeddings_dir = "/well/nellaker/data/claudiav/nucnet_master/Results/embeddings/"
-    # embeddings_dir = "../../Results/embeddings/"
+    embeddings_dir = "../../Results/embeddings/"
     first_embeddings_path = db.get_embeddings_path(first_run_id, embeddings_dir)
     first_embeddings_file = f"{embeddings_dir}{first_embeddings_path}"
 

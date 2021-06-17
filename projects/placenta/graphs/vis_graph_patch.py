@@ -8,9 +8,9 @@ from torch_cluster import knn_graph, radius_graph
 from torch_geometric.data import Data
 from torch_geometric.transforms import Distance
 
-import nucnet.db.eval_runs_interface as db
-from nucnet.hdf5.utils import get_datasets_in_patch, filter_by_confidence
-from nucnet.utils.enum_args import OrganArg
+import happy.db.eval_runs_interface as db
+from happy.hdf5.utils import get_datasets_in_patch, filter_by_confidence
+from happy.utils.enum_args import OrganArg
 
 
 def main(

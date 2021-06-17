@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from sklearn.neighbors import LocalOutlierFactor
 
-import nucnet.db.eval_runs_interface as db
-from nucnet.db.msfile_interface import get_msfile_by_run
+import happy.db.eval_runs_interface as db
+from happy.db.msfile_interface import get_msfile_by_run
 
 
 def main():

@@ -199,7 +199,7 @@ Results
 *.csv
 startup_script_vm.sh
 venv
-nucnet/utils/fixtures
+happy/utils/fixtures
 images_for_writeup
 debug_dir
 analysis_scripts/sample_*
@@ -211,4 +211,4 @@ analysis_scripts/sample_*
 *black.py
 **/tsvs
 analysis_scripts/embeddings/*.html
-nucnet/db/migrate.py
+happy/db/migrate.py

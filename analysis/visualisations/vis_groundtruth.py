@@ -5,8 +5,8 @@ import typer
 import pandas as pd
 import cv2
 
-from nucnet.data.utils import draw_box, draw_centre
-from nucnet.utils.enum_args import OrganArg
+from happy.data.utils import draw_box, draw_centre
+from happy.utils.enum_args import OrganArg
 
 
 class ShapeArg(str, Enum):

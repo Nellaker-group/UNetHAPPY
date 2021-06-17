@@ -4,14 +4,14 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
-    name="nucnet",
+    name="happy",
     version="0.0.1",
     author="Claudia Vanea",
-    description="The Histology Analysis Toolkit (HAT)",
+    description="The Histology Analysis Pipeline.py (HAPPY)",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/cvanea/nucnet",
-    packages=find_packages(include=["hat"]),
+    url="https://github.com/Nellaker-group/HAPPY",
+    packages=find_packages(include=["happy"]),
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",

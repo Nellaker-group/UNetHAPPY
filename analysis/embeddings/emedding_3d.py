@@ -7,7 +7,7 @@ import seaborn as sns
 import umap
 import numpy as np
 
-import nucnet.db.eval_runs_interface as db
+import happy.db.eval_runs_interface as db
 
 
 def main():

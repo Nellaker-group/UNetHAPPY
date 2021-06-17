@@ -4,15 +4,15 @@ Converts saved model predictions into a tsv that QuPath can read
 from pathlib import Path
 import pandas as pd
 
-import nucnet.db.eval_runs_interface as db
-from nucnet.hdf5.utils import filter_hdf5
+import happy.db.eval_runs_interface as db
+from happy.hdf5.utils import filter_hdf5
 
 
 def main():
     db.init()
 
-    run_id = 4
-    slide_name = "1003608"
+    run_id = 17
+    slide_name = "27"
     filtered = False
 
     if not filtered:

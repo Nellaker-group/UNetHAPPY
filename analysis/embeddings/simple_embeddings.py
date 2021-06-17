@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import umap
 
-import nucnet.db.eval_runs_interface as db
+import happy.db.eval_runs_interface as db
 
 
 def main():
@@ -16,7 +16,8 @@ def main():
     custom_colours = ["#6cd4a4", "#ae0848", "#f7f431", "#80b1d3", "#fc8c44"]
 
     run_id = 1
-    embeddings_dir = "/well/nellaker/data/claudiav/nucnet_master/Results/embeddings/"
+    # TODO: change this path
+    embeddings_dir = "../../Results/embeddings/"
     embeddings_path = db.get_embeddings_path(run_id, embeddings_dir)
     embeddings_file = f"{embeddings_dir}{embeddings_path}"
 

@@ -11,13 +11,13 @@ import umap
 import umap.plot
 import numpy as np
 
-import nucnet.db.eval_runs_interface as db
-from nucnet.utils.utils import print_gpu_stats
-from nucnet.hdf5.utils import get_datasets_in_patch, filter_by_confidence
-from nucnet.models.graphsage import SAGE
-from nucnet.data.samplers.samplers import NeighborSampler
-from nucnet.cells.cells import get_organ
-from nucnet.utils.enum_args import OrganArg
+import happy.db.eval_runs_interface as db
+from happy.utils.utils import print_gpu_stats
+from happy.hdf5.utils import get_datasets_in_patch, filter_by_confidence
+from happy.models.graphsage import SAGE
+from happy.data.samplers.samplers import NeighborSampler
+from happy.cells.cells import get_organ
+from happy.utils.enum_args import OrganArg
 
 
 class FeatureArg(str, Enum):

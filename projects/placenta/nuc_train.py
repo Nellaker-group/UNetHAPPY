@@ -12,21 +12,21 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from nucnet.train.od_training_eval import evaluate
-from nucnet.data.transforms.agumentations import (
+from happy.train.od_training_eval import evaluate
+from happy.data.transforms.agumentations import (
     AlbAugmenter,
     Stain_Augment_stylealb,
     GaussNoise_Augment_stylealb,
 )
-from nucnet.data.transforms.collaters import collater
-from nucnet.data.dataset.nuclei_dataset import NucleiDataset
-from nucnet.data.samplers.samplers import AspectRatioBasedSampler
-from nucnet.data.transforms.transforms import Normalizer, Resizer
-from nucnet.utils.hyperparameters import Hyperparameters
-from nucnet.utils.image_debug import debug_augmentations
-from nucnet.models import retinanet
-from nucnet.utils.utils import print_gpu_stats, load_weights
-from nucnet.utils.vis_plotter import VisdomLinePlotter
+from happy.data.transforms.collaters import collater
+from happy.data.dataset.nuclei_dataset import NucleiDataset
+from happy.data.samplers.samplers import AspectRatioBasedSampler
+from happy.data.transforms.transforms import Normalizer, Resizer
+from happy.utils.hyperparameters import Hyperparameters
+from happy.utils.image_debug import debug_augmentations
+from happy.models import retinanet
+from happy.utils.utils import print_gpu_stats, load_weights
+from happy.utils.vis_plotter import VisdomLinePlotter
 
 use_gpu = True  # a debug flag to allow non GPU testing of stuff. default true
 

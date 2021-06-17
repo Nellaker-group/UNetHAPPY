@@ -8,15 +8,15 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from nucnet.data.transforms.collaters import collater
-from nucnet.data.dataset.nuclei_dataset import NucleiDataset
-from nucnet.data.samplers.samplers import AspectRatioBasedSampler
-from nucnet.data.transforms.transforms import Normalizer, Resizer, untransform_image
-from nucnet.models import retinanet
-from nucnet.utils.utils import print_gpu_stats, load_weights
-from nucnet.data.utils import draw_box, draw_centre
-from nucnet.microscopefile.prediction_saver import PredictionSaver
-from nucnet.utils.enum_args import OrganArg
+from happy.data.transforms.collaters import collater
+from happy.data.dataset.nuclei_dataset import NucleiDataset
+from happy.data.samplers.samplers import AspectRatioBasedSampler
+from happy.data.transforms.transforms import Normalizer, Resizer, untransform_image
+from happy.models import retinanet
+from happy.utils.utils import print_gpu_stats, load_weights
+from happy.data.utils import draw_box, draw_centre
+from happy.microscopefile.prediction_saver import PredictionSaver
+from happy.utils.enum_args import OrganArg
 
 print_gpu_stats()
 

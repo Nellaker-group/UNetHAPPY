@@ -26,6 +26,6 @@ test:
 .PHONY: install
 
 fmt:
-	black nucnet cli analysis
+	black happy projects/placenta analysis
 .PHONY: install
 

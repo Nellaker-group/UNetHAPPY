@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from torch_geometric.utils.convert import from_networkx
 import numpy as np
 
-import nucnet.db.eval_runs_interface as db
+import happy.db.eval_runs_interface as db
 
 
 def main(run_id: int = -1, width: int = -1, height: int = -1, name: str = ""):

@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 from bokeh.plotting import output_file, show, save
 
-import nucnet.db.eval_runs_interface as db
+import happy.db.eval_runs_interface as db
 
 
 def main():
@@ -22,7 +22,6 @@ def main():
     start = time.time()
     db.init()
 
-    # embeddings_dir = "/well/nellaker/data/claudiav/nucnet_master/Results/embeddings/"
     embeddings_dir = "../Results/embeddings/"
     embeddings_path = db.get_embeddings_path(run_id, embeddings_dir)
     embeddings_file = f"{embeddings_dir}{embeddings_path}"
