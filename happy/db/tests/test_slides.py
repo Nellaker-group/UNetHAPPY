@@ -1,5 +1,6 @@
-import pathlib
 import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 
@@ -10,8 +11,9 @@ from happy.db.tests.utils import random_slide, random_testing_lab, single_lab
 
 @pytest.fixture()
 def db():
+    temp_dir = TemporaryDirectory()
     db_name = f"pytest_temp_{__name__}.db"
-    db_path = pathlib.Path(__file__).parent.absolute() / db_name
+    db_path = Path(temp_dir.name) / db_name
     init_db(db_path)
     yield
     os.remove(db_path)

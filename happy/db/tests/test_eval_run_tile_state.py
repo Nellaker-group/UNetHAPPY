@@ -1,5 +1,6 @@
-import pathlib
 import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 
@@ -11,12 +12,11 @@ from happy.db.eval_runs import TileState, EvalRun
 from happy.db.base import database
 
 
-# TODO: test if you can get the foreign key object by id or by the object
-
 @pytest.fixture()
 def db():
+    temp_dir =  TemporaryDirectory()
     db_name = f"pytest_temp_{__name__}.db"
-    db_path = pathlib.Path(__file__).parent.absolute() / db_name
+    db_path = Path(temp_dir.name) / db_name
     init_db(db_path)
     yield
     os.remove(db_path)

@@ -1,4 +1,5 @@
-import pathlib
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import os
 import time
 
@@ -12,8 +13,9 @@ from happy.db.tests.utils import setup_eval_run
 
 @pytest.fixture()
 def db():
+    temp_dir =  TemporaryDirectory()
     db_name = f"pytest_temp_{__name__}.db"
-    db_path = pathlib.Path(__file__).parent.absolute() / db_name
+    db_path =  Path(temp_dir.name) / db_name
     init_db(db_path)
     yield
     os.remove(db_path)
@@ -25,6 +27,7 @@ def eval_run():
     yield
 
 
+@pytest.mark.integration
 def test_predictions(db, eval_run):
     total_time = 0
     n = 1500000

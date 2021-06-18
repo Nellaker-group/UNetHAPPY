@@ -42,9 +42,8 @@ def get_embeddings_path(run_id, embeddings_dir=None):
         slide_name = slide.slide_name
 
         embeddings_path = Path(f"lab_{lab_id}") / f"slide_{slide_name}"
-        dir = Path(embeddings_dir) / embeddings_path
-        dir.mkdir(parents=True, exist_ok=True)
-        path_with_file = dir / f"run_{run_id}.hdf5"
+        (Path(embeddings_dir) / embeddings_path).mkdir(parents=True, exist_ok=True)
+        path_with_file = embeddings_path / f"run_{run_id}.hdf5"
 
         eval_run.embeddings_path = path_with_file
         eval_run.save()
@@ -55,8 +54,7 @@ def get_embeddings_path(run_id, embeddings_dir=None):
 
 # Updates temporary run tile state table with a new tiles run state
 def save_new_tile_state(run_id, tile_xy_list):
-    fields = [TileState.run, TileState.tile_index, TileState.tile_x,
-              TileState.tile_y]
+    fields = [TileState.run, TileState.tile_index, TileState.tile_x, TileState.tile_y]
 
     xs = [x[0] for x in tile_xy_list]
     ys = [y[1] for y in tile_xy_list]
@@ -75,32 +73,40 @@ def run_state_exists(run_id):
 
 
 def get_run_state(run_id):
-    tile_states = TileState\
-        .select(TileState.tile_x, TileState.tile_y)\
-        .where(TileState.run == run_id).tuples()
+    tile_states = (
+        TileState.select(TileState.tile_x, TileState.tile_y)
+        .where(TileState.run == run_id)
+        .tuples()
+    )
 
     return tile_states
 
 
 def get_remaining_tiles(run_id):
     with database.atomic():
-        tile_coords = TileState.select(
-            TileState.tile_index, TileState.tile_x, TileState.tile_y).where(
-            (TileState.run == run_id) & (TileState.done == False)).dicts()
+        tile_coords = (
+            TileState.select(TileState.tile_index, TileState.tile_x, TileState.tile_y)
+            .where((TileState.run == run_id) & (TileState.done == False))
+            .dicts()
+        )
     return tile_coords
 
 
 def get_remaining_cells(run_id):
     with database.atomic():
-        cell_coords = Prediction.select(Prediction.x, Prediction.y).where(
-            (Prediction.run == run_id) & (Prediction.cell_class.is_null(True))).dicts()
+        cell_coords = (
+            Prediction.select(Prediction.x, Prediction.y)
+            .where((Prediction.run == run_id) & (Prediction.cell_class.is_null(True)))
+            .dicts()
+        )
     return cell_coords
 
 
 def mark_finished_tiles(run_id, tile_indexes):
     with database.atomic():
         query = TileState.update(done=True).where(
-            (TileState.run == run_id) & (TileState.tile_index << tile_indexes))
+            (TileState.run == run_id) & (TileState.tile_index << tile_indexes)
+        )
         query.execute()
 
 
@@ -122,9 +128,11 @@ def save_pred_workings(run_id, coords):
 
 
 def get_all_unvalidated_nuclei_preds(run_id):
-    preds = UnvalidatedPrediction.select(
-        UnvalidatedPrediction.x, UnvalidatedPrediction.y).where(
-        UnvalidatedPrediction.run == run_id).dicts()
+    preds = (
+        UnvalidatedPrediction.select(UnvalidatedPrediction.x, UnvalidatedPrediction.y)
+        .where(UnvalidatedPrediction.run == run_id)
+        .dicts()
+    )
     # turns list of dicts into a dict of lists
     return {k: [dic[k] for dic in preds] for k in preds[0]}
 
@@ -134,24 +142,30 @@ def validate_pred_workings(run_id, valid_coords):
     batch = 100000
     with database.atomic():
         for i in range(0, len(valid_coords), batch):
-            coords_vl = ValuesList(valid_coords[i:i + batch], columns=('x', 'y'))
+            coords_vl = ValuesList(valid_coords[i : i + batch], columns=("x", "y"))
             rhs = EnclosedNodeList([coords_vl])
             query = UnvalidatedPrediction.update(is_valid=True).where(
-                (UnvalidatedPrediction.run == run_id) &
-                (Tuple(UnvalidatedPrediction.x, UnvalidatedPrediction.y) << rhs))
+                (UnvalidatedPrediction.run == run_id)
+                & (Tuple(UnvalidatedPrediction.x, UnvalidatedPrediction.y) << rhs)
+            )
             query.execute()
 
 
 def commit_pred_workings(run_id):
-    source = UnvalidatedPrediction \
-        .select(UnvalidatedPrediction.run, UnvalidatedPrediction.x,
-                UnvalidatedPrediction.y) \
-        .where((UnvalidatedPrediction.run == run_id)
-               & (UnvalidatedPrediction.is_valid == True)) \
+    source = (
+        UnvalidatedPrediction.select(
+            UnvalidatedPrediction.run, UnvalidatedPrediction.x, UnvalidatedPrediction.y
+        )
+        .where(
+            (UnvalidatedPrediction.run == run_id)
+            & (UnvalidatedPrediction.is_valid == True)
+        )
         .order_by(UnvalidatedPrediction.x, UnvalidatedPrediction.y.asc())
+    )
 
-    rows = (Prediction.insert_from(source, fields=[Prediction.run, Prediction.x,
-                                                   Prediction.y]).execute())
+    rows = Prediction.insert_from(
+        source, fields=[Prediction.run, Prediction.x, Prediction.y]
+    ).execute()
     print(f"added {rows} nuclei predictions to Predictions table for eval run {run_id}")
 
 
@@ -164,22 +178,28 @@ def save_cells(run_id, coords, predictions):
     # Update class prediction db in batches by each class
     with database.atomic():
         for pred in _dict.keys():
-            coords_vl = ValuesList(_dict[pred], columns=('x', 'y'))
+            coords_vl = ValuesList(_dict[pred], columns=("x", "y"))
             rhs = EnclosedNodeList([coords_vl])
             query = Prediction.update(cell_class=pred).where(
-                (Prediction.run == run_id) & (Tuple(Prediction.x, Prediction.y) << rhs))
+                (Prediction.run == run_id) & (Tuple(Prediction.x, Prediction.y) << rhs)
+            )
             query.execute()
 
 
 def get_num_remaining_tiles(run_id):
-    return TileState.select()\
-        .where((TileState.run == run_id) & (TileState.done == False)).count()
+    return (
+        TileState.select()
+        .where((TileState.run == run_id) & (TileState.done == False))
+        .count()
+    )
 
 
 def get_num_remaining_cells(run_id):
-    return Prediction.select()\
-        .where((Prediction.run == run_id) &
-               (Prediction.cell_class.is_null(True))).count()
+    return (
+        Prediction.select()
+        .where((Prediction.run == run_id) & (Prediction.cell_class.is_null(True)))
+        .count()
+    )
 
 
 def get_total_num_nuclei(run_id):
@@ -187,18 +207,29 @@ def get_total_num_nuclei(run_id):
 
 
 def get_predictions(run_id):
-    return Prediction.select(Prediction.x, Prediction.y, Prediction.cell_class)\
-        .where(Prediction.run == run_id).dicts()
+    return (
+        Prediction.select(Prediction.x, Prediction.y, Prediction.cell_class)
+        .where(Prediction.run == run_id)
+        .dicts()
+    )
 
 
 def get_all_prediction_coordinates(run_id):
-    return Prediction.select(Prediction.x, Prediction.y)\
-        .where(Prediction.run == run_id).dicts()
+    return (
+        Prediction.select(Prediction.x, Prediction.y)
+        .where(Prediction.run == run_id)
+        .dicts()
+    )
 
 
 def get_nuclei_in_range(run_id, min_x, min_y, max_x, max_y):
     # Get predictions within specified range
-        return Prediction.select(Prediction.x, Prediction.y, Prediction.cell_class)\
-            .where((Prediction.run == run_id) &
-            (Tuple(Prediction.x, Prediction.y) >= (min_x, min_y)) &
-            (Tuple(Prediction.x, Prediction.y) <= (max_x, max_y))).tuples()
+    return (
+        Prediction.select(Prediction.x, Prediction.y, Prediction.cell_class)
+        .where(
+            (Prediction.run == run_id)
+            & (Tuple(Prediction.x, Prediction.y) >= (min_x, min_y))
+            & (Tuple(Prediction.x, Prediction.y) <= (max_x, max_y))
+        )
+        .tuples()
+    )
