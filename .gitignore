@@ -189,11 +189,11 @@ out/
 .idea_modules/
 
 # Custom
-Annotations
-AnnotatedImages
-Datasets
-pretrained_models
-Results
+**/annotations
+**/annotatedImages
+**/datasets
+**/pretrained_models
+**/results
 *.pth
 *.pt
 *.csv
@@ -203,7 +203,6 @@ happy/utils/fixtures
 images_for_writeup
 debug_dir
 analysis_scripts/sample_*
-*.png
 *.jpg
 *.db
 *.db-shm
