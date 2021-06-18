@@ -77,9 +77,15 @@ def setup_data(
 
 # Setup or get path to embeddings hdf5 save location
 def setup_embedding_saving(project_name, run_id, cell_saving=True):
-    embeddings_dir = Path(__file__).parent.parent.parent / "Results" / "embeddings"
+    embeddings_dir = (
+        Path(__file__).parent.parent.parent
+        / "projects"
+        / project_name
+        / "results"
+        / "embeddings"
+    )
     path = db.get_embeddings_path(run_id, embeddings_dir)
-    embeddings_path =  embeddings_dir / path
+    embeddings_path = embeddings_dir / path
     if not os.path.isfile(embeddings_path):
         total_cells = db.get_total_num_nuclei(run_id)
         with h5py.File(embeddings_path, "w-") as f:
@@ -95,9 +101,7 @@ def setup_embedding_saving(project_name, run_id, cell_saving=True):
 
 
 # Predict cell classes loop
-def run_cell_eval(
-    dataset, cell_model, pred_saver, embeddings_path, cell_saving=True
-):
+def run_cell_eval(dataset, cell_model, pred_saver, embeddings_path, cell_saving=True):
     # object for graceful shutdown. Current loop finishes on SIGINT or SIGTERM
     killer = GracefulKiller()
     early_break = False

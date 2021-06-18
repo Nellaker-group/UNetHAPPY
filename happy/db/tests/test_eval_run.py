@@ -30,7 +30,6 @@ def eval_run():
     yield
 
 
-
 def test_get_embeddings_path(db, eval_run):
     temp_dir = _setup_temp_dir()
     eval_run = EvalRun.get_by_id(1)
@@ -39,4 +38,3 @@ def test_get_embeddings_path(db, eval_run):
     embeddings_path = get_embeddings_path(1, f"{temp_dir.name}results/embeddings")
 
     assert expected_embeddings_path == embeddings_path
-
