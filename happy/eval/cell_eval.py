@@ -86,6 +86,7 @@ def setup_embedding_saving(project_name, run_id, cell_saving=True):
     )
     path = db.get_embeddings_path(run_id, embeddings_dir)
     embeddings_path = embeddings_dir / path
+    embeddings_path.mkdir(parents=True, exist_ok=True)
     if not os.path.isfile(embeddings_path):
         total_cells = db.get_total_num_nuclei(run_id)
         with h5py.File(embeddings_path, "w-") as f:
