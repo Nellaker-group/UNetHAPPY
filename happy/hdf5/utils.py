@@ -1,5 +1,38 @@
+from pathlib import Path
+
 import numpy as np
 import h5py
+
+import happy.db.eval_runs_interface as db
+
+
+def get_embeddings_file(project_name, run_id):
+    db.init()
+    embeddings_dir = (
+        Path(__file__).parent.parent.parent
+        / "projects"
+        / project_name
+        / "results"
+        / "embeddings"
+    )
+    embeddings_path = db.get_embeddings_path(run_id, embeddings_dir)
+    return embeddings_dir / embeddings_path
+
+
+def get_hdf5_datasets(file_path, start, num_points):
+    with h5py.File(file_path, "r") as f:
+        subset_start = (
+            int(len(f["predictions"]) * start) if 1 > start > 0 else int(start)
+        )
+        subset_end = (
+            len(f["predictions"]) if num_points == -1 else subset_start + num_points
+        )
+        print(f"Getting {subset_end - subset_start} datapoints from hdf5")
+        predictions = f["predictions"][subset_start:subset_end]
+        embeddings = f["embeddings"][subset_start:subset_end]
+        coords = f["coords"][subset_start:subset_end]
+        confidence = f["confidence"][subset_start:subset_end]
+        return predictions, embeddings, coords, confidence, subset_end
 
 
 def filter_hdf5(
@@ -40,21 +73,6 @@ def filter_hdf5(
         subset_end,
         num_filtered,
     )
-
-
-def get_hdf5_datasets(file_path, start, num_points):
-    with h5py.File(file_path, "r") as f:
-        subset_start = start
-        if num_points == -1:
-            subset_end = len(f["predictions"])
-        else:
-            subset_end = subset_start + num_points
-
-        predictions = f["predictions"][subset_start:subset_end]
-        embeddings = f["embeddings"][subset_start:subset_end]
-        coords = f["coords"][subset_start:subset_end]
-        confidence = f["confidence"][subset_start:subset_end]
-        return predictions, embeddings, coords, confidence, subset_end
 
 
 def get_datasets_in_patch(file_path, x_min, y_min, width, height):

@@ -1,6 +1,3 @@
-"""
-Converts saved model predictions into a tsv that QuPath can read
-"""
 from pathlib import Path
 import pandas as pd
 import typer
@@ -8,6 +5,7 @@ import typer
 import happy.db.eval_runs_interface as db
 from happy.hdf5.utils import filter_hdf5
 from happy.cells.cells import get_organ
+from happy.hdf5.utils import get_embeddings_file
 
 
 def main(
@@ -16,7 +14,20 @@ def main(
     run_id: int = typer.Option(...),
     slide_name: str = typer.Option(...),
     filtered: bool = False,
+    min_conf: float = 0.0,
+    max_conf: float = 1.0,
 ):
+    """Saves model predictions from database into tsvs that QuPath can read
+
+    Args:
+        organ_name: name of the organ from which to get the cell types
+        project_name: name of the project directory
+        run_id: id of the run which generated the predictions
+        slide_name: shorthand name of the slide for naming the tsv file
+        filtered: whether to filter by network confidence
+        min_conf: min network confidence to include
+        max_conf: max network confidence to include
+    """
     db.init()
 
     projects_dir = Path(__file__).parent.parent / "projects"
@@ -26,10 +37,10 @@ def main(
         save_path = save_dir / f"{slide_name}.tsv"
         coords, preds = _get_db_predictions(run_id)
     else:
-        min_conf = 1.0
-        max_conf = 1.0
         save_path = save_dir / f"{min_conf}_{max_conf}_{slide_name}.tsv"
-        coords, preds = _get_filtered_confidence_predictions(run_id, min_conf, max_conf)
+        coords, preds = _get_filtered_confidence_predictions(
+            project_name, run_id, min_conf, max_conf
+        )
 
     coord_to_tsv(coords, preds, save_path, get_organ(organ_name))
 
@@ -55,13 +66,10 @@ def _get_db_predictions(run_id):
     return coords, coords
 
 
-def _get_filtered_confidence_predictions(run_id, metric_start, metric_end):
-    embeddings_dir = (
-        (Path(__file__).parent.parent).absolute() / "results" / "embeddings"
-    )
-    embeddings_dir.mkdir(parents=True, exist_ok=True)
-    embeddings_path = db.get_embeddings_path(run_id, embeddings_dir)
-    embeddings_file = embeddings_dir / embeddings_path
+def _get_filtered_confidence_predictions(
+    project_name, run_id, metric_start, metric_end
+):
+    embeddings_file = get_embeddings_file(project_name, run_id)
 
     predictions, _, coords, _, _, _ = filter_hdf5(
         embeddings_file,

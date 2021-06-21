@@ -194,6 +194,7 @@ out/
 **/datasets
 **/pretrained_models
 **/results
+**/visualisations
 *.pth
 *.pt
 *.csv
@@ -212,3 +213,4 @@ analysis_scripts/sample_*
 analysis_scripts/embeddings/*.html
 happy/db/migrate.py
 **/readme_resources
+*.html

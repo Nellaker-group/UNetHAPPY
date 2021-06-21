@@ -26,6 +26,6 @@ test:
 .PHONY: install
 
 fmt:
-	black happy projects/placenta analysis
+	black happy projects/placenta analysis qupath
 .PHONY: install
 

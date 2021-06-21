@@ -80,6 +80,9 @@ pkgs_dirs:
 ### Local:
 
 This is for running tests and bits of analysis locally. Assumes you're using a CPU.
+If you want to use libvips locally you'll have to install the vips C binaries separately.
+The installation methods depends on your OS, for more info follow the instructions 
+here: https://github.com/libvips/libvips/wiki
 
 ```bash
 conda create -n {envname} python=3.8
@@ -135,8 +138,8 @@ during the run.
 All model predictions are saved directly to the database and can be turned into
 .tsv files that QuPath can read with `/qupath/coord_to_tsv.py`.
 
-Embedding vectors of the cell classifier, their class predictions, and WSI
-(x,y) coordinates are saved as an hdf5 file in 
+Embedding vectors of the cell classifier, their class predictions, network confidence,
+and WSI nuclei (x,y) coordinates are saved as an hdf5 file in 
 `projects/{projectname}/results/embeddings/{lab_id}/{slide_name}/{run_id}.hdf5`.
 
 ### Analysis
