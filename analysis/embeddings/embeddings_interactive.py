@@ -21,7 +21,7 @@ def main(
     num_points: int = -1,
     interactive: bool = False,
 ):
-    """Plots and saves a UMAP from the cell emebdding vectors.
+    """Plots and saves a UMAP from the cell embedding vectors.
 
     Can be an interactive html file (open with browser or IDE) or simply a png.
 
@@ -53,7 +53,7 @@ def main(
 
     project_root = Path(str(embeddings_file).split("results")[0])
     vis_dir = (
-        Path(project_root)
+        project_root
         / "visualisations"
         / "embeddings"
         / f"lab_{lab_id}"

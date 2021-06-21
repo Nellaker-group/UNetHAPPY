@@ -1,51 +1,60 @@
 import time
 
-import h5py
+import typer
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import umap
 import numpy as np
 
-import happy.db.eval_runs_interface as db
+from happy.hdf5.utils import get_embeddings_file, get_hdf5_datasets
+from happy.cells.cells import get_organ
 
 
-def main():
+def main(
+    organ_name: str = typer.Option(...),
+    project_name: str = typer.Option(...),
+    run_id: int = typer.Option(...),
+    subset_start: float = 0.0,
+    num_points: int = 5000,
+):
+    """Plots a 3d UMAP from the cell embedding vectors.
+
+    Args:
+        organ_name: name of the organ from which to get the cell types
+        project_name: name of the project dir to save to
+        run_id: id of the run which created the UMAP embeddings
+        subset_start: at which index of proportion of the file to start (int or float)
+        num_points: number of points to include in the UMAP from subset_start onwards
+    """
     matplotlib.use("TkAgg")
     start = time.time()
+    organ = get_organ(organ_name)
 
-    db.init()
-    sns.set(style='white', context='poster', rc={'figure.figsize': (14, 10)})
-    custom_colours = np.array(["#6cd4a4", "#ae0848", "#f7f431", "#80b1d3", "#fc8c44"])
+    sns.set(style="white", context="poster", rc={"figure.figsize": (14, 10)})
+    custom_colours = np.array([cell.colour for cell in organ.cell])
 
-    run_id = 3
-    embeddings_dir = "../../Results/embeddings/"
-    embeddings_path = db.get_embeddings_path(run_id, embeddings_dir)
-    embeddings_file = f"{embeddings_dir}{embeddings_path}"
+    embeddings_file = get_embeddings_file(project_name, run_id)
+    predictions, embeddings, _, _, subset_end = get_hdf5_datasets(
+        embeddings_file, subset_start, num_points
+    )
 
-    embeddings_save = embeddings_file.split("run")[0]
-    plot_name = "subset1_slide_3.png"
-    print(f"saving to {embeddings_save}{plot_name}")
-
-    subset_start = 500_000
-    subset_end = 550_000
-    with h5py.File(embeddings_file, "r") as f:
-        predictions = f["predictions"][subset_start:subset_end]
-        embeddings = f["embeddings"][subset_start:subset_end]
-
-    reducer = umap.UMAP(random_state=42, verbose=True, min_dist=0.1,
-                        n_neighbors=15, n_components=3)
+    reducer = umap.UMAP(
+        random_state=42, verbose=True, min_dist=0.1, n_neighbors=15, n_components=3
+    )
     result = reducer.fit_transform(embeddings)
 
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(result[:, 0], result[:, 1], result[:, 2], c=custom_colours[predictions],
-               s=1)
+    ax = fig.add_subplot(111, projection="3d")
+    ax.scatter(
+        result[:, 0], result[:, 1], result[:, 2], c=custom_colours[predictions], s=1
+    )
     plt.show()
 
     end = time.time()
-    duration = (end - start)
+    duration = end - start
     print(f"total time: {duration:.4f} s")
 
-if __name__ == '__main__':
-    main()
+
+if __name__ == "__main__":
+    typer.run(main)
