@@ -13,9 +13,10 @@ from happy.db.msfile_interface import get_msfile
 from happy.microscopefile.prediction_saver import PredictionSaver
 from happy.data.dataset.ms_dataset import CellDataset
 from happy.data.transforms.collaters import cell_collater
-from happy.utils.graceful_killer import GracefulKiller
 from happy.data.transforms.transforms import Normalizer, Resizer
+from happy.utils.graceful_killer import GracefulKiller
 from happy.models.model_builder import build_cell_classifer
+from happy.hdf5.utils import get_embeddings_file
 import happy.db.eval_runs_interface as db
 
 
@@ -77,15 +78,7 @@ def setup_data(
 
 # Setup or get path to embeddings hdf5 save location
 def setup_embedding_saving(project_name, run_id, cell_saving=True):
-    embeddings_dir = (
-        Path(__file__).parent.parent.parent
-        / "projects"
-        / project_name
-        / "results"
-        / "embeddings"
-    )
-    path = db.get_embeddings_path(run_id, embeddings_dir)
-    embeddings_path = embeddings_dir / path
+    embeddings_path = get_embeddings_file(project_name, run_id)
     embeddings_path.mkdir(parents=True, exist_ok=True)
     if not os.path.isfile(embeddings_path):
         total_cells = db.get_total_num_nuclei(run_id)

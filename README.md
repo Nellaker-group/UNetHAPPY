@@ -80,6 +80,9 @@ pkgs_dirs:
 ### Local:
 
 This is for running tests and bits of analysis locally. Assumes you're using a CPU.
+If you want to use libvips locally you'll have to install the vips C binaries separately.
+The installation methods depends on your OS, for more info follow the instructions 
+here: https://github.com/libvips/libvips/wiki
 
 ```bash
 conda create -n {envname} python=3.8
@@ -135,26 +138,24 @@ during the run.
 All model predictions are saved directly to the database and can be turned into
 .tsv files that QuPath can read with `/qupath/coord_to_tsv.py`.
 
-Embedding vectors of the cell classifier, their class predictions, and WSI
-(x,y) coordinates are saved as an hdf5 file in 
+Embedding vectors of the cell classifier, their class predictions, network confidence,
+and WSI nuclei (x,y) coordinates are saved as an hdf5 file in 
 `projects/{projectname}/results/embeddings/{lab_id}/{slide_name}/{run_id}.hdf5`.
 
 ### Analysis
 
-(Currently needs work to make sure results are saved to project-specific directories 
-and inputs are properly parameterised using typer.)
-
 To generate and visualise UMAP embeddings from WSI predictions of the cell
-classifier look in `analysis/embeddings/`. Make sure to set the start and
-end index values to control how much data to include in your embeddings.
-Indicies are saved sorted ascending by (x,y) so these values will take 'chunks'
-of predictions out of your image.
+classifier look in `analysis/embeddings/`. Make sure to set the start index value and 
+number of points to include in your embeddings. Indicies are saved sorted ascending by 
+(x,y) so these values will take 'chunks' of predictions out of your image.
 
-To visualise fewer data points using Seaborn use `/simple_embeddings.py` (note:
-this is prone to overplotting if you have too much data). For more data points 
-or to get an interactive hover use `/emebddings_interactive.py`. 
+For most plotting needs use `/emebddings_interactive.py`. This will allow you to either 
+save a png of the UMAP or create an html file which can be opened in a browser to 
+interactively visualise the data. The plotting library swaps under the hood depending
+on how many points you have so for many points use the non-interactive plot.
+
 To combine two WSI into one embedding use `/joint_embeddings.py`, for just one cell 
-class use `/single_class.py`, for filtering network confidence predictions use 
+class use `/single_class.py`, for filtering by network confidence predictions use 
 `/single_confidence.py`, and for (small) 3d embeddings use `/embedding_3d.py`.
 
 To visualise the top 100 outliers in the embedding vectors use 
@@ -163,8 +164,11 @@ artefacts or unusual cell types/features. Currently, this just prints the respec
 (x,y) coordinates and saves a figure containing the 100 outliers but more informative 
 plotting might be added in the future.
 
-You can also visualise your nuclei detector's box or centre predictions on any
-image (including other organs) using `analysis/visualisations/vis_nuclei_preds.py`.
+You can also visualise your training annotations ground truth nuclei locations using 
+`analysis/visualisations/vis_ground_truth.py` or run your nuclei detector over 
+images in your validation sets using `analysis/visualisations/vis_nuclei_preds.py`. 
+The latter of these is WIP while the Datasets class is being refactored.
+
 
 ### Training
 

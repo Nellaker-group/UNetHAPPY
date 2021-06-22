@@ -1,92 +1,80 @@
-import pathlib
 import time
 
+import typer
 import umap
 import umap.plot
-import pandas as pd
-import numpy as np
-from bokeh.plotting import output_file, show, save
+from bokeh.plotting import show, save
 
 import happy.db.eval_runs_interface as db
-from happy.hdf5.utils import filter_hdf5
+from happy.hdf5.utils import filter_hdf5, get_embeddings_file
+from happy.cells.cells import get_organ
+from utils import embeddings_results_path, setup
+from plots import plot_interactive, plot_umap
 
 
-def main():
-    run_id = 16
-    lab = "triin"
-    slide_name = "139"
-    mode = "points"
-    cell_class = "HOF"
+def main(
+    organ_name: str = typer.Option(...),
+    project_name: str = typer.Option(...),
+    run_id: int = typer.Option(...),
+    subset_start: float = 0.0,
+    num_points: int = 5000,
+    interactive: bool = False,
+    cell_class: str = typer.Option(...),
+):
+    """Plots and saves a UMAP from the embedding vectors of a single cell.
 
-    subset_start = 0
-    num_points = 50000
+    Can be an interactive html file (open with browser or IDE) or simply a png.
 
-    print(f"Run id {run_id}, from lab {lab}, and slide {slide_name}")
+    Args:
+        organ_name: name of the organ from which to get the cell types
+        project_name: name of the project dir to save to
+        run_id: id of the run which created the UMAP embeddings
+        subset_start: at which index or proportion of the file to start (int or float)
+        num_points: number of points to include in the UMAP from subset_start onwards
+        interactive: to save an interactive html or a png
+        cell_class: a string label of the cell class to filter for
+    """
+    db.init()
+    timer_start = time.time()
+
+    lab_id, slide_name = setup(db, run_id)
+    organ = get_organ(organ_name)
     print(f"Filtering by class: {cell_class}")
 
-    start = time.time()
-    db.init()
-
-    embeddings_dir = "../../Results/embeddings/"
-    embeddings_path = db.get_embeddings_path(run_id, embeddings_dir)
-    embeddings_file = f"{embeddings_dir}{embeddings_path}"
-
-    predictions, embeddings, coords, confidence, subset_end, num_filtered = \
-        filter_hdf5(embeddings_file, start=subset_start, num_points=num_points,
-                    metric_type="cell_class", metric_start=cell_class)
+    embeddings_file = get_embeddings_file(project_name, run_id)
+    predictions, embeddings, coords, confidence, start, end, num_filtered = filter_hdf5(
+        organ,
+        embeddings_file,
+        start=subset_start,
+        num_points=num_points,
+        metric_type="cell_class",
+        metric_start=cell_class,
+    )
 
     reducer = umap.UMAP(random_state=42, verbose=True, min_dist=0.1, n_neighbors=15)
     mapper = reducer.fit(embeddings)
 
-    if mode == 'interactive':
-        output_file(f'subset_slide_{slide_name}.html',
-                    title=f"UMAP Embeddings of Slide {slide_name}")
+    save_dir = embeddings_results_path(embeddings_file, lab_id, slide_name)
+    save_dir = save_dir / "single_cell"
+    save_dir.mkdir(exist_ok=True)
 
-        embeddings_save = embeddings_file.split("run")[0]
-        plot_name = f"subset_slide_{slide_name}_class_{cell_class}.html"
-        print(f"saving interactive to {embeddings_save}interactive/{plot_name}")
-
-        label_colours = {
-            0: "#6cd4a4", 1: "#ae0848", 2: "#f7f431", 3: "#80b1d3", 4: "#fc8c44"
-        }
-
-        df = pd.DataFrame({"pred": predictions, "confidence": confidence,
-                           "x_": coords[:, 0], 'y_': coords[:, 1]})
-        df['pred'] = df.pred.map({0: "CYT", 1: "FIB", 2: "HOF", 3: "SYN", 4: "VEN"})
-
-        plot = umap.plot.interactive(mapper, labels=predictions,
-                                     color_key=label_colours,
-                                     interactive_text_search=True, hover_data=df,
-                                     point_size=2)
+    if interactive:
+        plot_name = f"{start}-{end}_{cell_class}.html"
+        plot = plot_interactive(
+            plot_name, slide_name, organ, predictions, confidence, coords, mapper
+        )
         show(plot)
-        save(plot, f"{embeddings_save}{plot_name}")
+        print(f"saving interactive to {save_dir / plot_name}")
+        save(plot, save_dir / plot_name)
     else:
-        project_root = embeddings_file.split("Results")[0]
-        vis_dir = pathlib.Path(f"{project_root}Visualisations/"
-                               f"embeddings/{lab}/slide_{slide_name}/single_class/")
-        vis_dir.mkdir(parents=True, exist_ok=True)
+        plot_name = f"{start}-{end}_{cell_class}.png"
+        plot = plot_umap(organ, predictions, mapper)
+        print(f"saving plot to {save_dir / plot_name}")
+        plot.figure.savefig(save_dir / plot_name)
 
-        plot_name = f"{cell_class}_start_{subset_start}_end_{subset_end}.png"
-        print(f"saving plot to {vis_dir}/{plot_name}")
-
-        labels_dict = {
-            0: "CYT", 1: "FIB", 2: "HOF", 3: "SYN", 4: "VEN"
-        }
-        colours_dict = {
-            "CYT": "#6cd4a4", "FIB": "#ae0848", "HOF": "#f7f431", "SYN": "#80b1d3",
-            "VEN": "#fc8c44"
-        }
-
-        predictions_labelled = np.vectorize(labels_dict.get)(predictions)
-
-        plot = umap.plot.points(mapper, labels=predictions_labelled,
-                                color_key=colours_dict)
-        plot.figure.savefig(f"{vis_dir}/{plot_name}")
-
-    end = time.time()
-    duration = (end - start)
-    print(f"total time: {duration:.4f} s")
+    timer_end = time.time()
+    print(f"total time: {timer_end - timer_start:.4f} s")
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    typer.run(main)
