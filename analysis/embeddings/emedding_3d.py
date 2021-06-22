@@ -1,14 +1,12 @@
 import time
 
 import typer
-import matplotlib
 import matplotlib.pyplot as plt
-import seaborn as sns
 import umap
-import numpy as np
 
 from happy.hdf5.utils import get_embeddings_file, get_hdf5_datasets
 from happy.cells.cells import get_organ
+from plots import plot_3d
 
 
 def main(
@@ -27,12 +25,8 @@ def main(
         subset_start: at which index or proportion of the file to start (int or float)
         num_points: number of points to include in the UMAP from subset_start onwards
     """
-    matplotlib.use("TkAgg")
     timer_start = time.time()
     organ = get_organ(organ_name)
-
-    sns.set(style="white", context="poster", rc={"figure.figsize": (14, 10)})
-    custom_colours = np.array([cell.colour for cell in organ.cell])
 
     embeddings_file = get_embeddings_file(project_name, run_id)
     predictions, embeddings, _, _, _, _ = get_hdf5_datasets(
@@ -44,11 +38,7 @@ def main(
     )
     result = reducer.fit_transform(embeddings)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection="3d")
-    ax.scatter(
-        result[:, 0], result[:, 1], result[:, 2], c=custom_colours[predictions], s=1
-    )
+    plot_3d(organ, result, predictions)
     plt.show()
 
     timer_end = time.time()

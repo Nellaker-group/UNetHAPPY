@@ -3,6 +3,9 @@ import umap.plot
 import pandas as pd
 import numpy as np
 from bokeh.plotting import output_file
+import matplotlib
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 def plot_interactive(
@@ -37,3 +40,16 @@ def plot_umap(organ, predictions, mapper):
     colours_dict = {cell.label: cell.colour for cell in organ.cells}
     predictions_labelled = np.array([organ.cells[pred].label for pred in predictions])
     return umap.plot.points(mapper, labels=predictions_labelled, color_key=colours_dict)
+
+
+def plot_3d(organ, result, predictions, custom_colours=None):
+    matplotlib.use("TkAgg")
+    sns.set(style="white", context="poster", rc={"figure.figsize": (14, 10)})
+    if not custom_colours:
+        custom_colours = np.array([cell.colour for cell in organ.cell])
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.scatter(
+        result[:, 0], result[:, 1], result[:, 2], c=custom_colours[predictions], s=1
+    )

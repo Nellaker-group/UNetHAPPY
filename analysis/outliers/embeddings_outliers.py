@@ -32,7 +32,7 @@ def main(
         num_points: number of points to include in the UMAP from subset_start onwards
     """
     db.init()
-    start = time.time()
+    timer_start = time.time()
 
     run = db.get_eval_run_by_id(run_id)
     slide_name = run.slide.slide_name
@@ -40,7 +40,7 @@ def main(
     print(f"Run id {run_id}, from lab {lab_id}, and slide {slide_name}")
 
     embeddings_file = get_embeddings_file(project_name, run_id)
-    predictions, embeddings, coords, _, subset_start, subset_end = get_hdf5_datasets(
+    predictions, embeddings, coords, _, start, end = get_hdf5_datasets(
         embeddings_file, subset_start, num_points
     )
 
@@ -87,13 +87,12 @@ def main(
         / "outliers"
     )
     vis_dir.mkdir(parents=True, exist_ok=True)
-    plot_name = f"{subset_start}-{subset_end}.png"
+    plot_name = f"{start}-{end}.png"
     print(f"saving plot to {vis_dir / plot_name}")
     plt.savefig(vis_dir / plot_name)
 
-    end = time.time()
-    duration = end - start
-    print(f"total time: {duration:.4f} s")
+    timer_end = time.time()
+    print(f"total time: {timer_end - timer_start:.4f} s")
 
 
 if __name__ == "__main__":
