@@ -16,7 +16,6 @@ from happy.models import retinanet
 from happy.utils.utils import print_gpu_stats, load_weights
 from happy.data.utils import draw_box, draw_centre
 from happy.microscopefile.prediction_saver import PredictionSaver
-from happy.utils.enum_args import OrganArg
 
 print_gpu_stats()
 
@@ -27,15 +26,14 @@ class ShapeArg(str, Enum):
 
 
 def main(
+    project_name: str = typer.Option(...),
     annot_path: str = typer.Option(...),
     csv_classes: str = typer.Option(...),
     pre_trained: str = typer.Option(...),
     shape: ShapeArg = ShapeArg.point,
-    organ: OrganArg = OrganArg.placenta,
+    dataset_name: str = typer.Option(...),
+    score_threshold: float = 0.2,
 ):
-    dataset_name = "towards"
-    score_thresh = 0.2
-
     dataset = NucleiDataset(
         annotations_dir=annot_path,
         dataset_names=[dataset_name],
@@ -76,15 +74,15 @@ def main(
             boxes /= scale
 
             filtered_preds = PredictionSaver.filter_by_score(
-                150, score_thresh, scores, boxes
+                150, score_threshold, scores, boxes
             )
 
             img = untransform_image(data["img"][0])
 
             save_dir = (
-                Path(__file__).parent.parent
+                Path(__file__).parent.parent.parent
                 / "projects"
-                / organ.value
+                / project_name
                 / "visualisations"
                 / "nuclei"
                 / f"{dataset_name}_pred"

@@ -6,7 +6,6 @@ import pandas as pd
 import cv2
 
 from happy.data.utils import draw_box, draw_centre
-from happy.utils.enum_args import OrganArg
 
 
 class ShapeArg(str, Enum):
@@ -15,12 +14,12 @@ class ShapeArg(str, Enum):
 
 
 def main(
+    project_name: str = typer.Option(...),
     image_path: str = typer.Option(...),
     annot_path: str = typer.Option(...),
     shape: ShapeArg = ShapeArg.point,
-    organ: OrganArg = OrganArg.placenta,
 ):
-    """Visualises ground truth boxes from annotations for one image
+    """Visualises ground truth boxes or points from annotations for one image
 
     Args:
         image_path: relative path to image
@@ -55,9 +54,9 @@ def main(
             raise ValueError(f"No such draw shape {shape.value}")
 
     save_dir = (
-        Path(__file__).parent.parent
+        Path(__file__).parent.parent.parent
         / "projects"
-        / organ.value
+        / project_name
         / "visualisations"
         / f"{image_path.split('/')[-3]}"
         / f"{image_path.split('/')[-2]}"
