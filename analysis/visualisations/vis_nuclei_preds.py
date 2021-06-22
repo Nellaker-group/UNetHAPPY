@@ -21,8 +21,8 @@ print_gpu_stats()
 
 
 class ShapeArg(str, Enum):
-    box: "box"
-    point: "point"
+    box = "box"
+    point = "point"
 
 
 def main(
@@ -33,7 +33,20 @@ def main(
     shape: ShapeArg = ShapeArg.point,
     dataset_name: str = typer.Option(...),
     score_threshold: float = 0.2,
+    num_images: int = 10,
 ):
+    """Visualises network predictions as boxes or points for one dataset
+
+    Args:
+        project_name: name of the project dir to save visualisations to
+        annot_path: relative path to annotations
+        csv_classes: relative path to class csv
+        pre_trained: relative path to pretrained model
+        shape: one of 'box' or 'point' for visualising the prediction
+        dataset_name: the dataset who's validation set to evaluate over
+        score_threshold: the confidence threshold below which to discard predictions
+        num_images: the number of images to evaluate
+    """
     dataset = NucleiDataset(
         annotations_dir=annot_path,
         dataset_names=[dataset_name],
@@ -66,6 +79,9 @@ def main(
 
     with torch.no_grad():
         for idx, data in enumerate(dataloader):
+            if idx >= num_images:
+                break
+
             scale = data["scale"]
 
             scores, _, boxes = model(data["img"].cuda().float())
