@@ -32,6 +32,7 @@ def main(
 
     projects_dir = Path(__file__).parent.parent / "projects"
     save_dir = projects_dir / project_name / "results" / "tsvs"
+    organ = get_organ(organ_name)
 
     if not filtered:
         save_path = save_dir / f"{slide_name}.tsv"
@@ -39,10 +40,10 @@ def main(
     else:
         save_path = save_dir / f"{min_conf}_{max_conf}_{slide_name}.tsv"
         coords, preds = _get_filtered_confidence_predictions(
-            project_name, run_id, min_conf, max_conf
+            organ, project_name, run_id, min_conf, max_conf
         )
 
-    coord_to_tsv(coords, preds, save_path, get_organ(organ_name))
+    coord_to_tsv(coords, preds, save_path, organ)
 
 
 def coord_to_tsv(coords, preds, save_path, organ, nuclei_only=False):
@@ -67,11 +68,12 @@ def _get_db_predictions(run_id):
 
 
 def _get_filtered_confidence_predictions(
-    project_name, run_id, metric_start, metric_end
+    organ, project_name, run_id, metric_start, metric_end
 ):
     embeddings_file = get_embeddings_file(project_name, run_id)
 
-    predictions, _, coords, _, _, _ = filter_hdf5(
+    predictions, _, coords, _, _, _, _ = filter_hdf5(
+        organ,
         embeddings_file,
         start=0,
         num_points=-1,

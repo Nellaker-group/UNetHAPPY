@@ -31,7 +31,7 @@ def main(
         project_name: name of the project dir to save to
         first_run_id: id of the first run which created the UMAP embeddings
         second_run_id: id of the second run which created the UMAP embeddings
-        subset_start: at which index of proportion of the file to start (int or float)
+        subset_start: at which index or proportion of the file to start (int or float)
         num_points: number of points to include in the UMAP from subset_start onwards
         dimensions: 2d or 3d UMAP plot
     """
