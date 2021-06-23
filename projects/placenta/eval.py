@@ -1,6 +1,7 @@
 import time
 
 import typer
+from torch import cuda
 
 from happy.utils.utils import print_gpu_stats
 from happy.eval import nuclei_eval, cell_eval
@@ -20,8 +21,8 @@ def main(
     max_detections: int = 150,
     cell_batch_size: int = 800,
     cell_saving: bool = True,
-    nucs_only: bool = False,
-    cells_only: bool = False,
+    run_nuclei_pipeline: bool = True,
+    run_cell_pipeline: bool = True,
 ):
     """Runs inference over a WSI for nuclei detection, cell classification, or both.
 
@@ -44,17 +45,16 @@ def main(
         max_detections: max nuclei detections for saving predictions
         cell_batch_size: batch size for cell inference
         cell_saving: True if you want to save cell predictions to database
-        nucs_only: True if you only want to perform nuclei detection
-        cells_only: True if you only want to perform cell classification
+        run_nuclei_pipeline: True if you want to perform nuclei detection
+        run_cell_pipeline: True if you want to perform cell classification
     """
-    use_gpu = True  # a debug flag to allow non GPU testing of stuff. default true
-    if use_gpu:
+    if cuda.is_available():
         print_gpu_stats()
 
     # Create database connection
     db.init()
 
-    if not cells_only:
+    if run_nuclei_pipeline:
         # Start timer for nuclei evaluation
         start = time.time()
         # Perform all nuclei evaluation
@@ -69,7 +69,7 @@ def main(
         end = time.time()
         print(f"Nuclei evaluation time: {(end - start):.3f}")
 
-    if not nucs_only:
+    if run_cell_pipeline:
         # Start timer for cell evaluation
         start = time.time()
         # Perform all nuclei evaluation

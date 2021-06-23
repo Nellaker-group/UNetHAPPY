@@ -38,8 +38,7 @@ def main(
 ):
     organ = get_organ(organ.value)
     
-    use_gpu = True  # a debug flag to allow non GPU testing of stuff. default true
-    if use_gpu:
+    if torch.cuda.is_available():
         print_gpu_stats()
 
     # Get data from hdf5 files

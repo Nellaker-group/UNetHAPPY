@@ -28,9 +28,7 @@ from happy.models import retinanet
 from happy.utils.utils import print_gpu_stats, load_weights
 from happy.utils.vis_plotter import VisdomLinePlotter
 
-use_gpu = True  # a debug flag to allow non GPU testing of stuff. default true
-
-if use_gpu:
+if torch.cuda.is_available():
     print_gpu_stats()
 
 

@@ -30,8 +30,7 @@ def main(
         height: height for defining a subsection/patch of the WSI. -1 for all
         k: nearest neighbours for creating the graph edges
     """
-    use_gpu = False  # a debug flag to allow non GPU testing of stuff. default true
-    if use_gpu:
+    if torch.cuda.is_available():
         print_gpu_stats()
 
     patch = (

@@ -23,8 +23,7 @@ from happy.logger.logger import Logger
 from happy.cells.cells import get_organ
 
 
-use_gpu = True  # a debug flag to allow non GPU testing of stuff. default true
-if use_gpu:
+if torch.cuda.is_available():
     print_gpu_stats()
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -75,20 +74,10 @@ def main(
     )
     image_size = _get_image_size(model_name)
 
-    # Get all datasets, including separate validation datasets
-    dataset_train, dataset_val, dataset_val_dict = setup_datasets(
-        organ, annotations_path, hp.dataset_names, image_size, multiple_val_sets
+    # Get all datasets and dataloaders, including separate validation datasets
+    datasets, dataloaders = setup_data(
+        organ, annotations_path, hp, image_size, multiple_val_sets
     )
-    datasets = {"train": dataset_train, "val_all": dataset_val}
-    if multiple_val_sets:
-        datasets.update(dataset_val_dict)
-
-    train_dataloader, all_val_dataloader, dataloader_val_dict = setup_dataloaders(
-        dataset_train, dataset_val, dataset_val_dict, hp.dataset_names, hp.batch
-    )
-    dataloaders = {"train": train_dataloader, "val_all": all_val_dataloader}
-    if multiple_val_sets:
-        dataloaders.update(dataloader_val_dict)
 
     logger.setup_train_stats(list(datasets.keys()), ["loss", "accuracy"])
 
@@ -103,7 +92,7 @@ def main(
     # train!
     prev_best_accuracy = 0
     try:
-        print(f"Num training images: {len(dataset_train)}")
+        print(f"Num training images: {len(datasets['train'])}")
         print(
             f"Training on datasets {hp.dataset_names} for {hp.epochs} epochs, "
             f"with lr of {hp.learning_rate}, batch size {hp.batch}, "
@@ -115,92 +104,64 @@ def main(
         for epoch_num in range(hp.epochs):
             model.train()
             # Setup recording metrics
-            epoch_losses = {}
-            truth_cell = {}
+            epoch_loss = {}
             predicted_cell = {}
-            correct = {}
+            truth_cell = {}
+            num_correct = {}
 
-            for phase in dataloaders.keys():
+            for phase in dataloaders:
                 print(phase)
                 # Setup recording metrics
-                epoch_losses[phase] = []
-                truth_cell[phase] = []
+                epoch_loss[phase] = []
                 predicted_cell[phase] = []
-                correct[phase] = 0
+                truth_cell[phase] = []
+                num_correct[phase] = 0
 
                 if phase != "train":
                     model.eval()
 
                 for i, data in enumerate(dataloaders[phase]):
-                    optimizer.zero_grad()
-
-                    # Get predictions and calculate loss
-                    class_prediction = model(data["img"].cuda().float())
-                    loss = criterion(class_prediction, data["annot"].cuda())
-
-                    # Returns predicted cell class and records how many in the batch were correct
-                    predicted = torch.max(class_prediction, 1)[1].cpu()
-                    correct[phase] += (predicted == data["annot"]).sum().item()
-
-                    # Get accuracy values for plotting and confusion matrix of validation sets
-                    if phase != "train":
-                        predicted_cell[phase].append(predicted.tolist())
-                        truth_cell[phase].append(data["annot"].tolist())
-
-                    # Plot training loss at each batch iteration
-                    if phase == "train":
-                        logger.log_batch_loss(batch_count, float(loss))
-                        batch_count += 1
-
-                        # Backprop model
-                        loss.backward()
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
-                        optimizer.step()
-
-                    logger.loss_hist.append(float(loss))
-                    epoch_losses[phase].append(float(loss))
+                    batch_loss, batch_preds, batch_truth, batch_correct = single_batch(
+                        phase, optimizer, criterion, model, data, logger, batch_count
+                    )
 
                     print(
                         f"Epoch: {epoch_num} | Phase: {phase} | Iteration: {i} | "
-                        f"Classification loss: {float(loss):1.5f} | "
+                        f"Classification loss: {float(batch_loss):1.5f} | "
                         f"Running loss: {np.mean(logger.loss_hist):1.5f}"
                     )
 
-                    # TODO: remove these by turning this into a function
-                    # Remove tensors from GPU to avoid CUDA memory problems
-                    del loss
-                    del predicted
-                    del class_prediction
+                    logger.loss_hist.append(float(batch_loss))
+                    epoch_loss[phase].append(float(batch_loss))
+                    predicted_cell[phase].append(batch_preds)
+                    truth_cell[phase].append(batch_truth)
+                    num_correct[phase] += batch_correct
 
                 # Plot losses at each epoch for training and all validation sets
-                logger.log_loss(phase, epoch_num, np.mean(epoch_losses[phase]))
+                logger.log_loss(phase, epoch_num, np.mean(epoch_loss[phase]))
 
             scheduler.step()
 
             # Calculate and plot accuracy for all validation sets
-            val_accuracy = evaluate_epoch(logger, correct, epoch_num, datasets)
+            val_accuracy = evaluate_epoch(logger, num_correct, epoch_num, datasets)
 
             if prev_best_accuracy == 0:
                 prev_best_accuracy = val_accuracy
-            elif val_accuracy > prev_best_accuracy:
+
+            if val_accuracy > prev_best_accuracy:
                 name = f"cell_model_accuracy_{round(val_accuracy, 4)}.pt"
                 torch.save(model.module.state_dict(), run_path / name)
                 print("Model saved")
                 prev_best_accuracy = val_accuracy
 
-                # Generate confusion matrix for the combined validation set
-                all_val_cm = confusion_matrix(
-                    predicted_cell["val_all"], truth_cell["val_all"]
+                # Generate confusion matrix for all the validation sets
+                validation_confusion_matrices(
+                    logger,
+                    predicted_cell,
+                    truth_cell,
+                    hp.dataset_names,
+                    run_path,
                 )
-                logger.log_confusion_matrix(all_val_cm, "val_all", run_path)
-
-                # Save confusion matrix plots for all validation sets
-                if multiple_val_sets:
-                    for dataset_name in hp.dataset_names:
-                        cm = confusion_matrix(
-                            predicted_cell[dataset_name], truth_cell[dataset_name]
-                        )
-                        logger.log_confusion_matrix(cm, dataset_name, run_path)
 
         #     # Save stats per epoch
         #     row = pd.Series(
@@ -227,9 +188,23 @@ def main(
         if save_hp == "y":
             hp.to_csv(run_path)
 
-    model.eval()
-    torch.save(model.module.state_dict(), run_path / "cell_final_model.pt")
-    hp.to_csv(run_path)
+    save_state(model, hp, run_path)
+
+
+def setup_data(organ, annotations_path, hp, image_size, multiple_val_sets):
+    dataset_train, dataset_val, dataset_val_dict = _setup_datasets(
+        organ, annotations_path, hp.dataset_names, image_size, multiple_val_sets
+    )
+    datasets = {"train": dataset_train, "val_all": dataset_val}
+    if multiple_val_sets:
+        datasets.update(dataset_val_dict)
+    train_dataloader, all_val_dataloader, dataloader_val_dict = _setup_dataloaders(
+        dataset_train, dataset_val, dataset_val_dict, hp.dataset_names, hp.batch
+    )
+    dataloaders = {"train": train_dataloader, "val_all": all_val_dataloader}
+    if multiple_val_sets:
+        dataloaders.update(dataloader_val_dict)
+    return datasets, dataloaders
 
 
 def setup_model(model_name, init_from_coco, pre_trained_path, out_features):
@@ -266,9 +241,67 @@ def _get_image_size(model_name):
         return (224, 224)
 
 
-def setup_datasets(
-    organ, annot_dir, dataset_names, image_size, multiple_val_sets
-):
+def setup_training_params(model, learning_rate):
+    optimizer = optim.Adam(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=learning_rate,
+        amsgrad=True,
+    )
+    criterion = nn.CrossEntropyLoss()
+    scheduler = StepLR(optimizer, step_size=8, gamma=0.1)
+    return optimizer, criterion, scheduler
+
+
+def single_batch(phase, optimizer, criterion, model, data, logger, batch_count):
+    optimizer.zero_grad()
+
+    # Get predictions and calculate loss
+    class_prediction = model(data["img"].cuda().float())
+    loss = criterion(class_prediction, data["annot"].cuda())
+
+    # Get predicted cell class and record number of correct predictions
+    predicted = torch.max(class_prediction, 1)[1].cpu()
+    num_correct = (predicted == data["annot"]).sum().item()
+
+    # Plot training loss at each batch iteration
+    if phase == "train":
+        logger.log_batch_loss(batch_count, float(loss))
+        batch_count += 1
+        # Backprop model
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+        optimizer.step()
+
+    predictions = predicted.tolist()
+    ground_truths = data["annot"].tolist()
+    return loss, predictions, ground_truths, num_correct
+
+
+def evaluate_epoch(logger, correct, epoch_num, datasets):
+    # Calculate and plot accuracy for all validation sets
+    print("Evaluating datasets")
+    for dataset_name in datasets:
+        accuracy = int(100 * (correct[dataset_name] / len(dataset_name)))
+        logger.log_accuracy(dataset_name, epoch_num, accuracy)
+        if dataset_name == "all_val":
+            val_accuracy = accuracy
+    return val_accuracy
+
+
+def validation_confusion_matrices(logger, pred, truth, dataset_names, run_path):
+    # Save confusion matrix plots for all validation sets
+    for dataset_name in dataset_names:
+        cm = confusion_matrix(pred[dataset_name], truth[dataset_name])
+        logger.log_confusion_matrix(cm, dataset_name, run_path)
+
+
+def save_state(model, hp, run_path):
+    model.eval()
+    torch.save(model.module.state_dict(), run_path / "cell_final_model.pt")
+    hp.to_csv(run_path)
+
+
+def _setup_datasets(organ, annot_dir, dataset_names, image_size, multiple_val_sets):
     # TODO: change oversampled to a param rather than 'True'
     # Create the datasets from all directories specified in dataset_names
     dataset_train = get_cell_dataset(
@@ -288,7 +321,7 @@ def setup_datasets(
     return dataset_train, dataset_val, dataset_val_dict
 
 
-def setup_dataloaders(
+def _setup_dataloaders(
     dataset_train, dataset_val, dataset_val_dict, dataset_names, batch_size
 ):
     train_dataloader = get_cell_dataloader(
@@ -304,30 +337,6 @@ def setup_dataloaders(
             )
     print("Dataloaders configured")
     return train_dataloader, all_val_dataloader, dataloader_val_dict
-
-
-def setup_training_params(model, learning_rate):
-    optimizer = optim.Adam(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=learning_rate,
-        amsgrad=True,
-    )
-    criterion = nn.CrossEntropyLoss()
-    scheduler = StepLR(optimizer, step_size=8, gamma=0.1)
-    return optimizer, criterion, scheduler
-
-
-def evaluate_epoch(logger, correct, epoch_num, datasets):
-    # Calculate and plot accuracy for all validation sets
-    val_accuracy = 0
-    print("Evaluating datasets")
-    for dataset_name in datasets:
-        accuracy = int(100 * (correct[dataset_name] / len(dataset_name)))
-        logger.log_accuracy(dataset_name, epoch_num, accuracy)
-        if dataset_name == "all_val":
-            val_accuracy = accuracy
-    return val_accuracy
-
 
 
 if __name__ == "__main__":
