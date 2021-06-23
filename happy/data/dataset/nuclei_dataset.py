@@ -82,7 +82,7 @@ class NucleiDataset(Dataset):
             assert np.where(annotations["x1"] > annotations["x2"])[0].size == 0
             assert np.where(annotations["y1"] > annotations["y2"])[0].size == 0
             df_list.append(annotations)
-        return pd.concat(df_list)
+        return pd.concat(df_list, ignore_index=True)
 
     def _group_annotations_by_image(self, df):
         df = df.groupby("image_path", sort=False, as_index=False).agg(

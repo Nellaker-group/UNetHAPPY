@@ -31,7 +31,6 @@ def main(
     project_name: str = typer.Option(...),
     organ_name: str = typer.Option(...),
     annot_path: str = typer.Option(...),
-    csv_classes: str = typer.Option(...),
     pre_trained: str = typer.Option(...),
     shape: ShapeArg = ShapeArg.point,
     dataset_name: str = typer.Option(...),
@@ -53,8 +52,11 @@ def main(
     """
     organ = get_organ(organ_name)
 
+    project_dir = Path(__file__).parent.parent.parent / "projects" / project_name
+    annotation_path = project_dir / annot_path
+
     dataset = NucleiDataset(
-        annotations_dir=annot_path,
+        annotations_dir=annotation_path,
         dataset_names=[dataset_name],
         split="val",
         transform=transforms.Compose([Normalizer(), Resizer()]),
@@ -101,12 +103,7 @@ def main(
             img = untransform_image(data["img"][0])
 
             save_dir = (
-                Path(__file__).parent.parent.parent
-                / "projects"
-                / project_name
-                / "visualisations"
-                / "nuclei"
-                / f"{dataset_name}_pred"
+                project_dir / "visualisations" / "nuclei" / f"{dataset_name}_pred"
             )
             save_dir.mkdir(parents=True, exist_ok=True)
             save_path = save_dir / f"val_{idx}.png"

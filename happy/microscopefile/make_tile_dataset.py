@@ -1,8 +1,10 @@
+import random
+from os import listdir
+from pathlib import Path
+
+import numpy as np
 import pandas as pd
 from PIL import Image
-from os import listdir
-import random
-import numpy as np
 
 from happy.db.msfile_interface import get_msfile_by_run
 
@@ -12,7 +14,7 @@ def make_nuclei_images(run_id, save_path, path_to_coords):
     coords = pd.read_csv(path_to_coords)
     xs = coords.bx.unique()
     ys = coords.by.unique()
-    _save_pngs(run_id, save_path, (xs, ys))
+    _save_pngs(run_id, Path(save_path), (xs, ys))
 
 
 # Generate 200x200 training images for cell classifier
@@ -23,7 +25,7 @@ def make_cell_images(run_id, save_path, path_to_coords):
     ys = coords["by"] + coords["py"]
     _save_pngs(
         run_id,
-        save_path,
+        Path(save_path),
         (xs, ys),
         width=200,
         height=200,
@@ -78,7 +80,7 @@ def make_nuclei_annotations(run_id, save_path, coords_dir, path_to_images, split
     # Add the relative dataset path
     dataset_dir = path_to_images.split("/")[-2]
     image_paths = [
-        f"Datasets/Nuclei/{dataset_dir}/{name}" for name in coords.image_names
+        f"datasets/nuclei/{dataset_dir}/{name}" for name in coords.image_names
     ]
     # Class is all nuclei here
     class_names = ["nucleus" for _ in range(len(xs))]
@@ -95,9 +97,10 @@ def make_nuclei_annotations(run_id, save_path, coords_dir, path_to_images, split
         }
     )
 
-    # Either put all annotations into a file or make three separate train/val/test split files
+    # Either all annotations in one file or three separate train/val/test split files
+    save_path = Path(save_path)
     if not split:
-        annotation_df.to_csv(f"{save_path}all_nuclei.csv", header=False, index=False)
+        annotation_df.to_csv(save_path / "all_nuclei.csv", header=False, index=False)
     else:
         unique_tiles = annotation_df.path.unique().copy()
         num_val, num_test = _calc_splits(split, len(unique_tiles))
@@ -121,7 +124,7 @@ def make_cell_annotations(save_path, path_to_images, split=None):
     for cell_class_path in image_dirs:
         cell_class = cell_class_path.split("/")[-1]
         file_paths = [
-            f"Datasets/CellClass/{dataset_dir}/{cell_class}/{f}"
+            f"datasets/cell_class/{dataset_dir}/{cell_class}/{f}"
             for f in listdir(cell_class_path)
         ]
         cell_class = [cell_class for _ in range(len(listdir(cell_class_path)))]
@@ -133,9 +136,10 @@ def make_cell_annotations(save_path, path_to_images, split=None):
     # DataFrame with annotations in correct format
     annotation_df = pd.DataFrame({"path": all_paths, "class": all_cells})
 
-    # Either put all annotations into a file or make three separate train/val/test split files
+    save_path = Path(save_path)
+    # Either all annotations in one file or three separate train/val/test split files
     if not split:
-        annotation_df.to_csv(f"{save_path}all_cell.csv", header=False, index=False)
+        annotation_df.to_csv(save_path / "all_cell.csv", header=False, index=False)
     else:
         num_val, num_test = _calc_splits(split, len(annotation_df))
         # Randomly assign the tile names to each set
@@ -146,7 +150,7 @@ def make_cell_annotations(save_path, path_to_images, split=None):
 
 # Generate ground truth annotation csvs for empty tiles
 def make_empty_annotations(path_to_images, save_path, split=None):
-    image_names = [f"Datasets/Nuclei/empty/{f}" for f in listdir(path_to_images)]
+    image_names = [f"datasets/nuclei/empty/{f}" for f in listdir(path_to_images)]
     empty_annot = np.array(["" for _ in range(len(image_names))])
 
     annotation_df = pd.DataFrame(
@@ -160,9 +164,10 @@ def make_empty_annotations(path_to_images, save_path, split=None):
         }
     )
 
-    # Either put all annotations into a file or make three separate train/val/test split files
+    save_path = Path(save_path)
+    # Either all annotations in one file or three separate train/val/test split files
     if not split:
-        annotation_df.to_csv(f"{save_path}all_cell.csv", header=False, index=False)
+        annotation_df.to_csv(save_path / "all_nuclei.csv", header=False, index=False)
     else:
         num_val, num_test = _calc_splits(split, len(annotation_df))
         # Randomly assign the tile names to each set
@@ -194,9 +199,9 @@ def _save_splits(object_type, images, num_val, num_test, df, save_path):
     test_df = df.loc[df["path"].isin(test)]
     train_df = df.loc[df["path"].isin(train)]
     # Save csvs
-    val_df.to_csv(f"{save_path}val_{object_type}.csv", header=False, index=False)
-    test_df.to_csv(f"{save_path}test_{object_type}.csv", header=False, index=False)
-    train_df.to_csv(f"{save_path}train_{object_type}.csv", header=False, index=False)
+    val_df.to_csv(save_path / f"val_{object_type}.csv", header=False, index=False)
+    test_df.to_csv(save_path / f"test_{object_type}.csv", header=False, index=False)
+    train_df.to_csv(save_path / f"train_{object_type}.csv", header=False, index=False)
 
 
 # Saves a set of images based on coordinate and image size at save path location
@@ -215,10 +220,10 @@ def _save_pngs(run_id, save_path, coords, width=None, height=None, cell_classes=
         print(f"number: {i}")
         x, y = xs[i], ys[i]
         final_save_path = (
-            f"{save_path}{cell_classes[i]}/" if cell_classes else save_path
+            save_path / cell_classes[i] if cell_classes else save_path
         )
 
         output_array = file.get_tile_by_coords(x, y, width, height)
         im = Image.fromarray(output_array.astype("uint8"))
-        im.save(f"{final_save_path}/{slide_number}_x{x}_y{y}.png")
+        im.save(final_save_path / f"{slide_number}_x{x}_y{y}.png")
         print(f"generated: {slide_number}_x{x}_y{y}.png")

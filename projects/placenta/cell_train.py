@@ -63,7 +63,6 @@ def main(
     project_dir = Path(__file__).parent.parent.parent / "projects" / project_name
     annotations_path = project_dir / annot_dir
 
-
     # Defines the Visdom visualisations (make sure the ports are tunneling)
     if hp.vis:
         vis = VisdomLinePlotter()
@@ -78,7 +77,7 @@ def main(
 
     # Get all datasets, including separate validation datasets
     dataset_train, dataset_val, dataset_val_dict = setup_datasets(
-        organ, hp.annot_dir, hp.dataset_names, image_size, multiple_val_sets
+        organ, annotations_path, hp.dataset_names, image_size, multiple_val_sets
     )
     datasets = {"train": dataset_train, "val_all": dataset_val}
     if multiple_val_sets:
@@ -98,7 +97,7 @@ def main(
     # Save each run by it's timestamp
     fmt = "%Y-%m-%dT%H:%M:%S"
     timestamp = datetime.strftime(datetime.utcnow(), fmt)
-    run_path = Path("results") / "cell_class" / hp.exp_name / timestamp
+    run_path = project_dir / "results" / "cell_class" / hp.exp_name / timestamp
     run_path.mkdir(parents=True, exist_ok=True)
 
     # train!

@@ -72,7 +72,7 @@ class CellDataset(Dataset):
             annotations = pd.read_csv(file_path, names=["image_path", "class_name"])
             assert annotations.class_name.isin(self.classes.keys()).all()
             df_list.append(annotations)
-        return pd.concat(df_list)
+        return pd.concat(df_list, ignore_index=True)
 
     def _get_class_in_image(self, image_index):
         return self.classes[self.all_annotations["class_name"][image_index]]
