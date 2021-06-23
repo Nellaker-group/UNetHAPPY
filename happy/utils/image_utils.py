@@ -16,11 +16,6 @@ def process_image(img):
     return img.astype(np.float32) / 255.0
 
 
-# todo: try to remove this try except
 def load_image(image_path):
-    try:
-        img = skimage.io.imread(image_path)
-    except FileNotFoundError:
-        img = skimage.io.imread("../" + image_path)
-
+    img = skimage.io.imread(image_path)
     return process_image(img)

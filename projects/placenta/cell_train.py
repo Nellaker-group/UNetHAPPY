@@ -4,7 +4,6 @@ from typing import List
 
 import typer
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -21,6 +20,7 @@ from happy.models.model_builder import build_cell_classifer
 from happy.data.setup_data import get_cell_dataset
 from happy.data.setup_dataloader import get_cell_dataloader
 from happy.logger.logger import Logger
+from happy.cells.cells import get_organ
 
 
 use_gpu = True  # a debug flag to allow non GPU testing of stuff. default true
@@ -31,26 +31,25 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 def main(
-    exp_name: str = "",
-    annot_dir: str = "",
+    project_name: str = typer.Option(...),
+    organ_name: str = typer.Option(...),
+    exp_name: str = typer.Option(...),
+    annot_dir: str = typer.Option(...),
     dataset_names: List[str] = typer.Option([]),
-    csv_classes: str = "",
-    pre_trained: str = "",
+    model_name: str = "resnet",
+    pre_trained: str = typer.Option(...),
     epochs: int = 5,
     batch: int = 200,
     learning_rate: float = 1e-5,
     init_from_coco: bool = False,
     vis: bool = True,
 ):
-    prev_best_accuracy = 0
-    model_name = "resnet"
-
     # TODO: reimplement loading hps from file later (with database)
     hp = Hyperparameters(
         exp_name,
         annot_dir,
         dataset_names,
-        csv_classes,
+        model_name,
         pre_trained,
         epochs,
         batch,
@@ -58,8 +57,12 @@ def main(
         init_from_coco,
         vis,
     )
-
+    organ = get_organ(organ_name)
     multiple_val_sets = True if len(hp.dataset_names) > 1 else False
+
+    project_dir = Path(__file__).parent.parent.parent / "projects" / project_name
+    annotations_path = project_dir / annot_dir
+
 
     # Defines the Visdom visualisations (make sure the ports are tunneling)
     if hp.vis:
@@ -75,7 +78,7 @@ def main(
 
     # Get all datasets, including separate validation datasets
     dataset_train, dataset_val, dataset_val_dict = setup_datasets(
-        hp.annot_dir, hp.dataset_names, hp.csv_classes, image_size, multiple_val_sets
+        organ, hp.annot_dir, hp.dataset_names, image_size, multiple_val_sets
     )
     datasets = {"train": dataset_train, "val_all": dataset_val}
     if multiple_val_sets:
@@ -99,6 +102,7 @@ def main(
     run_path.mkdir(parents=True, exist_ok=True)
 
     # train!
+    prev_best_accuracy = 0
     try:
         print(f"Num training images: {len(dataset_train)}")
         print(
@@ -264,22 +268,22 @@ def _get_image_size(model_name):
 
 
 def setup_datasets(
-    annot_dir, dataset_names, csv_classes, image_size, multiple_val_sets
+    organ, annot_dir, dataset_names, image_size, multiple_val_sets
 ):
     # TODO: change oversampled to a param rather than 'True'
     # Create the datasets from all directories specified in dataset_names
     dataset_train = get_cell_dataset(
-        "train", annot_dir, dataset_names, csv_classes, image_size, True
+        organ, "train", annot_dir, dataset_names, image_size, True
     )
     dataset_val = get_cell_dataset(
-        "val", annot_dir, dataset_names, csv_classes, image_size, False
+        organ, "val", annot_dir, dataset_names, image_size, False
     )
     # Create validation datasets from all directories specified in dataset_names
     dataset_val_dict = {}
     if multiple_val_sets:
         for dataset_name in dataset_names:
             dataset_val_dict[dataset_name] = get_cell_dataset(
-                "val", annot_dir, dataset_name, csv_classes, image_size, False
+                organ, "val", annot_dir, dataset_name, image_size, False
             )
     print("Dataset configured")
     return dataset_train, dataset_val, dataset_val_dict

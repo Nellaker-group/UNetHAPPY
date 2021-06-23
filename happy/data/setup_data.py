@@ -11,16 +11,16 @@ from happy.data.transforms.transforms import Normalizer, Resizer
 
 
 def get_cell_dataset(
-    split, annot_dir, dataset_names, csv_classes, image_size, oversampled
+    organ, split, annot_dir, dataset_names, image_size, oversampled
 ):
     augmentations = True if split == "train" else False
     transform = _setup_transforms(
         image_size, augmentations, padding=False, scale_annot=False
     )
     dataset = CellDataset(
+        organ=organ,
         annotations_dir=annot_dir,
         dataset_names=dataset_names,
-        class_list_file=csv_classes,
         split=split,
         oversampled_train=oversampled,
         transform=transform,

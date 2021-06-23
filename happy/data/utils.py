@@ -53,4 +53,3 @@ def _labels_and_colours(img, label_name, label_coords, hex_colour):
     rgb_colour = ImageColor.getrgb(hex_colour)
     bgr_colour = (rgb_colour[2], rgb_colour[1], rgb_colour[0])
     return bgr_colour
-

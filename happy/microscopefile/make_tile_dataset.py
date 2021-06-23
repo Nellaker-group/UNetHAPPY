@@ -157,7 +157,6 @@ def make_empty_annotations(path_to_images, save_path, split=None):
             "x2s": empty_annot,
             "y2s": empty_annot,
             "class": empty_annot,
-            "extra": empty_annot,
         }
     )
 

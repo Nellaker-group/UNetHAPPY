@@ -56,7 +56,6 @@ def main(
     dataset = NucleiDataset(
         annotations_dir=annot_path,
         dataset_names=[dataset_name],
-        class_list_file=csv_classes,
         split="val",
         transform=transforms.Compose([Normalizer(), Resizer()]),
     )

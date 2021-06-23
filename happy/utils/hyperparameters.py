@@ -9,7 +9,7 @@ class Hyperparameters:
         exp_name,
         annot_dir,
         dataset_names,
-        csv_classes,
+        model_name,
         pre_trained,
         epochs,
         batch,
@@ -20,7 +20,7 @@ class Hyperparameters:
         self.exp_name = exp_name
         self.annot_dir = annot_dir
         self.dataset_names = dataset_names
-        self.csv_classes = csv_classes
+        self.model_name = model_name
         self.pre_trained = pre_trained
         self.epochs = epochs
         self.batch = batch
@@ -33,7 +33,7 @@ class Hyperparameters:
             "exp_name": [self.exp_name],
             "annot_dir": [self.annot_dir],
             "dataset_names": [self.dataset_names],
-            "csv_classes": [self.csv_classes],
+            "model_name": [self.model_name],
             "pre_trained": [self.pre_trained],
             "epochs": [self.epochs],
             "batch": [self.batch],
@@ -55,7 +55,7 @@ class Hyperparameters:
             dict_hp_data["exp_name"],
             dict_hp_data["annot_dir"],
             dict_hp_data["dataset_names"],
-            dict_hp_data["csv_classes"],
+            dict_hp_data["model_name"],
             dict_hp_data["pre_trained"],
             dict_hp_data["epochs"],
             dict_hp_data["batch"],
@@ -72,8 +72,8 @@ class Hyperparameters:
             self.annot_dir = args.annot_dir
         if args.dataset_names:
             self.dataset_names = args.dataset_names
-        if args.csv_classes:
-            self.csv_classes = args.csv_classes
+        if args.model_name:
+            self.model_name = args.model_name
         if args.pre_trained:
             self.pre_trained = args.pre_trained
         if args.epochs:
