@@ -16,6 +16,8 @@ from happy.models import retinanet
 from happy.utils.utils import print_gpu_stats, load_weights
 from happy.data.utils import draw_box, draw_centre
 from happy.microscopefile.prediction_saver import PredictionSaver
+from happy.cells.cells import get_organ
+
 
 print_gpu_stats()
 
@@ -27,6 +29,7 @@ class ShapeArg(str, Enum):
 
 def main(
     project_name: str = typer.Option(...),
+    organ_name: str = typer.Option(...),
     annot_path: str = typer.Option(...),
     csv_classes: str = typer.Option(...),
     pre_trained: str = typer.Option(...),
@@ -39,6 +42,7 @@ def main(
 
     Args:
         project_name: name of the project dir to save visualisations to
+        organ_name: name of organ
         annot_path: relative path to annotations
         csv_classes: relative path to class csv
         pre_trained: relative path to pretrained model
@@ -47,6 +51,8 @@ def main(
         score_threshold: the confidence threshold below which to discard predictions
         num_images: the number of images to evaluate
     """
+    organ = get_organ(organ_name)
+
     dataset = NucleiDataset(
         annotations_dir=annot_path,
         dataset_names=[dataset_name],
@@ -119,9 +125,9 @@ def main(
                     label_name = "nucleus"
 
                     if shape.value == "point":
-                        draw_centre(img, x1, y1, x2, y2, label_name, cell=False)
+                        draw_centre(img, x1, y1, x2, y2, label_name, organ, cell=False)
                     elif shape.value == "box":
-                        draw_box(img, x1, y1, x2, y2, label_name, cell=False)
+                        draw_box(img, x1, y1, x2, y2, label_name, organ, cell=False)
                     else:
                         raise ValueError(f"No such draw shape {shape.value}")
 
