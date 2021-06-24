@@ -13,13 +13,17 @@ from happy.data.dataset.nuclei_dataset import NucleiDataset
 from happy.data.samplers.samplers import AspectRatioBasedSampler
 from happy.data.transforms.transforms import Normalizer, Resizer, untransform_image
 from happy.models import retinanet
-from happy.utils.utils import print_gpu_stats, load_weights
+from happy.utils.utils import set_gpu_device, load_weights
 from happy.data.utils import draw_box, draw_centre
 from happy.microscopefile.prediction_saver import PredictionSaver
 from happy.cells.cells import get_organ
 
 
-print_gpu_stats()
+if torch.cuda.is_available():
+    set_gpu_device()
+    device = "cuda"
+else:
+    device = "cpu"
 
 
 class ShapeArg(str, Enum):
@@ -43,7 +47,6 @@ def main(
         project_name: name of the project dir to save visualisations to
         organ_name: name of organ
         annot_path: relative path to annotations
-        csv_classes: relative path to class csv
         pre_trained: relative path to pretrained model
         shape: one of 'box' or 'point' for visualising the prediction
         dataset_name: the dataset who's validation set to evaluate over
@@ -74,15 +77,15 @@ def main(
     print("Dataloaders configured")
 
     model = retinanet.build_retina_net(
-        num_classes=dataset.num_classes(), pretrained=False, resnet_depth=101
+        dataset.num_classes(), device="cpu", pretrained=False, resnet_depth=101
     )
 
     state_dict = torch.load(pre_trained)
     model = load_weights(state_dict, model)
-    model = model.cuda()
-    model = torch.nn.DataParallel(model).cuda()
+    model = model.to(device)
+    model = torch.nn.DataParallel(model).to(device)
     model.eval()
-    print("Pushed model to cuda")
+    print("Pushed model to device")
 
     with torch.no_grad():
         for idx, data in enumerate(dataloader):
@@ -91,7 +94,7 @@ def main(
 
             scale = data["scale"]
 
-            scores, _, boxes = model(data["img"].cuda().float())
+            scores, _, boxes = model(data["img"].to(device).float())
             scores = scores.cpu().numpy()
             boxes = boxes.cpu().numpy()
             boxes /= scale

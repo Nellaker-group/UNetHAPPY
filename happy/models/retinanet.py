@@ -145,7 +145,7 @@ class ClassificationModel(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, num_classes, block, layers):
+    def __init__(self, num_classes, block, layers, device):
         self.inplanes = 64
         super(ResNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
@@ -172,7 +172,7 @@ class ResNet(nn.Module):
         self.regressionModel = RegressionModel(256)
         self.classificationModel = ClassificationModel(256, num_classes=num_classes)
         self.anchors = Anchors()
-        self.regressBoxes = BBoxTransform()
+        self.regressBoxes = BBoxTransform(device)
         self.clipBoxes = ClipBoxes()
 
         self.focalLoss = losses.FocalLoss()
@@ -220,7 +220,7 @@ class ResNet(nn.Module):
             if isinstance(layer, nn.BatchNorm2d):
                 layer.eval()
 
-    def forward(self, inputs):
+    def forward(self, inputs, device):
         if self.training:
             img_batch, annotations = inputs
         else:
@@ -241,9 +241,9 @@ class ResNet(nn.Module):
         classification = torch.cat(
             [self.classificationModel(feature) for feature in features], dim=1
         )
-        anchors = self.anchors(img_batch)
+        anchors = self.anchors(img_batch, device)
         if self.training:
-            return self.focalLoss(classification, regression, anchors, annotations)
+            return self.focalLoss(classification, regression, anchors, annotations, device)
         else:
             transformed_anchors = self.regressBoxes(anchors, regression)
             transformed_anchors = self.clipBoxes(transformed_anchors, img_batch)
@@ -264,7 +264,7 @@ class ResNet(nn.Module):
             return [nms_scores, nms_class, transformed_anchors[0, anchors_nms_idx, :]]
 
 
-def build_retina_net(num_classes, pretrained=False, resnet_depth=101):
+def build_retina_net(num_classes, device, pretrained=False, resnet_depth=101):
     """Constructs a ResNet model of specified depth..
     Args:
         num_classes (int0: number of output classes
@@ -273,15 +273,15 @@ def build_retina_net(num_classes, pretrained=False, resnet_depth=101):
     """
 
     if resnet_depth == 18:
-        model = ResNet(num_classes, BasicBlock, [2, 2, 2, 2])
+        model = ResNet(num_classes, BasicBlock, [2, 2, 2, 2], device)
     elif resnet_depth == 34:
-        model = ResNet(num_classes, BasicBlock, [3, 4, 6, 3])
+        model = ResNet(num_classes, BasicBlock, [3, 4, 6, 3], device)
     elif resnet_depth == 50:
-        model = ResNet(num_classes, Bottleneck, [3, 4, 6, 3])
+        model = ResNet(num_classes, Bottleneck, [3, 4, 6, 3], device)
     elif resnet_depth == 101:
-        model = ResNet(num_classes, Bottleneck, [3, 4, 23, 3])
+        model = ResNet(num_classes, Bottleneck, [3, 4, 23, 3], device)
     elif resnet_depth == 152:
-        model = ResNet(num_classes, Bottleneck, [3, 8, 36, 3])
+        model = ResNet(num_classes, Bottleneck, [3, 8, 36, 3], device)
     else:
         raise ValueError("depth must be 18, 34, 50, 101, or 152")
 

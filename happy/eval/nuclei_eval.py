@@ -15,13 +15,13 @@ from happy.db.msfile_interface import get_msfile
 import happy.db.eval_runs_interface as db
 
 
-# Load model weights and push to cuda device
-def setup_model(model_id):
+# Load model weights and push to device
+def setup_model(model_id, device):
     model_architecture, model_weights_path = db.get_model_weights_by_id(model_id)
     print(f"model pre_trained path: {model_weights_path}")
     if model_architecture == "retinanet":
         model = retinanet.build_retina_net(
-            num_classes=1, pretrained=False, resnet_depth=101
+            num_classes=1, device=device, pretrained=False, resnet_depth=101
         )
         state_dict = torch.load(model_weights_path)
         # Removes the module string from the keys if it's there.
@@ -29,8 +29,8 @@ def setup_model(model_id):
     else:
         raise ValueError(f"{model_architecture} not supported")
 
-    model = torch.nn.DataParallel(model).cuda()
-    print("Pushed model to cuda")
+    model = torch.nn.DataParallel(model).to(device)
+    print("Pushed model to device")
     return model
 
 

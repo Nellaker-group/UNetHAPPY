@@ -21,7 +21,7 @@ def setup_data(organ, annotations_path, hp, image_size, multiple_val_sets):
     return dataloaders
 
 
-def setup_model(model_name, init_from_coco, out_features, pre_trained_path):
+def setup_model(model_name, init_from_coco, out_features, pre_trained_path, device):
     model = build_cell_classifer(model_name, out_features)
     image_size = (299, 299) if model_name == "inceptionresnetv2" else (224, 224)
 
@@ -44,8 +44,8 @@ def setup_model(model_name, init_from_coco, out_features, pre_trained_path):
                 param.requires_grad = True
 
     # Move to GPU and define the optimiser
-    model = torch.nn.DataParallel(model).cuda()
-    print("Model Loaded to cuda")
+    model = torch.nn.DataParallel(model).to(device)
+    print("Model Loaded to device")
     return model, image_size
 
 
@@ -77,6 +77,7 @@ def train(
     logger,
     scheduler,
     run_path,
+    device,
 ):
     prev_best_accuracy = 0
     batch_count = 0
@@ -98,7 +99,14 @@ def train(
 
             for i, data in enumerate(dataloaders[phase]):
                 batch_loss, batch_preds, batch_truth, batch_count = single_batch(
-                    phase, optimizer, criterion, model, data, logger, batch_count
+                    phase,
+                    optimizer,
+                    criterion,
+                    model,
+                    data,
+                    logger,
+                    batch_count,
+                    device,
                 )
                 print(
                     f"Epoch: {epoch_num} | Phase: {phase} | Iteration: {i} | "
@@ -130,12 +138,12 @@ def train(
         )
 
 
-def single_batch(phase, optimizer, criterion, model, data, logger, batch_count):
+def single_batch(phase, optimizer, criterion, model, data, logger, batch_count, device):
     optimizer.zero_grad()
 
     # Get predictions and calculate loss
-    class_prediction = model(data["img"].cuda().float())
-    loss = criterion(class_prediction, data["annot"].cuda())
+    class_prediction = model(data["img"].to(device).float())
+    loss = criterion(class_prediction, data["annot"].to(device))
 
     # Get predicted cell class and ground truth
     predictions = torch.max(class_prediction, 1)[1].cpu().tolist()

@@ -20,8 +20,8 @@ from happy.hdf5.utils import get_embeddings_file
 import happy.db.eval_runs_interface as db
 
 
-# Load model weights and push to cuda device
-def setup_model(model_id, out_features):
+# Load model weights and push to device
+def setup_model(model_id, out_features, device):
     torch_home = Path(__file__).parent.parent.parent.absolute()
     os.environ["TORCH_HOME"] = str(torch_home)
 
@@ -31,8 +31,8 @@ def setup_model(model_id, out_features):
     model = build_cell_classifer(model_architecture, out_features)
     model.load_state_dict(torch.load(model_weights_path), strict=True)
 
-    model = torch.nn.DataParallel(model).cuda()
-    print("Pushed model to cuda")
+    model = torch.nn.DataParallel(model).to(device)
+    print("Pushed model to device")
     return model, model_architecture
 
 
@@ -95,7 +95,9 @@ def setup_embedding_saving(project_name, run_id, cell_saving=True):
 
 
 # Predict cell classes loop
-def run_cell_eval(dataset, cell_model, pred_saver, embeddings_path, cell_saving=True):
+def run_cell_eval(
+    dataset, cell_model, pred_saver, embeddings_path, device, cell_saving=True
+):
     # object for graceful shutdown. Current loop finishes on SIGINT or SIGTERM
     killer = GracefulKiller()
     early_break = False
@@ -120,7 +122,7 @@ def run_cell_eval(dataset, cell_model, pred_saver, embeddings_path, cell_saving=
                         )
                     )
                     # Calls forward() and copies the embedding data
-                    class_prediction = cell_model(batch["img"].cuda().float())
+                    class_prediction = cell_model(batch["img"].to(device).float())
                     # Removes the hook before the next forward() call
                     handle.remove()
 

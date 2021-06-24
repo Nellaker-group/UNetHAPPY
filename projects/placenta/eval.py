@@ -3,7 +3,7 @@ import time
 import typer
 from torch import cuda
 
-from happy.utils.utils import print_gpu_stats
+from happy.utils.utils import set_gpu_device
 from happy.eval import nuclei_eval, cell_eval
 import happy.db.eval_runs_interface as db
 
@@ -49,7 +49,10 @@ def main(
         run_cell_pipeline: True if you want to perform cell classification
     """
     if cuda.is_available():
-        print_gpu_stats()
+        set_gpu_device()
+        device = "cuda"
+    else:
+        device = "cpu"
 
     # Create database connection
     db.init()
@@ -65,6 +68,7 @@ def main(
             nuc_num_workers,
             score_threshold,
             max_detections,
+            device,
         )
         end = time.time()
         print(f"Nuclei evaluation time: {(end - start):.3f}")
@@ -80,6 +84,7 @@ def main(
             num_cells,
             cell_batch_size,
             cell_num_workers,
+            device,
             cell_saving=cell_saving,
         )
         end = time.time()
@@ -87,9 +92,9 @@ def main(
 
 
 def nuclei_eval_pipeline(
-    model_id, slide_id, run_id, num_workers, score_threshold, max_detections
+    model_id, slide_id, run_id, num_workers, score_threshold, max_detections, device
 ):
-    # Load model weights and push to cuda device
+    # Load model weights and push to device
     model = nuclei_eval.setup_model(model_id)
     # Load dataset and dataloader
     dataloader, pred_saver = nuclei_eval.setup_data(
@@ -109,10 +114,11 @@ def cell_eval_pipeline(
     out_features,
     batch_size,
     num_workers,
+    device,
     cell_saving=True,
 ):
-    # Load model weights and push to cuda device
-    model, model_architecture = cell_eval.setup_model(model_id, out_features)
+    # Load model weights and push to device
+    model, model_architecture = cell_eval.setup_model(model_id, out_features, device)
     # Load dataset and dataloader
     dataloader, pred_saver = cell_eval.setup_data(
         run_id,
@@ -127,7 +133,9 @@ def cell_eval_pipeline(
         project_name, run_id, cell_saving
     )
     # Predict cell classes
-    cell_eval.run_cell_eval(dataloader, model, pred_saver, embeddings_path, cell_saving)
+    cell_eval.run_cell_eval(
+        dataloader, model, pred_saver, embeddings_path, device, cell_saving
+    )
     cell_eval.clean_up(pred_saver)
 
 

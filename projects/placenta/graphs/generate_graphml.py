@@ -8,7 +8,7 @@ from torch_geometric.data import Data
 from torch_geometric.utils.convert import to_networkx
 
 import happy.db.eval_runs_interface as db
-from happy.utils.utils import print_gpu_stats
+from happy.utils.utils import set_gpu_device
 from happy.hdf5.utils import get_datasets_in_patch
 
 
@@ -31,7 +31,10 @@ def main(
         k: nearest neighbours for creating the graph edges
     """
     if torch.cuda.is_available():
-        print_gpu_stats()
+        set_gpu_device()
+        device = "cuda"
+    else:
+        device = "cpu"
 
     patch = (
         False if x_min == 0 and y_min == 0 and width == -1 and height == -1 else True

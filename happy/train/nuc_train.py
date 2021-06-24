@@ -12,9 +12,9 @@ from happy.data.setup_data import setup_nuclei_datasets
 from happy.data.setup_dataloader import setup_dataloaders
 
 
-def setup_model(init_from_coco, pre_trained_path=None):
+def setup_model(init_from_coco, device, pre_trained_path=None):
     model = retinanet.build_retina_net(
-        num_classes=1, pretrained=init_from_coco, resnet_depth=101
+        num_classes=1, device=device, pretrained=init_from_coco, resnet_depth=101
     )
     if init_from_coco:
         for child in model.children():
@@ -31,8 +31,8 @@ def setup_model(init_from_coco, pre_trained_path=None):
         for child in model.children():
             for param in child.parameters():
                 param.requires_grad = True
-    model = model.cuda()
-    model = torch.nn.DataParallel(model).cuda()
+    model = model.to(device)
+    model = torch.nn.DataParallel(model).to(device)
     print("Model Loaded")
     return model
 
@@ -63,8 +63,8 @@ def setup_run(project_dir, exp_name):
     return run_path
 
 
-def train(epochs, model, dataloaders, optimizer, logger, scheduler, run_path):
-    prev_best_AP = 0
+def train(epochs, model, dataloaders, optimizer, logger, scheduler, run_path, device):
+    prev_best_ap = 0
     batch_count = 0
     for epoch_num in range(epochs):
         model.train()
@@ -74,7 +74,7 @@ def train(epochs, model, dataloaders, optimizer, logger, scheduler, run_path):
             loss[phase] = []
             for i, data in enumerate(dataloaders[phase]):
                 class_loss, regression_loss, total_loss, batch_count = single_batch(
-                    phase, optimizer, model, data, logger, batch_count
+                    phase, optimizer, model, data, logger, batch_count, device
                 )
                 print(
                     f"Epoch: {epoch_num} | Phase: {phase} | Iter: {i} | "
@@ -93,17 +93,17 @@ def train(epochs, model, dataloaders, optimizer, logger, scheduler, run_path):
 
         # Calculate and plot mAP for all validation sets
         print("Evaluating dataset")
-        prev_best_AP = validate_model(
-            logger, epoch_num, prev_best_AP, model, run_path, dataloaders
+        prev_best_ap = validate_model(
+            logger, epoch_num, prev_best_ap, model, run_path, dataloaders, device
         )
 
 
-def single_batch(phase, optimizer, model, data, logger, batch_count):
+def single_batch(phase, optimizer, model, data, logger, batch_count, device):
     optimizer.zero_grad()
 
     # Calculate loss
     classification_loss, regression_loss = model(
-        [data["img"].cuda().float(), data["annot"].cuda()]
+        [data["img"].to(device).float(), data["annot"].to(device)], device
     )
     classification_loss = classification_loss.mean()
     regression_loss = regression_loss.mean()
@@ -120,24 +120,26 @@ def single_batch(phase, optimizer, model, data, logger, batch_count):
     return classification_loss, regression_loss, total_loss, batch_count
 
 
-def validate_model(logger, epoch_num, prev_best_AP, model, run_path, dataloaders):
+def validate_model(
+    logger, epoch_num, prev_best_ap, model, run_path, dataloaders, device
+):
     dataloaders.pop("train")
-    APs = {}
+    avg_precs = {}
     for dataset_name in dataloaders:
         dataset = dataloaders[dataset_name].dataset
-        AP = evaluate(dataset, model)
-        nuc_AP = round(AP[0][0], 4)  # TODO: fix this weird indexing
-        logger.log_ap(dataset_name, epoch_num, nuc_AP)
-        APs[dataset_name] = nuc_AP
+        ap = evaluate(dataset, model, device)
+        nuc_ap = round(ap[0][0], 4)  # TODO: fix this weird indexing
+        logger.log_ap(dataset_name, epoch_num, nuc_ap)
+        avg_precs[dataset_name] = nuc_ap
 
     # Save the best combined validation mAP model
-    if prev_best_AP != 0 and APs["val_all"] > prev_best_AP:
-        name = f"model_mAP_{APs['val_all']}.pt"
+    if prev_best_ap != 0 and avg_precs["val_all"] > prev_best_ap:
+        name = f"model_mAP_{avg_precs['val_all']}.pt"
         model_weights_path = run_path / name
         torch.save(model.module.state_dict(), model_weights_path)
         print("Model saved")
 
-    return APs["val_all"]
+    return avg_precs["val_all"]
 
 
 def save_state(logger, model, hp, run_path):

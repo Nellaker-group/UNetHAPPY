@@ -67,7 +67,7 @@ def _compute_ap(recall, precision):
 
 
 def _get_detections(
-    dataset, retinanet, score_threshold=0.15, max_detections=200, save_path=None
+    dataset, retinanet, device, score_threshold=0.15, max_detections=200, save_path=None
 ):
     """Get the detections from the retinanet using the generator.
     The result is a list of lists such that the size is:
@@ -94,11 +94,10 @@ def _get_detections(
             scale = data["scale"]
 
             # run network
-            # scores, labels, boxes = retinanet(data['img'].cuda().float().unsqueeze(dim=0))
             scores, labels, boxes = retinanet(
                 torch.from_numpy(data["img"])
                 .permute(2, 0, 1)
-                .cuda()
+                .to(device)
                 .float()
                 .unsqueeze(dim=0)
             )
@@ -177,6 +176,7 @@ def _get_annotations(generator):
 def evaluate(
     generator,
     retinanet,
+    device,
     iou_threshold=0.4,
     score_threshold=0.3,
     max_detections=150,
@@ -198,6 +198,7 @@ def evaluate(
     all_detections = _get_detections(
         generator,
         retinanet,
+        device,
         score_threshold=score_threshold,
         max_detections=max_detections,
         save_path=save_path,

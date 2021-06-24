@@ -2,8 +2,8 @@ import random
 
 import torch
 from torch.utils.data.sampler import Sampler
-from torch_cluster import random_walk
-from torch_geometric.data import NeighborSampler as BaseNeighborSampler
+# from torch_cluster import random_walk
+# from torch_geometric.data import NeighborSampler as BaseNeighborSampler
 
 
 class AspectRatioBasedSampler(Sampler):

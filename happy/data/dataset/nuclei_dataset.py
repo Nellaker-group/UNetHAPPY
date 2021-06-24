@@ -47,9 +47,9 @@ class NucleiDataset(Dataset):
 
     def _load_datasets(self, dataset_names):
         if isinstance(dataset_names, str):
-            self.dataset_names = [dataset_names]
+            return [dataset_names]
         else:
-            self.dataset_names = dataset_names
+            return dataset_names
 
     def _load_classes(self):
         return {"nucleus": 0}

@@ -5,13 +5,16 @@ import typer
 import torch
 
 from happy.utils.hyperparameters import Hyperparameters
-from happy.utils.utils import print_gpu_stats
+from happy.utils.utils import set_gpu_device
 from happy.logger.logger import Logger
 from happy.train import nuc_train
 
 
 if torch.cuda.is_available():
-    print_gpu_stats()
+    set_gpu_device()
+    device = "cuda"
+else:
+    device = "cpu"
 
 
 def main(
@@ -20,7 +23,7 @@ def main(
     annot_dir: str = typer.Option(...),
     dataset_names: List[str] = typer.Option([]),
     model_name: str = "retinanet",
-    pre_trained: str = typer.Option(...),
+    pre_trained: str = "",
     epochs: int = 5,
     batch: int = 200,
     learning_rate: float = 1e-5,
@@ -47,7 +50,7 @@ def main(
     logger = Logger(hp.vis)
 
     # Setup the model. Can be pretrained from coco or own weights.
-    model = nuc_train.setup_model(hp.init_from_coco, pre_trained)
+    model = nuc_train.setup_model(hp.init_from_coco, device, pre_trained)
 
     # Get all datasets and dataloaders, including separate validation datasets
     dataloaders = nuc_train.setup_data(project_dir / annot_dir, hp, multiple_val_sets)
@@ -70,7 +73,7 @@ def main(
             f"is {hp.init_from_coco}"
         )
         nuc_train.train(
-            epochs, model, dataloaders, optimizer, logger, scheduler, run_path
+            epochs, model, dataloaders, optimizer, logger, scheduler, run_path, device
         )
     except KeyboardInterrupt:
         save_hp = input("Would you like to save the hyperparameters anyway? y/n: ")

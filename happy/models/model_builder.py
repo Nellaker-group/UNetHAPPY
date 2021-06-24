@@ -1,5 +1,6 @@
 from happy.models import inceptionresnetv2, resnet
 
+
 def build_cell_classifer(model_name, out_features):
     if model_name == "inceptionresnetv2":
         model = inceptionresnetv2.build_inceptionresnetv2(out_features=out_features)

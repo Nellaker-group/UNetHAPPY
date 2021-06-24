@@ -5,14 +5,17 @@ import typer
 import torch
 
 from happy.utils.hyperparameters import Hyperparameters
-from happy.utils.utils import print_gpu_stats
+from happy.utils.utils import set_gpu_device
 from happy.logger.logger import Logger
 from happy.cells.cells import get_organ
 from happy.train import cell_train
 
 
 if torch.cuda.is_available():
-    print_gpu_stats()
+    set_gpu_device()
+    device = "cuda"
+else:
+    device = "cpu"
 
 
 def main(
@@ -21,7 +24,7 @@ def main(
     exp_name: str = typer.Option(...),
     annot_dir: str = typer.Option(...),
     dataset_names: List[str] = typer.Option([]),
-    model_name: str = "resnet",
+    model_name: str = "resnet-50",
     pre_trained: str = "",
     epochs: int = 5,
     batch: int = 200,
@@ -49,10 +52,9 @@ def main(
     # Defines the Visdom visualisations (make sure the ports are tunneling)
     logger = Logger(hp.vis)
 
-    # Define the model structure and load in the weights.
-    # Can initialise from coco or provided pretrained weights.
+    # Setup the model. Can be pretrained from coco or own weights.
     model, image_size = cell_train.setup_model(
-        model_name, hp.init_from_coco, len(organ.cells), hp.pre_trained
+        model_name, hp.init_from_coco, len(organ.cells), hp.pre_trained, device
     )
 
     # Get all datasets and dataloaders, including separate validation datasets
@@ -88,6 +90,7 @@ def main(
             logger,
             scheduler,
             run_path,
+            device,
         )
     except KeyboardInterrupt:
         save_hp = input("Would you like to save the hyperparameters anyway? y/n: ")

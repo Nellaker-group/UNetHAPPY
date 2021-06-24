@@ -5,7 +5,7 @@ from collections import OrderedDict
 import GPUtil
 
 
-def print_gpu_stats():
+def set_gpu_device():
     print(GPUtil.showUtilization())
     device_ids = GPUtil.getAvailable(
         order="memory", limit=1, maxLoad=0.3, maxMemory=0.3

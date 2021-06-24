@@ -12,7 +12,7 @@ import umap.plot
 import numpy as np
 
 import happy.db.eval_runs_interface as db
-from happy.utils.utils import print_gpu_stats
+from happy.utils.utils import set_gpu_device
 from happy.hdf5.utils import get_datasets_in_patch, filter_by_confidence
 from happy.models.graphsage import SAGE
 from happy.data.samplers.samplers import NeighborSampler
@@ -37,9 +37,12 @@ def main(
     organ: OrganArg = OrganArg.placenta,
 ):
     organ = get_organ(organ.value)
-    
+
     if torch.cuda.is_available():
-        print_gpu_stats()
+        set_gpu_device()
+        device = "cuda"
+    else:
+        device = "cpu"
 
     # Get data from hdf5 files
     predictions, embeddings, coords, confidence = get_raw_data(
