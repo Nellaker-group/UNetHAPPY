@@ -10,18 +10,18 @@ from torch.optim.lr_scheduler import StepLR
 from happy.train.utils import confusion_matrix
 from happy.models.model_builder import build_cell_classifer
 from happy.data.setup_data import setup_cell_datasets
-from happy.data.setup_dataloader import setup_cell_dataloaders
+from happy.data.setup_dataloader import setup_dataloaders
 
 
 def setup_data(organ, annotations_path, hp, image_size, multiple_val_sets):
     datasets = setup_cell_datasets(
         organ, annotations_path, hp.dataset_names, image_size, multiple_val_sets
     )
-    dataloaders = setup_cell_dataloaders(datasets, hp.batch)
+    dataloaders = setup_dataloaders(False, datasets, 10, hp.batch)
     return dataloaders
 
 
-def setup_model(model_name, init_from_coco, pre_trained_path, out_features):
+def setup_model(model_name, init_from_coco, out_features, pre_trained_path):
     model = build_cell_classifer(model_name, out_features)
     image_size = (299, 299) if model_name == "inceptionresnetv2" else (224, 224)
 
@@ -116,6 +116,8 @@ def train(
 
         scheduler.step()
 
+        # Calculate and plot confusion matrices for all validation sets
+        print("Evaluating dataset")
         prev_best_accuracy = validate_model(
             logger,
             epoch_num,
@@ -168,14 +170,10 @@ def validate_model(
 ):
     val_accuracy = logger.train_stats.iloc[epoch_num]["val_all_accuracy"]
 
-    if prev_best_accuracy == 0:
-        prev_best_accuracy = val_accuracy
-
-    if val_accuracy > prev_best_accuracy:
+    if prev_best_accuracy != 0 and val_accuracy > prev_best_accuracy:
         name = f"cell_model_accuracy_{round(val_accuracy, 4)}.pt"
         torch.save(model.module.state_dict(), run_path / name)
         print("Model saved")
-        prev_best_accuracy = val_accuracy
 
         # Generate confusion matrix for all the validation sets
         validation_confusion_matrices(
@@ -185,7 +183,7 @@ def validate_model(
             datasets,
             run_path,
         )
-    return prev_best_accuracy
+    return val_accuracy
 
 
 def validation_confusion_matrices(logger, pred, truth, datasets, run_path):

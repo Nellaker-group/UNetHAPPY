@@ -22,7 +22,7 @@ def main(
     annot_dir: str = typer.Option(...),
     dataset_names: List[str] = typer.Option([]),
     model_name: str = "resnet",
-    pre_trained: str = typer.Option(...),
+    pre_trained: str = "",
     epochs: int = 5,
     batch: int = 200,
     learning_rate: float = 1e-5,
@@ -52,7 +52,7 @@ def main(
     # Define the model structure and load in the weights.
     # Can initialise from coco or provided pretrained weights.
     model, image_size = cell_train.setup_model(
-        model_name, hp.init_from_coco, hp.pre_trained, out_features=len(organ.cells)
+        model_name, hp.init_from_coco, len(organ.cells), hp.pre_trained
     )
 
     # Get all datasets and dataloaders, including separate validation datasets
@@ -94,6 +94,7 @@ def main(
         if save_hp == "y":
             hp.to_csv(run_path)
 
+    # Save hyperparameters, the logged train stats, and the final model
     cell_train.save_state(logger, model, hp, run_path)
 
 

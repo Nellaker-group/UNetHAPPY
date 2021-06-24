@@ -12,10 +12,26 @@ class Logger:
         self.vis = VisdomLinePlotter() if vis else None
         self.loss_hist = collections.deque(maxlen=500)
 
+    def log_ap(self, split_name, epoch_num, ap):
+        print(f"{split_name} AP: {ap}")
+
+        self._add_to_train_stats(epoch_num, split_name, "AP", ap)
+
+        if self.plot_to_vis and split_name != "empty":
+            self.vis.plot(
+                "AP",
+                split_name,
+                "AP per Epoch",
+                "Epochs",
+                "AP",
+                epoch_num,
+                ap,
+            )
+
     def log_accuracy(self, split_name, epoch_num, accuracy):
         print(f"{split_name} accuracy: {accuracy}")
 
-        self._add_to_train_stats(epoch_num, split_name, accuracy)
+        self._add_to_train_stats(epoch_num, split_name, "accuracy", accuracy)
 
         if self.plot_to_vis:
             self.vis.plot(
@@ -31,7 +47,7 @@ class Logger:
     def log_loss(self, split_name, epoch_num, loss):
         print(f"{split_name} loss: {loss}")
 
-        self._add_to_train_stats(epoch_num, split_name, loss)
+        self._add_to_train_stats(epoch_num, split_name, "loss", loss)
 
         if self.plot_to_vis:
             self.vis.plot(
@@ -70,8 +86,8 @@ class Logger:
 
         self.train_stats = pd.DataFrame(columns=columns)
 
-    def _add_to_train_stats(self, epoch_num, dataset_name, metric):
-        column_name = f"{dataset_name}_{metric}"
+    def _add_to_train_stats(self, epoch_num, dataset_name, metric_name, metric):
+        column_name = f"{dataset_name}_{metric_name}"
         if not epoch_num in self.train_stats.index:
             row = pd.Series([metric], index=[column_name])
             self.train_stats = self.train_stats.append(row, ignore_index=True)
