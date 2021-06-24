@@ -10,9 +10,28 @@ from happy.data.dataset.cell_dataset import CellDataset
 from happy.data.transforms.transforms import Normalizer, Resizer
 
 
-def get_cell_dataset(
-    organ, split, annot_dir, dataset_names, image_size, oversampled
-):
+def setup_cell_datasets(organ, annot_dir, dataset_names, image_size, multiple_val_sets):
+    # Create the datasets from all directories specified in dataset_names
+    dataset_train = get_cell_dataset(
+        organ, "train", annot_dir, dataset_names, image_size, True
+    )
+    dataset_val = get_cell_dataset(
+        organ, "val", annot_dir, dataset_names, image_size, False
+    )
+    datasets = {"train": dataset_train, "val_all": dataset_val}
+    # Create validation datasets from all directories specified in dataset_names
+    dataset_val_dict = {}
+    if multiple_val_sets:
+        for dataset_name in dataset_names:
+            dataset_val_dict[dataset_name] = get_cell_dataset(
+                organ, "val", annot_dir, dataset_name, image_size, False
+            )
+        datasets.update(dataset_val_dict)
+    print("Dataset configured")
+    return datasets
+
+
+def get_cell_dataset(organ, split, annot_dir, dataset_names, image_size, oversampled):
     augmentations = True if split == "train" else False
     transform = _setup_transforms(
         image_size, augmentations, padding=False, scale_annot=False
