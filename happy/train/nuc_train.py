@@ -76,15 +76,15 @@ def train(epochs, model, dataloaders, optimizer, logger, scheduler, run_path, de
                 class_loss, regression_loss, total_loss, batch_count = single_batch(
                     phase, optimizer, model, data, logger, batch_count, device
                 )
+                # update epoch metrics
+                logger.loss_hist.append(float(total_loss))
+                loss[phase].append(float(total_loss))
                 print(
                     f"Epoch: {epoch_num} | Phase: {phase} | Iter: {i} | "
                     f"Class loss: {float(class_loss):1.5f} | "
                     f"Regression loss: {float(regression_loss):1.5f} | "
                     f"Running loss: {np.mean(logger.loss_hist):1.5f}"
                 )
-                # update epoch metrics
-                logger.loss_hist.append(float(total_loss))
-                loss[phase].append(float(total_loss))
 
             # Plot losses at each epoch for training and all validation sets
             logger.log_loss(phase, epoch_num, np.mean(loss[phase]))

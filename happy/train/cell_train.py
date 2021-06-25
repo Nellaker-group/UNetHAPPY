@@ -7,7 +7,7 @@ import torch.optim as optim
 from sklearn.metrics import confusion_matrix, accuracy_score
 from torch.optim.lr_scheduler import StepLR
 
-from happy.train.utils import confusion_matrix
+from happy.train.utils import get_confusion_matrix
 from happy.models.model_builder import build_cell_classifer
 from happy.data.setup_data import setup_cell_datasets
 from happy.data.setup_dataloader import setup_dataloaders
@@ -108,16 +108,16 @@ def train(
                     batch_count,
                     device,
                 )
+                # update epoch metrics
+                logger.loss_hist.append(float(batch_loss))
+                loss[phase].append(float(batch_loss))
+                predictions[phase].extend(batch_preds)
+                ground_truth[phase].extend(batch_truth)
                 print(
                     f"Epoch: {epoch_num} | Phase: {phase} | Iteration: {i} | "
                     f"Classification loss: {float(batch_loss):1.5f} | "
                     f"Running loss: {np.mean(logger.loss_hist):1.5f}"
                 )
-                # update epoch metrics
-                logger.loss_hist.append(float(batch_loss))
-                loss[phase].append(float(batch_loss))
-                predictions[phase].append(batch_preds)
-                ground_truth[phase].append(batch_truth)
 
             # Plot losses at each epoch for training and all validation sets
             log_epoch_metrics(logger, epoch_num, phase, loss, predictions, ground_truth)
@@ -196,9 +196,9 @@ def validate_model(
 
 def validation_confusion_matrices(logger, pred, truth, datasets, run_path):
     # Save confusion matrix plots for all validation sets
-    datasets.pop("train")
+    datasets.remove("train")
     for dataset in datasets:
-        cm = confusion_matrix(pred[dataset], truth[dataset])
+        cm = get_confusion_matrix(pred[dataset], truth[dataset])
         logger.log_confusion_matrix(cm, dataset, run_path)
 
 

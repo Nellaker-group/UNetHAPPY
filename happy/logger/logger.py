@@ -29,6 +29,7 @@ class Logger:
             )
 
     def log_accuracy(self, split_name, epoch_num, accuracy):
+        accuracy = round(accuracy, 4)
         print(f"{split_name} accuracy: {accuracy}")
 
         self._add_to_train_stats(epoch_num, split_name, "accuracy", accuracy)
@@ -45,6 +46,7 @@ class Logger:
             )
 
     def log_loss(self, split_name, epoch_num, loss):
+        loss = round(loss, 4)
         print(f"{split_name} loss: {loss}")
 
         self._add_to_train_stats(epoch_num, split_name, "loss", loss)
@@ -61,6 +63,7 @@ class Logger:
             )
 
     def log_batch_loss(self, batch_count, loss):
+        loss = round(loss, 4)
         if self.plot_to_vis:
             self.vis.plot(
                 "batch loss",

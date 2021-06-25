@@ -58,8 +58,9 @@ You will need to ssh into a GPU server before setup (this ensures GPU versions a
 installed correctly). If you haven't made a .condarc file, check the note bellow.
 
 ```bash
+module load Anaconda3/2019.10
 conda create -n {envname} python=3.8
-conda {envname} activate
+conda activate {envname}
 module load libvips/8.9.2-foss-2019a
 export PATH=/{PathToYourUserDirWithSpace}/conda_stuff/my_envs/{envname}/bin/:$PATH
 make environment

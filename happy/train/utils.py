@@ -1,15 +1,12 @@
-from pathlib import Path
-
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from sklearn.metrics import confusion_matrix
 
-def confusion_matrix(pred, truth):
-    flatten = lambda l: [item for sublist in l for item in sublist]
-    predicted_cell = flatten(pred)
-    truth_cell = flatten(truth)
-    cm = confusion_matrix(predicted_cell, truth_cell)
+# TODO: get the cell labels from organ class
+def get_confusion_matrix(pred, truth):
+    cm = confusion_matrix(pred, truth)
     print(cm)
     return pd.DataFrame(
         cm,
@@ -19,9 +16,7 @@ def confusion_matrix(pred, truth):
 
 
 def plot_confusion_matrix(cm, dataset_name, run_path):
-    run_path = Path(run_path)
     save_path = run_path / f"{dataset_name}_confusion_matrix.png"
-    save_path.mkdir(parents=True, exist_ok=True)
 
     sns.heatmap(cm, annot=True, cmap="Blues", square=True, fmt="d")
     plt.title(f"Cell Classification for {dataset_name} Validation")

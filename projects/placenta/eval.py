@@ -3,18 +3,19 @@ import time
 import typer
 from torch import cuda
 
+from happy.cells.cells import get_organ
 from happy.utils.utils import set_gpu_device
 from happy.eval import nuclei_eval, cell_eval
 import happy.db.eval_runs_interface as db
 
 
 def main(
-    project_name: str = "placenta",
+    project_name: str = typer.Option(...),
+    organ_name: str = typer.Option(...),
     nuc_model_id: int = -1,
     cell_model_id: int = -1,
     run_id: int = -1,
     slide_id: int = -1,
-    num_cells: int = 5,
     nuc_num_workers: int = 20,
     cell_num_workers: int = 16,
     score_threshold: float = 0.3,
@@ -34,11 +35,12 @@ def main(
     Predictions are saved to the database with every batch.
 
     Args:
+        project_name: name of the project dir to save results to
+        organ_name: name of organ for getting the cells
         nuc_model_id: id of the nuclei model for inference
         cell_model_id: id of the cell model for inference
         run_id: id of an existing run if continuing or of a new run
         slide_id: id of the WSI
-        num_cells: number of cell classes (default 5 for placenta)
         nuc_num_workers: number of workers for parallel processing of nuclei inference
         cell_num_workers: number of workers for parallel processing of cell inference
         score_threshold: nuclei network confidence cutoff for saving predictions
@@ -79,9 +81,9 @@ def main(
         # Perform all nuclei evaluation
         cell_eval_pipeline(
             project_name,
+            organ_name,
             cell_model_id,
             run_id,
-            num_cells,
             cell_batch_size,
             cell_num_workers,
             device,
@@ -95,7 +97,7 @@ def nuclei_eval_pipeline(
     model_id, slide_id, run_id, num_workers, score_threshold, max_detections, device
 ):
     # Load model weights and push to device
-    model = nuclei_eval.setup_model(model_id)
+    model = nuclei_eval.setup_model(model_id, device)
     # Load dataset and dataloader
     dataloader, pred_saver = nuclei_eval.setup_data(
         slide_id, run_id, model_id, overlap=200, num_workers=num_workers
@@ -109,16 +111,19 @@ def nuclei_eval_pipeline(
 
 def cell_eval_pipeline(
     project_name,
+    organ_name,
     model_id,
     run_id,
-    out_features,
     batch_size,
     num_workers,
     device,
     cell_saving=True,
 ):
+    organ = get_organ(organ_name)
     # Load model weights and push to device
-    model, model_architecture = cell_eval.setup_model(model_id, out_features, device)
+    model, model_architecture = cell_eval.setup_model(
+        model_id, len(organ.cells), device
+    )
     # Load dataset and dataloader
     dataloader, pred_saver = cell_eval.setup_data(
         run_id,
