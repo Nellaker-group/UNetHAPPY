@@ -5,7 +5,7 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 
-from happy.train.od_training_eval import evaluate
+from happy.train.calc_avg_precision import evaluate_ap
 from happy.models import retinanet
 from happy.utils.utils import load_weights
 from happy.data.setup_data import setup_nuclei_datasets
@@ -127,8 +127,8 @@ def validate_model(
     avg_precs = {}
     for dataset_name in dataloaders:
         dataset = dataloaders[dataset_name].dataset
-        ap = evaluate(dataset, model, device)
-        nuc_ap = round(ap[0][0], 4)  # TODO: fix this weird indexing
+        ap = evaluate_ap(dataset, model, device)
+        nuc_ap = round(ap[0][0], 4)
         logger.log_ap(dataset_name, epoch_num, nuc_ap)
         avg_precs[dataset_name] = nuc_ap
 
