@@ -29,7 +29,7 @@ def setup_model(model_id, device):
     else:
         raise ValueError(f"{model_architecture} not supported")
 
-    model = torch.nn.DataParallel(model).to(device)
+    model = model.to(device)
     print("Pushed model to device")
     return model
 
@@ -60,7 +60,7 @@ def setup_data(slide_id, run_id, model_id, overlap, num_workers):
 
 # Predict nuclei loop
 def run_nuclei_eval(
-    dataset, model, pred_saver, score_threshold=0.3, max_detections=150
+    dataset, model, pred_saver, device, score_threshold=0.3, max_detections=150
 ):
     # object for graceful shutdown. Current loop finishes on SIGINT or SIGTERM
     killer = GracefulKiller()
@@ -97,11 +97,11 @@ def run_nuclei_eval(
                         # as it returns predictions in one array
                         for i, non_empty_ind in enumerate(non_empty_inds):
                             # run network on non-empty images/tiles
-                            scores, labels, boxes = model(
-                                torch.from_numpy(
-                                    np.expand_dims(non_empty_imgs[i], axis=0)
-                                ).to(device=torch.device("cuda"))
-                            )
+                            input = torch.from_numpy(
+                                np.expand_dims(non_empty_imgs[i], axis=0)
+                            ).to(device)
+
+                            scores, labels, boxes = model(input, device)
                             scores = scores.cpu().numpy()
                             boxes = boxes.cpu().numpy()
 

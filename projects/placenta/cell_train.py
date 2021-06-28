@@ -82,6 +82,7 @@ def main(
             f"init from coco is {hp.init_from_coco}"
         )
         cell_train.train(
+            organ,
             hp.epochs,
             model,
             dataloaders,

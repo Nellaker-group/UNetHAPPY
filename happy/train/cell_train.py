@@ -69,6 +69,7 @@ def setup_run(project_dir, exp_name):
 
 
 def train(
+    organ,
     epochs,
     model,
     dataloaders,
@@ -127,6 +128,7 @@ def train(
         # Calculate and plot confusion matrices for all validation sets
         print("Evaluating dataset")
         prev_best_accuracy = validate_model(
+            organ,
             logger,
             epoch_num,
             prev_best_accuracy,
@@ -167,6 +169,7 @@ def log_epoch_metrics(logger, epoch_num, phase, loss, predictions, ground_truth)
 
 
 def validate_model(
+    organ,
     logger,
     epoch_num,
     prev_best_accuracy,
@@ -185,6 +188,7 @@ def validate_model(
 
         # Generate confusion matrix for all the validation sets
         validation_confusion_matrices(
+            organ,
             logger,
             predictions,
             ground_truths,
@@ -194,11 +198,11 @@ def validate_model(
     return val_accuracy
 
 
-def validation_confusion_matrices(logger, pred, truth, datasets, run_path):
+def validation_confusion_matrices(organ, logger, pred, truth, datasets, run_path):
     # Save confusion matrix plots for all validation sets
     datasets.remove("train")
     for dataset in datasets:
-        cm = get_confusion_matrix(pred[dataset], truth[dataset])
+        cm = get_confusion_matrix(organ, pred[dataset], truth[dataset])
         logger.log_confusion_matrix(cm, dataset, run_path)
 
 

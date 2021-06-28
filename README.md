@@ -87,12 +87,12 @@ here: https://github.com/libvips/libvips/wiki
 
 ```bash
 conda create -n {envname} python=3.8
-conda {envname} activate
+conda activate {envname}
 make environment_cpu
 ```
 
-**Note:** On mac if you get a gcc error relating to 'javabridge' you may need to 
-install the dev version manually with this command: 
+**Note:** On mac (sometimes rescomp) if you get a gcc error relating to 'javabridge' 
+you may need to install the dev version manually with this command: 
 ```
 pip install git+https://github.com/LeeKamentsky/python-javabridge.git#egg=javabridge
 ```

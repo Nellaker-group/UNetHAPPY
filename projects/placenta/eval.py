@@ -104,7 +104,7 @@ def nuclei_eval_pipeline(
     )
     # Predict nuclei
     nuclei_eval.run_nuclei_eval(
-        dataloader, model, pred_saver, score_threshold, max_detections
+        dataloader, model, pred_saver, device, score_threshold, max_detections
     )
     nuclei_eval.clean_up(pred_saver)
 

@@ -4,15 +4,12 @@ import pandas as pd
 
 from sklearn.metrics import confusion_matrix
 
-# TODO: get the cell labels from organ class
-def get_confusion_matrix(pred, truth):
+
+def get_confusion_matrix(organ, pred, truth):
+    cell_labels = [cell.label for cell in organ.cells]
     cm = confusion_matrix(pred, truth)
     print(cm)
-    return pd.DataFrame(
-        cm,
-        columns=["CYT", "FIB", "HOF", "SYN", "VEN"],
-        index=["CYT", "FIB", "HOF", "SYN", "VEN"],
-    ).astype(int)
+    return pd.DataFrame(cm, columns=cell_labels, index=cell_labels).astype(int)
 
 
 def plot_confusion_matrix(cm, dataset_name, run_path):
