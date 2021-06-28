@@ -79,7 +79,6 @@ def setup_data(
 # Setup or get path to embeddings hdf5 save location
 def setup_embedding_saving(project_name, run_id, cell_saving=True):
     embeddings_path = get_embeddings_file(project_name, run_id)
-    embeddings_path.mkdir(parents=True, exist_ok=True)
     if not os.path.isfile(embeddings_path):
         total_cells = db.get_total_num_nuclei(run_id)
         with h5py.File(embeddings_path, "w-") as f:
