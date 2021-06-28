@@ -13,6 +13,7 @@ def main(
     project_name: str = typer.Option(...),
     run_id: int = typer.Option(...),
     slide_name: str = typer.Option(...),
+    nuclei_only: bool = False,
     filtered: bool = False,
     min_conf: float = 0.0,
     max_conf: float = 1.0,
@@ -43,7 +44,7 @@ def main(
             organ, project_name, run_id, min_conf, max_conf
         )
 
-    coord_to_tsv(coords, preds, save_path, organ)
+    coord_to_tsv(coords, preds, save_path, organ, nuclei_only)
 
 
 def coord_to_tsv(coords, preds, save_path, organ, nuclei_only=False):

@@ -193,6 +193,7 @@ out/
 **/annotatedImages
 **/datasets
 **/pretrained_models
+**/visualisations
 **/results
 **/visualisations
 *.pth
