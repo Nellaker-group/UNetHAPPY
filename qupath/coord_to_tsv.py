@@ -15,6 +15,7 @@ def main(
     project_name: str = typer.Option(...),
     run_id: int = typer.Option(...),
     slide_name: str = typer.Option(...),
+    nuclei_only: bool = False,
     filtered: bool = False,
 ):
     db.init()
@@ -31,7 +32,7 @@ def main(
         save_path = save_dir / f"{min_conf}_{max_conf}_{slide_name}.tsv"
         coords, preds = _get_filtered_confidence_predictions(run_id, min_conf, max_conf)
 
-    coord_to_tsv(coords, preds, save_path, get_organ(organ_name))
+    coord_to_tsv(coords, preds, save_path, get_organ(organ_name), nuclei_only)
 
 
 def coord_to_tsv(coords, preds, save_path, organ, nuclei_only=False):
