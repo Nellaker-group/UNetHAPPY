@@ -7,14 +7,16 @@ import GPUtil
 
 def print_gpu_stats():
     print(GPUtil.showUtilization())
-    deviceIDs = GPUtil.getAvailable(order="memory", limit=1, maxLoad=0.3, maxMemory=0.3)
-    while not deviceIDs:
+    device_ids = GPUtil.getAvailable(
+        order="memory", limit=1, maxLoad=0.3, maxMemory=0.3
+    )
+    while not device_ids:
         print("No GPU avail.")
         time.sleep(10)
-        deviceIDs = GPUtil.getAvailable(
+        device_ids = GPUtil.getAvailable(
             order="memory", limit=1, maxLoad=0.3, maxMemory=0.3
         )
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(deviceIDs[0])
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(device_ids[0])
     print("Using GPU number ", os.environ["CUDA_VISIBLE_DEVICES"])
     return os.environ["CUDA_VISIBLE_DEVICES"]
 

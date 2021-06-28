@@ -1,17 +1,55 @@
+from pathlib import Path
+
 import numpy as np
 import h5py
 
+import happy.db.eval_runs_interface as db
+
+
+def get_embeddings_file(project_name, run_id):
+    db.init()
+    embeddings_dir = (
+        Path(__file__).parent.parent.parent
+        / "projects"
+        / project_name
+        / "results"
+        / "embeddings"
+    )
+    embeddings_path = db.get_embeddings_path(run_id, embeddings_dir)
+    return embeddings_dir / embeddings_path
+
+
+def get_hdf5_datasets(file_path, start, num_points):
+    with h5py.File(file_path, "r") as f:
+        subset_start = (
+            int(len(f["predictions"]) * start) if 1 > start > 0 else int(start)
+        )
+        subset_end = (
+            len(f["predictions"]) if num_points == -1 else subset_start + num_points
+        )
+        print(f"Getting {subset_end - subset_start} datapoints from hdf5")
+        predictions = f["predictions"][subset_start:subset_end]
+        embeddings = f["embeddings"][subset_start:subset_end]
+        coords = f["coords"][subset_start:subset_end]
+        confidence = f["confidence"][subset_start:subset_end]
+        return predictions, embeddings, coords, confidence, subset_start, subset_end
+
 
 def filter_hdf5(
-    file_path, start, num_points, metric_type, metric_start, metric_end=None
+    organ, file_path, start, num_points, metric_type, metric_start, metric_end=None
 ):
-    predictions, embeddings, coords, confidence, subset_end = get_hdf5_datasets(
-        file_path, start, num_points
-    )
+    (
+        predictions,
+        embeddings,
+        coords,
+        confidence,
+        subset_start,
+        subset_end,
+    ) = get_hdf5_datasets(file_path, start, num_points)
 
     if metric_type == "cell_class":
         cell_class = metric_start
-        label_map = {"CYT": 0, "FIB": 1, "HOF": 2, "SYN": 3, "VEN": 4}
+        label_map = {cell.label: cell.id for cell in organ.cells}
         filtered_embeddings = embeddings[predictions == label_map[cell_class]]
         filtered_predictions = predictions[predictions == label_map[cell_class]]
         filtered_confidence = confidence[predictions == label_map[cell_class]]
@@ -28,7 +66,7 @@ def filter_hdf5(
             predictions, embeddings, coords, confidence, min_conf, max_conf
         )
     else:
-        raise ValueError(f"[{metric_type}] not a valid metric type")
+        raise ValueError(f"[{metric_type}] is not a valid metric type")
 
     num_filtered = len(filtered_embeddings)
     print(f"num of cells: {num_filtered}")
@@ -37,28 +75,16 @@ def filter_hdf5(
         filtered_embeddings,
         filtered_coords,
         filtered_confidence,
+        subset_start,
         subset_end,
         num_filtered,
     )
 
 
-def get_hdf5_datasets(file_path, start, num_points):
-    with h5py.File(file_path, "r") as f:
-        subset_start = start
-        if num_points == -1:
-            subset_end = len(f["predictions"])
-        else:
-            subset_end = subset_start + num_points
-
-        predictions = f["predictions"][subset_start:subset_end]
-        embeddings = f["embeddings"][subset_start:subset_end]
-        coords = f["coords"][subset_start:subset_end]
-        confidence = f["confidence"][subset_start:subset_end]
-        return predictions, embeddings, coords, confidence, subset_end
-
-
 def get_datasets_in_patch(file_path, x_min, y_min, width, height):
-    predictions, embeddings, coords, confidence, _ = get_hdf5_datasets(file_path, 0, -1)
+    predictions, embeddings, coords, confidence, _, _ = get_hdf5_datasets(
+        file_path, 0, -1
+    )
 
     if x_min == 0 and y_min == 0 and width == -1 and height == -1:
         return predictions, embeddings, coords, confidence

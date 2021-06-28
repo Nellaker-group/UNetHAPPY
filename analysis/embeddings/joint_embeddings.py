@@ -1,63 +1,64 @@
 import time
+from pathlib import Path
 
-import h5py
+import typer
 import umap
 import umap.plot
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
 import happy.db.eval_runs_interface as db
+from happy.hdf5.utils import get_embeddings_file, get_hdf5_datasets
+from happy.cells.cells import get_organ
+from utils import setup, embeddings_results_path
+from plots import plot_3d
 
 
-def main():
-    dimensions = 2
+def main(
+    organ_name: str = typer.Option(...),
+    project_name: str = typer.Option(...),
+    first_run_id: int = typer.Option(...),
+    second_run_id: int = typer.Option(...),
+    subset_start: float = 0.0,
+    num_points: int = -1,
+    dimensions: int = 2,
+):
+    """Plots and saves a UMAP from two cell embedding vectors of different slides.
 
-    first_run_id = 3
-    first_lab = "triin"
-    first_slide_name = "3"
+    Can be 3d (with few points) or a 2d png.
 
-    second_run_id = 4
-    second_lab = "hagit"
-    second_slide_name = "1003608"
-
-    print(f"First: Run id {first_run_id}, from lab {first_lab}, "
-          f"and slide {first_slide_name}")
-    print(f"Second: Run id {second_run_id}, from lab {second_lab}, "
-          f"and slide {second_slide_name}")
-
-    start = time.time()
+    Args:
+        organ_name: name of the organ from which to get the cell types
+        project_name: name of the project dir to save to
+        first_run_id: id of the first run which created the UMAP embeddings
+        second_run_id: id of the second run which created the UMAP embeddings
+        subset_start: at which index or proportion of the file to start (int or float)
+        num_points: number of points to include in the UMAP from subset_start onwards
+        dimensions: 2d or 3d UMAP plot
+    """
     db.init()
-    labels_dict = {
-        0: "CYT", 1: "FIB", 2: "HOF", 3: "SYN", 4: "VEN",
-        5: "CYT2", 6: "FIB2", 7: "HOF2", 8: "SYN2", 9: "VEN2"
-    }
-    colours_dict = {
-        "CYT": "#24ff24", "FIB": "#fc0352", "HOF": "#ffff6d", "SYN": "#80b1d3",
-        "VEN": "#fc8c44", "CYT2": "#0d8519", "FIB2": "#7b03fc", "HOF2": "#979903",
-        "SYN2": "#0f0cad", "VEN2": "#731406"
-    }
+    timer_start = time.time()
 
-    embeddings_dir = "../../Results/embeddings/"
-    first_embeddings_path = db.get_embeddings_path(first_run_id, embeddings_dir)
-    first_embeddings_file = f"{embeddings_dir}{first_embeddings_path}"
+    first_lab_id, first_slide_name = setup(db, first_run_id)
+    second_lab_id, second_slide_name = setup(db, second_run_id)
+    organ = get_organ(organ_name)
 
-    second_embeddings_path = db.get_embeddings_path(second_run_id, embeddings_dir)
-    second_embeddings_file = f"{embeddings_dir}{second_embeddings_path}"
+    first_labels_dict = {cell.id: cell.label for cell in organ.cells}
+    second_labels_dict = {cell.id + 5: cell.label + "2" for cell in organ.cells}
+    labels_dict = {**first_labels_dict, **second_labels_dict}
 
-    with h5py.File(first_embeddings_file, "r") as f:
-        subset_start = 200_000
-        subset_end = 230_000
-        print(f"First on {subset_end - subset_start} num of datapoints")
-        first_predictions = f["predictions"][subset_start:subset_end]
-        first_embeddings = f["embeddings"][subset_start:subset_end]
+    first_colours_dict = {cell.label: cell.colour for cell in organ.cells}
+    second_colours_dict = {cell.label + "2": cell.alt_colour for cell in organ.cells}
+    colours_dict = {**first_colours_dict, **second_colours_dict}
 
-    with h5py.File(second_embeddings_file, "r") as f:
-        subset_start = 200_000
-        subset_end = 230_000
-        print(f"Second on {subset_end - subset_start} num of datapoints each")
-        second_predictions = f["predictions"][subset_start:subset_end]
-        second_embeddings = f["embeddings"][subset_start:subset_end]
+    first_embeddings_file = get_embeddings_file(project_name, first_run_id)
+    second_embeddings_file = get_embeddings_file(project_name, second_run_id)
+    first_predictions, first_embeddings, _, _, start, end = get_hdf5_datasets(
+        first_embeddings_file, subset_start, num_points
+    )
+    second_predictions, second_embeddings, _, _, _, _ = get_hdf5_datasets(
+        second_embeddings_file, subset_start, num_points
+    )
 
     second_predictions = second_predictions + 5
     both_embeddings = np.append(first_embeddings, second_embeddings, axis=0)
@@ -65,36 +66,46 @@ def main():
 
     both_predictions_labelled = np.vectorize(labels_dict.get)(both_predictions)
 
-    reducer = umap.UMAP(random_state=42, verbose=True, min_dist=0.1, n_neighbors=15,
-                        n_components=dimensions)
+    reducer = umap.UMAP(
+        random_state=42,
+        verbose=True,
+        min_dist=0.1,
+        n_neighbors=15,
+        n_components=dimensions,
+    )
     mapper = reducer.fit(both_embeddings)
 
     if dimensions == 2:
-        project_root = first_embeddings_file.split("Results")[0]
-        vis_dir = f"{project_root}Visualisations/embeddings" \
-                  f"/joint/slide_{first_slide_name}_and_{second_slide_name}/"
-        plot_name = f"start_{subset_start}_end_{subset_end}.png"
-        print(f"saving plot to {vis_dir}{plot_name}")
-        plot = umap.plot.points(mapper, labels=both_predictions_labelled,
-                                color_key=colours_dict)
-        plot.figure.savefig(f"{vis_dir}{plot_name}")
+        save_dir = embeddings_results_path(
+            first_embeddings_file, first_lab_id, first_slide_name
+        )
+        save_dir = Path(*save_dir.parts[:-2])
+        save_dir = (
+            save_dir
+            / "joint"
+            / f"labs_{first_lab_id}_and_{second_lab_id}"
+            / f"slides_{first_slide_name}_and_{second_slide_name}"
+        )
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        plot_name = f"{start}-{end}.png"
+        print(f"saving plot to {save_dir / plot_name}")
+        plot = umap.plot.points(
+            mapper, labels=both_predictions_labelled, color_key=colours_dict
+        )
+        plot.figure.savefig(save_dir / plot_name)
     elif dimensions == 3:
         result = mapper.transform(both_embeddings)
-        custom_colours = np.array(
-            ["#6cd4a4", "#ae0848", "#979903", "#80b1d3", "#fc8c44",
-             "#24ff24", "#7b03fc", "#ffff6d", "#0f0cad", "#fc0352"])
+        first_colours = np.array([cell.colour for cell in organ.cell])
+        second_colours = np.array([cell.alt_colour for cell in organ.cell])
+        custom_colours = np.append(first_colours, second_colours, axis=0)
 
-        matplotlib.use("TkAgg")
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(result[:, 0], result[:, 1], result[:, 2],
-                   c=custom_colours[both_predictions], s=1)
+        plot_3d(organ, result, both_predictions, custom_colours)
         plt.show()
 
-    end = time.time()
-    duration = (end - start)
-    print(f"total time: {duration:.4f} s")
+    timer_end = time.time()
+    print(f"total time: {timer_end - timer_start:.4f} s")
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    typer.run(main)

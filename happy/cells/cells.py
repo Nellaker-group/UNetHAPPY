@@ -6,6 +6,7 @@ class Cell:
     label: str
     name: str
     colour: str
+    alt_colour: str
     id: int
 
     def __str__(self):
@@ -25,11 +26,11 @@ class Organ:
 
 
 PLACENTA = Organ(
-    Cell("CYT", "Cytotrophoblasts", "#24ff24", 0),
-    Cell("FIB", "Fibroblast", "#920000", 1),
-    Cell("HOF", "Hofbauer", "#ffff6d", 2),
-    Cell("SYN", "Syncytiotrophoblast", "#6db6ff", 3),
-    Cell("VEN", "Vascular Endothelial ", "#ff9600", 4),
+    Cell("CYT", "Cytotrophoblasts", "#24ff24", "#0d8519", 0),
+    Cell("FIB", "Fibroblast", "#920000", "#7b03fc", 1),
+    Cell("HOF", "Hofbauer", "#ffff6d", "#979903", 2),
+    Cell("SYN", "Syncytiotrophoblast", "#6db6ff", "#0f0cad", 3),
+    Cell("VEN", "Vascular Endothelial ", "#ff9600", "#734c0e", 4),
 )
 LIVER = Organ()
 ADIPOCYTE = Organ()
