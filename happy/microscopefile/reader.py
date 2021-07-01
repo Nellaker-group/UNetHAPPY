@@ -167,7 +167,7 @@ class Libvips(Reader):
 
     @property
     def reader(self):
-        autocrop = True if self.file_type == '.scn' else False
+        autocrop = self.file_type == '.scn'
         return pyvips.Image.new_from_file(
             self.slide_path, access="sequential", autocrop=autocrop
         )
