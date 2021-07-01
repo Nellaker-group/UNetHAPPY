@@ -31,7 +31,7 @@ def setup_model(model_id, out_features, device):
     model = build_cell_classifer(model_architecture, out_features)
     model.load_state_dict(torch.load(model_weights_path), strict=True)
 
-    model = torch.nn.DataParallel(model).to(device)
+    model = model.to(device)
     print("Pushed model to device")
     return model, model_architecture
 
@@ -79,7 +79,7 @@ def setup_data(
 # Setup or get path to embeddings hdf5 save location
 def setup_embedding_saving(project_name, run_id, cell_saving=True):
     embeddings_path = get_embeddings_file(project_name, run_id)
-    if not os.path.isfile(str(embeddings_path)):
+    if not os.path.isfile(embeddings_path):
         total_cells = db.get_total_num_nuclei(run_id)
         with h5py.File(embeddings_path, "w-") as f:
             f.create_dataset("predictions", (total_cells,), dtype="int8")
@@ -116,7 +116,7 @@ def run_cell_eval(
                     # evaluate model and set up saving the embeddings layer
                     embedding = torch.zeros((batch["img"].shape[0], 64))
                     handle = (
-                        cell_model.module.fc.embeddings_layer.register_forward_hook(
+                        cell_model.fc.embeddings_layer.register_forward_hook(
                             copy_data
                         )
                     )

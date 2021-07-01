@@ -32,7 +32,7 @@ def setup_model(init_from_coco, device, pre_trained_path=None):
             for param in child.parameters():
                 param.requires_grad = True
     model = model.to(device)
-    model = torch.nn.DataParallel(model).to(device)
+    # model = torch.nn.DataParallel(model).to(device)
     print("Model Loaded")
     return model
 
@@ -136,7 +136,7 @@ def validate_model(
     if prev_best_ap != 0 and avg_precs["val_all"] > prev_best_ap:
         name = f"model_mAP_{avg_precs['val_all']}.pt"
         model_weights_path = run_path / name
-        torch.save(model.module.state_dict(), model_weights_path)
+        torch.save(model.state_dict(), model_weights_path)
         print("Model saved")
 
     return avg_precs["val_all"]
@@ -144,6 +144,6 @@ def validate_model(
 
 def save_state(logger, model, hp, run_path):
     model.eval()
-    torch.save(model.module.state_dict(), run_path / "nuclei_final_model.pt")
+    torch.save(model.state_dict(), run_path / "nuclei_final_model.pt")
     hp.to_csv(run_path)
     logger.train_stats.to_csv(run_path / "nuclei_train_stats.csv", index=False)

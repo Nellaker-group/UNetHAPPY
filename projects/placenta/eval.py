@@ -51,8 +51,8 @@ def main(
         run_cell_pipeline: True if you want to perform cell classification
     """
     if cuda.is_available():
-        set_gpu_device()
-        device = "cuda"
+        device_id = set_gpu_device()
+        device = f"cuda:{device_id}"
     else:
         device = "cpu"
 

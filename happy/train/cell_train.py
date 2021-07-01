@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.metrics import accuracy_score
 from torch.optim.lr_scheduler import StepLR
 
 from happy.train.utils import get_confusion_matrix
@@ -44,7 +44,8 @@ def setup_model(model_name, init_from_coco, out_features, pre_trained_path, devi
                 param.requires_grad = True
 
     # Move to GPU and define the optimiser
-    model = torch.nn.DataParallel(model).to(device)
+    model = model.to(device)
+    # model = torch.nn.DataParallel(model).to(device)
     print("Model Loaded to device")
     return model, image_size
 
@@ -183,7 +184,7 @@ def validate_model(
 
     if prev_best_accuracy != 0 and val_accuracy > prev_best_accuracy:
         name = f"cell_model_accuracy_{round(val_accuracy, 4)}.pt"
-        torch.save(model.module.state_dict(), run_path / name)
+        torch.save(model.state_dict(), run_path / name)
         print("Model saved")
 
         # Generate confusion matrix for all the validation sets
@@ -208,6 +209,6 @@ def validation_confusion_matrices(organ, logger, pred, truth, datasets, run_path
 
 def save_state(logger, model, hp, run_path):
     model.eval()
-    torch.save(model.module.state_dict(), run_path / "cell_final_model.pt")
+    torch.save(model.state_dict(), run_path / "cell_final_model.pt")
     hp.to_csv(run_path)
     logger.train_stats.to_csv(run_path / "cell_train_stats.csv", index=False)
