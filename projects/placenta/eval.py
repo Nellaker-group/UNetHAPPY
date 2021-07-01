@@ -58,7 +58,7 @@ def main(
         # Start timer for nuclei evaluation
         start = time.time()
         # Perform all nuclei evaluation
-        nuclei_eval_pipeline(
+        run_id = nuclei_eval_pipeline(
             nuc_model_id,
             slide_id,
             run_id,
@@ -100,6 +100,7 @@ def nuclei_eval_pipeline(
         dataloader, model, pred_saver, score_threshold, max_detections
     )
     nuclei_eval.clean_up(pred_saver)
+    return pred_saver.id
 
 
 def cell_eval_pipeline(
