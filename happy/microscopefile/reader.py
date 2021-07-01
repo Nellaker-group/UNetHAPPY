@@ -32,14 +32,14 @@ class Reader(ABC):
         file_type = "." + os.path.split(slide_path)[1].split(".")[-1]
         if file_type in __LIBVIPS__:
             print("libvips format")
-            return Libvips(slide_path, lvl_x)
+            return Libvips(slide_path, file_type, lvl_x)
         elif file_type in __OPENSLIDE__:
             print("Openslide format")
-            return OpenSlideFile(slide_path, lvl_x)
+            return OpenSlideFile(slide_path, file_type, lvl_x)
         elif file_type in __BIOFORMATS__:
             print("Bioformat format")
             javabridge.start_vm(class_path=bioformats.JARS)
-            return BioFormatsFile(slide_path, lvl_x)
+            return BioFormatsFile(slide_path, file_type, lvl_x)
         else:
             raise Exception(
                 f'File format "{file_type}" not '
@@ -48,6 +48,10 @@ class Reader(ABC):
 
 
 class BioFormatsFile(Reader):
+    def __init__(self, slide_path, file_type, lvl_x):
+        super().__init__(slide_path, lvl_x)
+        self.file_type = file_type
+
     @property
     def reader(self):
         return bioformats.ImageReader(self.slide_path)
@@ -100,6 +104,10 @@ class BioFormatsFile(Reader):
 
 
 class OpenSlideFile(Reader):
+    def __init__(self, slide_path, file_type, lvl_x):
+        super().__init__(slide_path, lvl_x)
+        self.file_type = file_type
+
     @property
     def reader(self):
         return openslide.OpenSlide(self.slide_path)
@@ -153,9 +161,16 @@ class OpenSlideFile(Reader):
 
 
 class Libvips(Reader):
+    def __init__(self, slide_path, file_type, lvl_x):
+        super().__init__(slide_path, lvl_x)
+        self.file_type = file_type
+
     @property
     def reader(self):
-        return pyvips.Image.new_from_file(self.slide_path, access="sequential")
+        autocrop = True if self.file_type == '.scn' else False
+        return pyvips.Image.new_from_file(
+            self.slide_path, access="sequential", autocrop=autocrop
+        )
 
     @property
     def max_slide_width(self):
