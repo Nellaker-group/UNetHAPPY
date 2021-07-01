@@ -124,7 +124,7 @@ def cell_eval_pipeline(
     )
     # Setup or get path to embeddings hdf5 save location
     embeddings_path = cell_eval.setup_embedding_saving(
-        project_name, run_id, cell_saving
+        project_name, pred_saver.id, cell_saving
     )
     # Predict cell classes
     cell_eval.run_cell_eval(dataloader, model, pred_saver, embeddings_path, cell_saving)
