@@ -40,8 +40,8 @@ def main(
         compression="jpeg",
         Q=75,
         tile=True,
-        tile_width=256,
-        tile_height=256,
+        tile_width=1024,
+        tile_height=1024,
         bigtiff=True,
         pyramid=True,
     )
