@@ -58,7 +58,7 @@ def main(
         # Start timer for nuclei evaluation
         start = time.time()
         # Perform all nuclei evaluation
-        nuclei_eval_pipeline(
+        run_id = nuclei_eval_pipeline(
             nuc_model_id,
             slide_id,
             run_id,
@@ -100,6 +100,7 @@ def nuclei_eval_pipeline(
         dataloader, model, pred_saver, score_threshold, max_detections
     )
     nuclei_eval.clean_up(pred_saver)
+    return pred_saver.id
 
 
 def cell_eval_pipeline(
@@ -124,7 +125,7 @@ def cell_eval_pipeline(
     )
     # Setup or get path to embeddings hdf5 save location
     embeddings_path = cell_eval.setup_embedding_saving(
-        project_name, run_id, cell_saving
+        project_name, pred_saver.id, cell_saving
     )
     # Predict cell classes
     cell_eval.run_cell_eval(dataloader, model, pred_saver, embeddings_path, cell_saving)
