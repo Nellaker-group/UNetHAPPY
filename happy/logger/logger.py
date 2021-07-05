@@ -80,8 +80,7 @@ class Logger:
         plot_confusion_matrix(cm, dataset_name, save_dir)
 
     def setup_train_stats(self, dataset_names, metrics):
-        columns = ["epochs"]
-
+        columns = []
         for name in dataset_names:
             for metric in metrics:
                 col = f"{name}_{metric}"

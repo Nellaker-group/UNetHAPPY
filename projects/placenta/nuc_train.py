@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import typer
 import torch
@@ -23,9 +23,9 @@ def main(
     annot_dir: str = typer.Option(...),
     dataset_names: List[str] = typer.Option([]),
     model_name: str = "retinanet",
-    pre_trained: str = "",
+    pre_trained: Optional[str] = None,
     epochs: int = 5,
-    batch: int = 200,
+    batch: int = 5,
     learning_rate: float = 1e-5,
     init_from_coco: bool = False,
     vis: bool = True,

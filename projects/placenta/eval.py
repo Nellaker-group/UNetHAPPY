@@ -1,4 +1,5 @@
 import time
+from typing import Optional
 
 import typer
 from torch import cuda
@@ -12,10 +13,10 @@ import happy.db.eval_runs_interface as db
 def main(
     project_name: str = typer.Option(...),
     organ_name: str = typer.Option(...),
-    nuc_model_id: int = -1,
-    cell_model_id: int = -1,
-    run_id: int = -1,
-    slide_id: int = -1,
+    nuc_model_id: int = 1,
+    cell_model_id: int = 2,
+    run_id: Optional[int] = None,
+    slide_id: Optional[int] = None,
     nuc_num_workers: int = 20,
     cell_num_workers: int = 16,
     score_threshold: float = 0.3,
@@ -39,8 +40,8 @@ def main(
         organ_name: name of organ for getting the cells
         nuc_model_id: id of the nuclei model for inference
         cell_model_id: id of the cell model for inference
-        run_id: id of an existing run if continuing or of a new run
-        slide_id: id of the WSI
+        run_id: id of an existing run or of a new run. If none, will auto increment
+        slide_id: id of the WSI. Only optional for cell eval.
         nuc_num_workers: number of workers for parallel processing of nuclei inference
         cell_num_workers: number of workers for parallel processing of cell inference
         score_threshold: nuclei network confidence cutoff for saving predictions

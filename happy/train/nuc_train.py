@@ -146,4 +146,4 @@ def save_state(logger, model, hp, run_path):
     model.eval()
     torch.save(model.state_dict(), run_path / "nuclei_final_model.pt")
     hp.to_csv(run_path)
-    logger.train_stats.to_csv(run_path / "nuclei_train_stats.csv", index=False)
+    logger.train_stats.to_csv(run_path / "nuclei_train_stats.csv")
