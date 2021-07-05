@@ -123,10 +123,11 @@ def single_batch(phase, optimizer, model, data, logger, batch_count, device):
 def validate_model(
     logger, epoch_num, prev_best_ap, model, run_path, dataloaders, device
 ):
-    dataloaders.pop("train")
+    val_dataloaders = dataloaders.copy()
+    val_dataloaders.pop("train")
     avg_precs = {}
-    for dataset_name in dataloaders:
-        dataset = dataloaders[dataset_name].dataset
+    for dataset_name in val_dataloaders:
+        dataset = val_dataloaders[dataset_name].dataset
         ap = evaluate_ap(dataset, model, device)
         nuc_ap = round(ap[0][0], 4)
         logger.log_ap(dataset_name, epoch_num, nuc_ap)

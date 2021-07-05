@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from tqdm import tqdm
 
 
 def evaluate_ap(
@@ -113,7 +114,7 @@ def _get_detections(dataset, model, device, score_threshold=0.15, max_detections
     ]
 
     model.eval()
-    for index in range(len(dataset)):
+    for index in tqdm(range(len(dataset))):
         data = dataset[index]
         scale = data["scale"]
 
@@ -123,7 +124,8 @@ def _get_detections(dataset, model, device, score_threshold=0.15, max_detections
             .permute(2, 0, 1)
             .to(device)
             .float()
-            .unsqueeze(dim=0)
+            .unsqueeze(dim=0),
+            device,
         )
         scores = scores.cpu().numpy()
         labels = labels.cpu().numpy()
@@ -164,8 +166,6 @@ def _get_detections(dataset, model, device, score_threshold=0.15, max_detections
             for label in range(dataset.num_classes()):
                 all_detections[index][label] = np.zeros((0, 5))
 
-        print(f"{index + 1}/{len(dataset)}")
-
     return all_detections
 
 
@@ -191,8 +191,6 @@ def _get_annotations(dataset):
             all_annotations[i][label] = annotations[
                 annotations[:, 4] == label, :4
             ].copy()
-
-        print(f"{i + 1}/{len(dataset)}")
 
     return all_annotations
 

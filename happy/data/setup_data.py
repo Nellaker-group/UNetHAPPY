@@ -51,12 +51,7 @@ def setup_cell_datasets(organ, annot_dir, dataset_names, image_size, multiple_va
 
 def get_nuclei_dataset(split, annot_dir, dataset_names):
     augmentations = True if split == "train" else False
-    transform = _setup_transforms(
-        augmentations,
-        nuclei=True,
-        padding=False,
-        scale_annot=False,
-    )
+    transform = _setup_transforms(augmentations, nuclei=True)
     dataset = NucleiDataset(
         annotations_dir=annot_dir,
         dataset_names=dataset_names,
@@ -68,13 +63,7 @@ def get_nuclei_dataset(split, annot_dir, dataset_names):
 
 def get_cell_dataset(organ, split, annot_dir, dataset_names, image_size, oversampled):
     augmentations = True if split == "train" else False
-    transform = _setup_transforms(
-        augmentations,
-        image_size=image_size,
-        nuclei=False,
-        padding=False,
-        scale_annot=False,
-    )
+    transform = _setup_transforms(augmentations, image_size=image_size, nuclei=False)
     dataset = CellDataset(
         organ=organ,
         annotations_dir=annot_dir,
@@ -86,9 +75,7 @@ def get_cell_dataset(organ, split, annot_dir, dataset_names, image_size, oversam
     return dataset
 
 
-def _setup_transforms(
-    augmentations, image_size=None, nuclei=True, padding=True, scale_annot=True
-):
+def _setup_transforms(augmentations, image_size=None, nuclei=True):
     transform = []
     if augmentations:
         transform.append(_augmentations(nuclei))
@@ -100,8 +87,8 @@ def _setup_transforms(
             Resizer(
                 min_side=image_size[0],
                 max_side=image_size[1],
-                padding=padding,
-                scale_annotations=scale_annot,
+                padding=False,
+                scale_annotations=False,
             )
         )
     return transforms.Compose(transform)

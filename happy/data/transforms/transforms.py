@@ -17,7 +17,7 @@ class Resizer(object):
         self.scale_annotations = scale_annotations
 
     def __call__(self, sample):
-        image, annots = sample["img"], sample["annot"]
+        image, annots = sample["img"], sample["annot"].astype(np.float64)
         rows, cols, _ = image.shape
 
         min_side_scale, max_side_scale = _compute_scale(
