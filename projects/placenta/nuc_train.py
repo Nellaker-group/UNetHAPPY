@@ -44,7 +44,9 @@ def main(
         vis,
     )
     multiple_val_sets = True if len(hp.dataset_names) > 1 else False
-    project_dir = Path(__file__).parent.parent.parent / "projects" / project_name
+    project_dir = (
+        Path(__file__).absolute().parent.parent.parent / "projects" / project_name
+    )
 
     # Defines the Visdom visualisations (make sure the ports are tunneling)
     logger = Logger(hp.vis)
