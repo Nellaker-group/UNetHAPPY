@@ -1,97 +1,39 @@
 import collections
 
-import pandas as pd
-
-from happy.utils.vis_plotter import VisdomLinePlotter
-from happy.train.utils import plot_confusion_matrix
+from happy.logger.appenders import Console, File, Visdom
 
 
 class Logger:
-    def __init__(self, vis):
-        self.plot_to_vis = True if vis else False
-        self.vis = VisdomLinePlotter() if vis else None
+    def __init__(self, vis, dataset_names, metrics):
         self.loss_hist = collections.deque(maxlen=500)
+        self.appenders = self._get_appenders(vis, dataset_names, metrics)
 
     def log_ap(self, split_name, epoch_num, ap):
-        print(f"{split_name} AP: {ap}")
-
-        self._add_to_train_stats(epoch_num, split_name, "AP", ap)
-
-        if self.plot_to_vis and split_name != "empty":
-            self.vis.plot(
-                "AP",
-                split_name,
-                "AP per Epoch",
-                "Epochs",
-                "AP",
-                epoch_num,
-                ap,
-            )
+        for a in self.appenders:
+            self.appenders[a].log_ap(split_name, epoch_num, ap)
 
     def log_accuracy(self, split_name, epoch_num, accuracy):
-        accuracy = round(accuracy, 4)
-        print(f"{split_name} accuracy: {accuracy}")
-
-        self._add_to_train_stats(epoch_num, split_name, "accuracy", accuracy)
-
-        if self.plot_to_vis:
-            self.vis.plot(
-                "Accuracy",
-                split_name,
-                "Accuracy per Epoch (%)",
-                "Epochs",
-                "Accuracy (%)",
-                epoch_num,
-                accuracy,
-            )
+        for a in self.appenders:
+            self.appenders[a].log_accuracy(split_name, epoch_num, round(accuracy, 4))
 
     def log_loss(self, split_name, epoch_num, loss):
-        loss = round(loss, 4)
-        print(f"{split_name} loss: {loss}")
-
-        self._add_to_train_stats(epoch_num, split_name, "loss", loss)
-
-        if self.plot_to_vis:
-            self.vis.plot(
-                "loss",
-                split_name,
-                "Loss per Epoch",
-                "Epochs",
-                "Loss",
-                epoch_num,
-                loss,
-            )
+        for a in self.appenders:
+            self.appenders[a].log_loss(split_name, epoch_num, round(loss, 4))
 
     def log_batch_loss(self, batch_count, loss):
-        loss = round(loss, 4)
-        if self.plot_to_vis:
-            self.vis.plot(
-                "batch loss",
-                "train",
-                "Loss Per Batch",
-                "Iteration",
-                "Loss",
-                batch_count,
-                loss,
-            )
+        for a in self.appenders:
+            self.appenders[a].log_batch_loss(batch_count, round(loss, 4))
 
     def log_confusion_matrix(self, cm, dataset_name, save_dir):
-        print(cm)
-        plot_confusion_matrix(cm, dataset_name, save_dir)
+        for a in self.appenders:
+            self.appenders[a].log_confusion_matrix(cm, dataset_name, save_dir)
 
-    def setup_train_stats(self, dataset_names, metrics):
-        columns = []
-        for name in dataset_names:
-            for metric in metrics:
-                col = f"{name}_{metric}"
-                columns.append(col)
+    def to_csv(self, save_path):
+        file_appender = self.appenders['file']
+        file_appender.train_stats.to_csv(save_path)
 
-        self.train_stats = pd.DataFrame(columns=columns)
-
-    def _add_to_train_stats(self, epoch_num, dataset_name, metric_name, metric):
-        column_name = f"{dataset_name}_{metric_name}"
-        if not epoch_num in self.train_stats.index:
-            row = pd.Series([metric], index=[column_name])
-            self.train_stats = self.train_stats.append(row, ignore_index=True)
-        else:
-            self.train_stats.loc[epoch_num][column_name] = metric
+    def _get_appenders(self, vis, dataset_names, metrics):
+        appenders = {'console': Console(), "file": File(dataset_names, metrics)}
+        if vis:
+            appenders["visdom"] = Visdom()
+        return appenders

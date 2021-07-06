@@ -108,10 +108,10 @@ activate the conda environment (in that order). You can use a simple shell scrip
 automating this:
 
 ```bash
-source start_up_script.sh
+source startup_script.sh
 ```
 
-start_up_script.sh:
+startup_script.sh:
 
 ```bash
 #!/usr/bin/bash
@@ -137,7 +137,7 @@ evaluation so that the code knows the slides' paths and metadata which will be u
 during the run.
 
 All model predictions are saved directly to the database and can be turned into
-.tsv files that QuPath can read with `/qupath/coord_to_tsv.py`.
+.tsv files that QuPath can read with `qupath/coord_to_tsv.py`.
 
 Embedding vectors of the cell classifier, their class predictions, network confidence,
 and WSI nuclei (x,y) coordinates are saved as an hdf5 file in 
@@ -173,15 +173,13 @@ The latter of these is WIP while the Datasets class is being refactored.
 
 ### Training
 
-(Currently under major refactor. Will update when refactor is complete.)
-
 Main training scripts for nuclei detector and cell classifier are found in
-`/projects/{yourproject}/nuc_train.py` and `/projects/{yourproject}/celltrain.py` 
+`/projects/{yourproject}/nuc_train.py` and `/projects/{yourproject}/cell_train.py` 
 respectively. As mentioned earlier, these have not currently been integrated with the 
 database.
 
-Raw training dataset images go in `/projects/{yourproject}/datasets/` and their ground 
-truth annotation csv files go in `/projects/{yourproject}/annotations/`. Separate 
+Raw training dataset images go in `/projects/{yourproject}/datasets/` and their 
+groundtruth annotation csv files go in `/projects/{yourproject}/annotations/`. Separate 
 training datasets can be combined into one training/validation dataset by the dataloader 
 so long as the directory structure convention is followed.
 

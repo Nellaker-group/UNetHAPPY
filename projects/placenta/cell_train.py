@@ -32,6 +32,28 @@ def main(
     init_from_coco: bool = False,
     vis: bool = True,
 ):
+    """For training a cell classification model
+
+    Multiple dataset can be combined by passing in 'dataset_names' multiple times with
+    the correct dataset directory name.
+
+    Visualising the batch and epoch level training stats requires having a visdom
+    server running on port 8998.
+
+    Args:
+        project_name: name of the project dir to save results to
+        organ_name: name of organ for getting the cells
+        exp_name: name of the experiment directory to save results to
+        annot_dir: relative path to annotations
+        dataset_names: name of directory containing one dataset
+        model_name: architecture name (currently 'resnet-50 or 'inceptionresnetv2')
+        pre_trained: path to pretrained weights if starting from local weights
+        epochs: number of epochs to train for
+        batch: batch size
+        learning_rate: learning rate which decreases every 8 epochs
+        init_from_coco: whether to use imagenet pretrained weights
+        vis: whether to send stats to visdom for visualisation
+    """
     # TODO: reimplement loading hps from file later (with database)
     hp = Hyperparameters(
         exp_name,
@@ -51,9 +73,6 @@ def main(
         Path(__file__).absolute().parent.parent.parent / "projects" / project_name
     )
 
-    # Defines the Visdom visualisations (make sure the ports are tunneling)
-    logger = Logger(hp.vis)
-
     # Setup the model. Can be pretrained from coco or own weights.
     model, image_size = cell_train.setup_model(
         model_name, hp.init_from_coco, len(organ.cells), hp.pre_trained, device
@@ -64,8 +83,8 @@ def main(
         organ, project_dir / annot_dir, hp, image_size, multiple_val_sets
     )
 
-    # Setup recording of stats per epoch
-    logger.setup_train_stats(list(dataloaders.keys()), ["loss", "accuracy"])
+    # Setup recording of stats per batch and epoch
+    logger = Logger(hp.vis, list(dataloaders.keys()), ["loss", "accuracy"])
 
     # Setup training parameters
     optimizer, criterion, scheduler = cell_train.setup_training_params(

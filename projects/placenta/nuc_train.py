@@ -30,6 +30,27 @@ def main(
     init_from_coco: bool = False,
     vis: bool = True,
 ):
+    """For training a nuclei detection model
+
+    Multiple dataset can be combined by passing in 'dataset_names' multiple times with
+    the correct dataset directory name.
+
+    Visualising the batch and epoch level training stats requires having a visdom
+    server running on port 8998.
+
+    Args:
+        project_name: name of the project dir to save results to
+        exp_name: name of the experiment directory to save results to
+        annot_dir: relative path to annotations
+        dataset_names: name of directory containing one dataset
+        model_name: architecture name (currently just 'retinanet')
+        pre_trained: path to pretrained weights if starting from local weights
+        epochs: number of epochs to train for
+        batch: batch size
+        learning_rate: learning rate which decreases every 8 epochs
+        init_from_coco: whether to use coco pretrained weights
+        vis: whether to send stats to visdom for visualisation
+    """
     # TODO: reimplement loading hps from file later (with database)
     hp = Hyperparameters(
         exp_name,
@@ -48,9 +69,6 @@ def main(
         Path(__file__).absolute().parent.parent.parent / "projects" / project_name
     )
 
-    # Defines the Visdom visualisations (make sure the ports are tunneling)
-    logger = Logger(hp.vis)
-
     # Setup the model. Can be pretrained from coco or own weights.
     model = nuc_train.setup_model(hp.init_from_coco, device, pre_trained)
 
@@ -60,8 +78,8 @@ def main(
     # Setup training parameters
     optimizer, scheduler = nuc_train.setup_training_params(model, hp.learning_rate)
 
-    # Setup recording of stats per epoch
-    logger.setup_train_stats(list(dataloaders.keys()), ["loss", "AP"])
+    # Setup recording of stats per batch and epoch
+    logger = Logger(hp.vis, list(dataloaders.keys()), ["loss", "AP"])
 
     # Saves each run by its timestamp
     run_path = nuc_train.setup_run(project_dir, exp_name)
