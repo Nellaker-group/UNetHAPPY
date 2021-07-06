@@ -138,7 +138,7 @@ def validate_model(
         name = f"model_mAP_{avg_precs['val_all']}.pt"
         model_weights_path = run_path / name
         torch.save(model.state_dict(), model_weights_path)
-        print("Model saved")
+        print("Best model saved")
 
     return avg_precs["val_all"]
 

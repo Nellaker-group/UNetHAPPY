@@ -8,7 +8,6 @@ from sklearn.metrics import confusion_matrix
 def get_confusion_matrix(organ, pred, truth):
     cell_labels = [cell.label for cell in organ.cells]
     cm = confusion_matrix(pred, truth)
-    print(cm)
     return pd.DataFrame(cm, columns=cell_labels, index=cell_labels).astype(int)
 
 

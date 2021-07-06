@@ -42,6 +42,7 @@ class Console(_Appender):
         print(f"{split_name} loss: {loss}")
 
     def log_confusion_matrix(self, cm, dataset_name, save_dir):
+        print(f"{dataset_name} confusion matrix:")
         print(cm)
 
 
