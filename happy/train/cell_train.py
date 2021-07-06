@@ -180,7 +180,9 @@ def validate_model(
     ground_truths,
     datasets,
 ):
-    val_accuracy = logger.train_stats.iloc[epoch_num]["val_all_accuracy"]
+    val_accuracy = logger.appenders["file"].train_stats.iloc[epoch_num][
+        "val_all_accuracy"
+    ]
 
     if prev_best_accuracy != 0 and val_accuracy > prev_best_accuracy:
         name = f"cell_model_accuracy_{round(val_accuracy, 4)}.pt"
