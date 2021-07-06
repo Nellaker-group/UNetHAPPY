@@ -13,6 +13,8 @@ from happy.train import nuc_train
 if torch.cuda.is_available():
     set_gpu_device()
     device = "cuda"
+    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.enabled = True
 else:
     device = "cpu"
 
@@ -47,7 +49,8 @@ def main(
         model_name: architecture name (currently just 'retinanet')
         pre_trained: path to pretrained weights if starting from local weights
         epochs: number of epochs to train for
-        batch: batch size
+        batch: batch size of the training set
+        val_batch: batch size of the validation sets
         learning_rate: learning rate which decreases every 8 epochs
         init_from_coco: whether to use coco pretrained weights
         vis: whether to send stats to visdom for visualisation

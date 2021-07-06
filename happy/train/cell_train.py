@@ -17,7 +17,7 @@ def setup_data(organ, annotations_path, hp, image_size, multiple_val_sets, val_b
     datasets = setup_cell_datasets(
         organ, annotations_path, hp.dataset_names, image_size, multiple_val_sets
     )
-    dataloaders = setup_dataloaders(False, datasets, 15, hp.batch, val_batch)
+    dataloaders = setup_dataloaders(False, datasets, 10, hp.batch, val_batch)
     return dataloaders
 
 
