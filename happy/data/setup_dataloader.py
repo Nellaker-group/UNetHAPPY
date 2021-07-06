@@ -5,7 +5,7 @@ from happy.data.samplers.samplers import AspectRatioBasedSampler
 from happy.data.transforms.collaters import cell_collater, collater
 
 
-def setup_dataloaders(nuclei, datasets, num_workers, batch_size):
+def setup_dataloaders(nuclei, datasets, num_workers, train_batch_size, val_batch_size):
     collate_fn = collater if nuclei else cell_collater
 
     dataloaders = {}
@@ -17,20 +17,22 @@ def setup_dataloaders(nuclei, datasets, num_workers, batch_size):
                 collate_fn,
                 num_workers,
                 nuclei,
-                batch_size,
+                train_batch_size,
             )
         else:
             dataloaders[dataset] = get_dataloader(
-                "val", datasets[dataset], collate_fn, num_workers, nuclei, batch_size
+                "val",
+                datasets[dataset],
+                collate_fn,
+                num_workers,
+                nuclei,
+                val_batch_size,
             )
     print("Dataloaders configured")
     return dataloaders
 
 
-def get_dataloader(
-    split, dataset, collater, num_workers, nuclei, train_batch_size=None
-):
-    batch_size = train_batch_size if split == "train" else 1
+def get_dataloader(split, dataset, collater, num_workers, nuclei, batch_size):
     if split == "train" and nuclei == False:
         sampler = BatchSampler(
             WeightedRandomSampler(

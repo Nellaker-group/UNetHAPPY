@@ -32,16 +32,15 @@ def setup_model(init_from_coco, device, pre_trained_path=None):
             for param in child.parameters():
                 param.requires_grad = True
     model = model.to(device)
-    # model = torch.nn.DataParallel(model).to(device)
-    print("Model Loaded")
+    print("Model loaded to device")
     return model
 
 
-def setup_data(annotations_path, hp, multiple_val_sets):
+def setup_data(annotations_path, hp, multiple_val_sets, val_batch):
     datasets = setup_nuclei_datasets(
         annotations_path, hp.dataset_names, multiple_val_sets
     )
-    dataloaders = setup_dataloaders(True, datasets, 3, hp.batch)
+    dataloaders = setup_dataloaders(True, datasets, 3, hp.batch, val_batch)
     return dataloaders
 
 

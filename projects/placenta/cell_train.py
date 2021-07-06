@@ -28,6 +28,7 @@ def main(
     pre_trained: Optional[str] = None,
     epochs: int = 5,
     batch: int = 200,
+    val_batch: int = 50,
     learning_rate: float = 1e-5,
     init_from_coco: bool = False,
     vis: bool = True,
@@ -80,7 +81,7 @@ def main(
 
     # Get all datasets and dataloaders, including separate validation datasets
     dataloaders = cell_train.setup_data(
-        organ, project_dir / annot_dir, hp, image_size, multiple_val_sets
+        organ, project_dir / annot_dir, hp, image_size, multiple_val_sets, val_batch
     )
 
     # Setup recording of stats per batch and epoch

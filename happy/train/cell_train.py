@@ -13,11 +13,11 @@ from happy.data.setup_data import setup_cell_datasets
 from happy.data.setup_dataloader import setup_dataloaders
 
 
-def setup_data(organ, annotations_path, hp, image_size, multiple_val_sets):
+def setup_data(organ, annotations_path, hp, image_size, multiple_val_sets, val_batch):
     datasets = setup_cell_datasets(
         organ, annotations_path, hp.dataset_names, image_size, multiple_val_sets
     )
-    dataloaders = setup_dataloaders(False, datasets, 10, hp.batch)
+    dataloaders = setup_dataloaders(False, datasets, 15, hp.batch, val_batch)
     return dataloaders
 
 
@@ -45,8 +45,7 @@ def setup_model(model_name, init_from_coco, out_features, pre_trained_path, devi
 
     # Move to GPU and define the optimiser
     model = model.to(device)
-    # model = torch.nn.DataParallel(model).to(device)
-    print("Model Loaded to device")
+    print("Model loaded to device")
     return model, image_size
 
 

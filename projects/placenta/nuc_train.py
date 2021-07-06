@@ -26,6 +26,7 @@ def main(
     pre_trained: Optional[str] = None,
     epochs: int = 5,
     batch: int = 5,
+    val_batch: int = 5,
     learning_rate: float = 1e-5,
     init_from_coco: bool = False,
     vis: bool = True,
@@ -73,7 +74,7 @@ def main(
     model = nuc_train.setup_model(hp.init_from_coco, device, pre_trained)
 
     # Get all datasets and dataloaders, including separate validation datasets
-    dataloaders = nuc_train.setup_data(project_dir / annot_dir, hp, multiple_val_sets)
+    dataloaders = nuc_train.setup_data(project_dir / annot_dir, hp, multiple_val_sets, val_batch)
 
     # Setup training parameters
     optimizer, scheduler = nuc_train.setup_training_params(model, hp.learning_rate)
