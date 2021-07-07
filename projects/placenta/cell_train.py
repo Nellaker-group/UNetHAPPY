@@ -30,7 +30,7 @@ def main(
     pre_trained: Optional[str] = None,
     num_workers: int = 12,
     epochs: int = 5,
-    batch: int = 200,
+    batch: int = 400,
     val_batch: int = 200,
     learning_rate: float = 1e-5,
     init_from_coco: bool = False,
