@@ -28,9 +28,10 @@ def main(
     dataset_names: List[str] = typer.Option([]),
     model_name: str = "resnet-50",
     pre_trained: Optional[str] = None,
+    num_workers: int = 12,
     epochs: int = 5,
     batch: int = 200,
-    val_batch: int = 50,
+    val_batch: int = 200,
     learning_rate: float = 1e-5,
     init_from_coco: bool = False,
     vis: bool = True,
@@ -51,6 +52,7 @@ def main(
         dataset_names: name of directory containing one dataset
         model_name: architecture name (currently 'resnet-50 or 'inceptionresnetv2')
         pre_trained: path to pretrained weights if starting from local weights
+        num_workers: number of workers for parallel processing
         epochs: number of epochs to train for
         batch: batch size of the training set
         val_batch: batch size of the validation sets
@@ -84,7 +86,13 @@ def main(
 
     # Get all datasets and dataloaders, including separate validation datasets
     dataloaders = cell_train.setup_data(
-        organ, project_dir / annot_dir, hp, image_size, multiple_val_sets, val_batch
+        organ,
+        project_dir / annot_dir,
+        hp,
+        image_size,
+        num_workers,
+        multiple_val_sets,
+        val_batch,
     )
 
     # Setup recording of stats per batch and epoch

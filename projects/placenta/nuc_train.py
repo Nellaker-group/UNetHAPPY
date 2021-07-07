@@ -26,6 +26,7 @@ def main(
     dataset_names: List[str] = typer.Option([]),
     model_name: str = "retinanet",
     pre_trained: Optional[str] = None,
+    num_workers: int = 3,
     epochs: int = 5,
     batch: int = 5,
     val_batch: int = 5,
@@ -48,6 +49,7 @@ def main(
         dataset_names: name of directory containing one dataset
         model_name: architecture name (currently just 'retinanet')
         pre_trained: path to pretrained weights if starting from local weights
+        num_workers: number of workers for parallel processing
         epochs: number of epochs to train for
         batch: batch size of the training set
         val_batch: batch size of the validation sets
@@ -77,7 +79,9 @@ def main(
     model = nuc_train.setup_model(hp.init_from_coco, device, pre_trained)
 
     # Get all datasets and dataloaders, including separate validation datasets
-    dataloaders = nuc_train.setup_data(project_dir / annot_dir, hp, multiple_val_sets, val_batch)
+    dataloaders = nuc_train.setup_data(
+        project_dir / annot_dir, hp, multiple_val_sets, num_workers, val_batch
+    )
 
     # Setup training parameters
     optimizer, scheduler = nuc_train.setup_training_params(model, hp.learning_rate)
