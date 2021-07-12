@@ -52,7 +52,6 @@ def setup_data(slide_id, run_id, model_id, overlap, num_workers):
         num_workers=num_workers,
         collate_fn=collater,
         batch_size=2,
-        pin_memory=True,
     )
     print("dataloader ready")
     return dataloader, pred_saver

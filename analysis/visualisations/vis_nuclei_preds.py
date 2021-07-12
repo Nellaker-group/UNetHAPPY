@@ -83,7 +83,6 @@ def main(
     state_dict = torch.load(pre_trained)
     model = load_weights(state_dict, model)
     model = model.to(device)
-    model = torch.nn.DataParallel(model).to(device)
     model.eval()
     print("Pushed model to device")
 

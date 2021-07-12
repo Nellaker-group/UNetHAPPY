@@ -68,7 +68,6 @@ def setup_data(
     dataloader = DataLoader(
         dataset,
         num_workers=num_workers,
-        pin_memory=True,
         collate_fn=cell_collater,
         batch_size=batch_size,
     )

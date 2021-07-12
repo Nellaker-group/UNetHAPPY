@@ -2,7 +2,7 @@ import time
 from typing import Optional
 
 import typer
-from torch import cuda
+from torch import backends
 
 from happy.cells.cells import get_organ
 from happy.utils.utils import set_gpu_device
@@ -51,11 +51,11 @@ def main(
         run_nuclei_pipeline: True if you want to perform nuclei detection
         run_cell_pipeline: True if you want to perform cell classification
     """
-    if cuda.is_available():
-        device_id = set_gpu_device()
-        device = f"cuda:{device_id}"
-    else:
-        device = "cpu"
+    # Assumes we are always using cuda GPUs for eval
+    device_id = set_gpu_device()
+    device = f"cuda:{device_id}"
+    backends.cudnn.benchmark = True
+    backends.cudnn.enabled = True
 
     # Create database connection
     db.init()
