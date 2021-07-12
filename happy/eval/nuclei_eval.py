@@ -41,7 +41,7 @@ def setup_data(slide_id, run_id, model_id, overlap, num_workers):
     )
     pred_saver = prediction_saver.PredictionSaver(ms_file)
     print("loading dataset")
-    remaining_data = np.array(db.get_remaining_tiles(run_id))
+    remaining_data = np.array(db.get_remaining_tiles(ms_file.id))
     curr_data_set = NucleiDataset(
         ms_file, remaining_data, transform=transforms.Compose([Normalizer(), Resizer()])
     )
