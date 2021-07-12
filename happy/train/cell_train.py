@@ -44,7 +44,7 @@ def setup_model(
 
     # Move to GPU and define the optimiser
     model = model.to(device)
-    print(f"Most layers frozen is {frozen}")
+    print(f"Frozen layers is {frozen}")
     print("Model loaded to device")
     return model, image_size
 

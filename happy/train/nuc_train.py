@@ -29,7 +29,7 @@ def setup_model(init_from_coco, device, frozen=True, pre_trained_path=None):
         param.requires_grad = True
 
     model = model.to(device)
-    print(f"Most layers frozen is {frozen}")
+    print(f"Frozen layers is {frozen}")
     print("Model loaded to device")
     return model
 

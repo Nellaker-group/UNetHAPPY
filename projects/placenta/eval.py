@@ -5,7 +5,7 @@ import typer
 from torch import backends
 
 from happy.cells.cells import get_organ
-from happy.utils.utils import set_gpu_device
+from happy.utils.utils import get_device
 from happy.eval import nuclei_eval, cell_eval
 import happy.db.eval_runs_interface as db
 
@@ -51,11 +51,7 @@ def main(
         run_nuclei_pipeline: True if you want to perform nuclei detection
         run_cell_pipeline: True if you want to perform cell classification
     """
-    # Assumes we are always using cuda GPUs for eval
-    device_id = set_gpu_device()
-    device = f"cuda:{device_id}"
-    backends.cudnn.benchmark = True
-    backends.cudnn.enabled = True
+    device = get_device()
 
     # Create database connection
     db.init()

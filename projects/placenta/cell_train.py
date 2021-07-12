@@ -2,22 +2,12 @@ from pathlib import Path
 from typing import List, Optional
 
 import typer
-import torch
 
 from happy.utils.hyperparameters import Hyperparameters
-from happy.utils.utils import set_gpu_device
+from happy.utils.utils import get_device
 from happy.logger.logger import Logger
 from happy.cells.cells import get_organ
 from happy.train import cell_train
-
-
-if torch.cuda.is_available():
-    set_gpu_device()
-    device = "cuda"
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cudnn.enabled = True
-else:
-    device = "cpu"
 
 
 def main(
@@ -62,6 +52,8 @@ def main(
         frozen: whether to freeze most of the layers. True for only fine-tuning
         vis: whether to send stats to visdom for visualisation
     """
+    device = get_device()
+
     # TODO: reimplement loading hps from file later (with database)
     hp = Hyperparameters(
         exp_name,
