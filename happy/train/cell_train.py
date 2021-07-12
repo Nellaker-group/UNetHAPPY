@@ -23,30 +23,28 @@ def setup_data(
     return dataloaders
 
 
-def setup_model(model_name, init_from_coco, out_features, pre_trained_path, device):
+def setup_model(
+    model_name, init_from_coco, out_features, pre_trained_path, frozen, device
+):
     model = build_cell_classifer(model_name, out_features)
     image_size = (299, 299) if model_name == "inceptionresnetv2" else (224, 224)
 
     if not init_from_coco:
         model.load_state_dict(torch.load(pre_trained_path), strict=True)
-        for child in model.children():
-            for param in child.parameters():
-                param.requires_grad = True
+
+    for child in model.children():
+        for param in child.parameters():
+            param.requires_grad = not frozen
+    if model_name == "inceptionresnetv2":
+        for param in model.last_linear.parameters():
+            param.requires_grad = True
     else:
-        # Freeze weights of everything except classification layer
-        print("Fine tuning classifier layer only. All else frozen")
-        for child in model.children():
-            for param in child.parameters():
-                param.requires_grad = False
-        if model_name == "inceptionresnetv2":
-            for param in model.last_linear.parameters():
-                param.requires_grad = True
-        else:
-            for param in model.fc.parameters():
-                param.requires_grad = True
+        for param in model.fc.parameters():
+            param.requires_grad = True
 
     # Move to GPU and define the optimiser
     model = model.to(device)
+    print(f"Most layers frozen is {frozen}")
     print("Model loaded to device")
     return model, image_size
 

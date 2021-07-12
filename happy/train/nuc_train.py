@@ -12,26 +12,24 @@ from happy.data.setup_data import setup_nuclei_datasets
 from happy.data.setup_dataloader import setup_dataloaders
 
 
-def setup_model(init_from_coco, device, pre_trained_path=None):
+def setup_model(init_from_coco, device, frozen=True, pre_trained_path=None):
     model = retinanet.build_retina_net(
         num_classes=1, device=device, pretrained=init_from_coco, resnet_depth=101
     )
-    if init_from_coco:
-        for child in model.children():
-            for param in child.parameters():
-                param.requires_grad = False
-        for param in model.classificationModel.parameters():
-            param.requires_grad = True
-        for param in model.regressionModel.parameters():
-            param.requires_grad = True
-    else:
+    if not init_from_coco:
         state_dict = torch.load(pre_trained_path)
-        # Removes the module string from the keys if it's there.
         model = load_weights(state_dict, model)
-        for child in model.children():
-            for param in child.parameters():
-                param.requires_grad = True
+
+    for child in model.children():
+        for param in child.parameters():
+            param.requires_grad = not frozen
+    for param in model.classificationModel.parameters():
+        param.requires_grad = True
+    for param in model.regressionModel.parameters():
+        param.requires_grad = True
+
     model = model.to(device)
+    print(f"Most layers frozen is {frozen}")
     print("Model loaded to device")
     return model
 
@@ -90,7 +88,7 @@ def train(epochs, model, dataloaders, optimizer, logger, scheduler, run_path, de
 
         scheduler.step()
 
-        # Calculate and plot mAP for all validation sets
+        # Calculate and plot AP for all validation sets
         print("Evaluating dataset")
         prev_best_ap = validate_model(
             logger, epoch_num, prev_best_ap, model, run_path, dataloaders, device

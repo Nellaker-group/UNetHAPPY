@@ -15,6 +15,7 @@ class Hyperparameters:
         batch,
         learning_rate,
         init_from_coco,
+        frozen,
         vis,
     ):
         self.exp_name = exp_name
@@ -26,6 +27,7 @@ class Hyperparameters:
         self.batch = batch
         self.learning_rate = learning_rate
         self.init_from_coco = init_from_coco
+        self.frozen = frozen
         self.vis = vis
 
     def to_csv(self, path):
@@ -39,6 +41,7 @@ class Hyperparameters:
             "batch": [self.batch],
             "learning_rate": [self.learning_rate],
             "init_from_coco": [self.init_from_coco],
+            "frozen": [self.frozen],
             "vis": [self.vis],
         }
         hp_df = pd.DataFrame(data=d)
@@ -61,6 +64,7 @@ class Hyperparameters:
             dict_hp_data["batch"],
             dict_hp_data["learning_rate"],
             dict_hp_data["init_from_coco"],
+            dict_hp_data["frozen"],
             dict_hp_data["vis"],
         )
         return hp
@@ -84,5 +88,7 @@ class Hyperparameters:
             self.learning_rate = args.learning_rate
         if args.init_from_coco:
             self.init_from_coco = args.init_from_coco
+        if args.frozen:
+            self.frozen = args.frozen
         if args.vis:
             self.vis = args.vis

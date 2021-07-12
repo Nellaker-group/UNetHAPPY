@@ -34,6 +34,7 @@ def main(
     val_batch: int = 200,
     learning_rate: float = 1e-5,
     init_from_coco: bool = False,
+    frozen: bool = True,
     vis: bool = True,
 ):
     """For training a cell classification model
@@ -58,6 +59,7 @@ def main(
         val_batch: batch size of the validation sets
         learning_rate: learning rate which decreases every 8 epochs
         init_from_coco: whether to use imagenet pretrained weights
+        frozen: whether to freeze most of the layers. True for only fine-tuning
         vis: whether to send stats to visdom for visualisation
     """
     # TODO: reimplement loading hps from file later (with database)
@@ -71,6 +73,7 @@ def main(
         batch,
         learning_rate,
         init_from_coco,
+        frozen,
         vis,
     )
     organ = get_organ(organ_name)
@@ -81,7 +84,7 @@ def main(
 
     # Setup the model. Can be pretrained from coco or own weights.
     model, image_size = cell_train.setup_model(
-        model_name, hp.init_from_coco, len(organ.cells), hp.pre_trained, device
+        model_name, hp.init_from_coco, len(organ.cells), hp.pre_trained, frozen, device
     )
 
     # Get all datasets and dataloaders, including separate validation datasets
