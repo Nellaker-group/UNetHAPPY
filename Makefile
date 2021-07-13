@@ -1,5 +1,5 @@
 environment:
-	conda install -y pytorch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 cudatoolkit=10.1 -c pytorch
+	conda install -y pytorch==1.8.0 torchvision==0.9.0 torchaudio==0.8.0 cudatoolkit=10.1 -c pytorch
 	pip install -r requirements.txt
 	pip install pyvips==2.1.14
 	conda install -y -c pyviz holoviews bokeh
@@ -9,7 +9,7 @@ environment:
 
 
 environment_cpu:
-	conda install -y pytorch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 cpuonly -c pytorch
+	conda install -y pytorch==1.8.0 torchvision==0.9.0 torchaudio==0.8.0 cpuonly -c pytorch
 	pip install -r requirements.txt
 	pip install pyvips==2.1.14
 	conda install -y -c pyviz holoviews bokeh
