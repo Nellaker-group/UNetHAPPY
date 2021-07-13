@@ -112,13 +112,13 @@ def train(
                     device,
                 )
                 # update epoch metrics
-                logger.loss_hist.append(float(batch_loss))
-                loss[phase].append(float(batch_loss))
+                logger.loss_hist.append(batch_loss)
+                loss[phase].append(batch_loss)
                 predictions[phase].extend(batch_preds)
                 ground_truth[phase].extend(batch_truth)
                 print(
                     f"Epoch: {epoch_num} | Phase: {phase} | Iteration: {i} | "
-                    f"Classification loss: {float(batch_loss):1.5f} | "
+                    f"Classification loss: {batch_loss:1.5f} | "
                     f"Running loss: {np.mean(logger.loss_hist):1.5f}"
                 )
 
@@ -161,7 +161,7 @@ def single_batch(phase, optimizer, criterion, model, data, logger, batch_count, 
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
         optimizer.step()
 
-    return loss, predictions, ground_truths, batch_count
+    return float(loss), predictions, ground_truths, batch_count
 
 
 def log_epoch_metrics(logger, epoch_num, phase, loss, predictions, ground_truth):

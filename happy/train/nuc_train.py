@@ -74,12 +74,12 @@ def train(epochs, model, dataloaders, optimizer, logger, scheduler, run_path, de
                     phase, optimizer, model, data, logger, batch_count, device
                 )
                 # update epoch metrics
-                logger.loss_hist.append(float(total_loss))
-                loss[phase].append(float(total_loss))
+                logger.loss_hist.append(total_loss)
+                loss[phase].append(total_loss)
                 print(
                     f"Epoch: {epoch_num} | Phase: {phase} | Iter: {i} | "
-                    f"Class loss: {float(class_loss):1.5f} | "
-                    f"Regression loss: {float(regression_loss):1.5f} | "
+                    f"Class loss: {class_loss:1.5f} | "
+                    f"Regression loss: {regression_loss:1.5f} | "
                     f"Running loss: {np.mean(logger.loss_hist):1.5f}"
                 )
 
@@ -114,7 +114,12 @@ def single_batch(phase, optimizer, model, data, logger, batch_count, device):
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
         optimizer.step()
 
-    return classification_loss, regression_loss, total_loss, batch_count
+    return (
+        float(classification_loss),
+        float(regression_loss),
+        float(total_loss),
+        batch_count,
+    )
 
 
 def validate_model(
