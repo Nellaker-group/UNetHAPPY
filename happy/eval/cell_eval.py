@@ -29,7 +29,9 @@ def setup_model(model_id, out_features, device):
     print(f"model pre_trained path: {model_weights_path}")
 
     model = build_cell_classifer(model_architecture, out_features)
-    model.load_state_dict(torch.load(model_weights_path), strict=True)
+    model.load_state_dict(
+        torch.load(model_weights_path, map_location=device), strict=True
+    )
 
     model = model.to(device)
     print("Pushed model to device")
@@ -113,12 +115,11 @@ def run_cell_eval(
             for i, batch in enumerate(dataset):
                 if not killer.kill_now:
                     # evaluate model and set up saving the embeddings layer
-                    embedding = torch.zeros((batch["img"].shape[0], 64))
-                    handle = (
-                        cell_model.fc.embeddings_layer.register_forward_hook(
-                            copy_data
-                        )
+                    embedding = torch.zeros((batch["img"].shape[0], 64), device=device)
+                    handle = cell_model.fc.embeddings_layer.register_forward_hook(
+                        copy_data
                     )
+
                     # Calls forward() and copies the embedding data
                     class_prediction = cell_model(batch["img"].to(device).float())
                     # Removes the hook before the next forward() call

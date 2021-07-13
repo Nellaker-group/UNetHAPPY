@@ -30,7 +30,9 @@ def setup_model(
     image_size = (299, 299) if model_name == "inceptionresnetv2" else (224, 224)
 
     if not init_from_coco:
-        model.load_state_dict(torch.load(pre_trained_path), strict=True)
+        model.load_state_dict(
+            torch.load(pre_trained_path, map_location=device), strict=True
+        )
 
     for child in model.children():
         for param in child.parameters():

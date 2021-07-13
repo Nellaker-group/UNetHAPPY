@@ -2,7 +2,6 @@ import time
 from typing import Optional
 
 import typer
-from torch import backends
 
 from happy.cells.cells import get_organ
 from happy.utils.utils import get_device
