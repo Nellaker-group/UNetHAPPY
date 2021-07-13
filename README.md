@@ -59,10 +59,11 @@ installed correctly). If you haven't made a .condarc file, check the note bellow
 
 ```bash
 module load Anaconda3/2019.10
-conda create -n {envname} python=3.8
+conda create -n {envname} python=3.7.2
 conda activate {envname}
 module load libvips/8.9.2-foss-2019a
 export PATH=/{PathToYourUserDirWithSpace}/conda_stuff/my_envs/{envname}/bin/:$PATH
+export JAVA_HOME=/usr/java/jdk1.8.0_112/
 make environment
 ```
 
@@ -86,7 +87,7 @@ The installation methods depends on your OS, for more info follow the instructio
 here: https://github.com/libvips/libvips/wiki
 
 ```bash
-conda create -n {envname} python=3.8
+conda create -n {envname} python=3.7.2
 conda activate {envname}
 make environment_cpu
 ```

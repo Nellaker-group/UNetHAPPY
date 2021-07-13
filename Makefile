@@ -2,8 +2,8 @@ environment:
 	conda install -y pytorch==1.8.0 torchvision==0.9.0 torchaudio==0.8.0 cudatoolkit=10.1 -c pytorch
 	pip install -r requirements.txt
 	pip install pyvips==2.1.14
-	conda install -y -c pyviz holoviews bokeh
-	conda install -y datashader
+	pip install datashader==0.13.0
+	pip install "holoviews[recommended]"
 	python setup.py develop
 .PHONY: install
 
@@ -12,8 +12,8 @@ environment_cpu:
 	conda install -y pytorch==1.8.0 torchvision==0.9.0 torchaudio==0.8.0 cpuonly -c pytorch
 	pip install -r requirements.txt
 	pip install pyvips==2.1.14
-	conda install -y -c pyviz holoviews bokeh
-	conda install -y datashader
+	pip install datashader==0.13.0
+	pip install "holoviews[recommended]"
 	python setup.py develop
 .PHONY: install
 
