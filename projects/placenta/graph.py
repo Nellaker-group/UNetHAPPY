@@ -12,12 +12,12 @@ import umap.plot
 import numpy as np
 
 import happy.db.eval_runs_interface as db
-from happy.utils.utils import set_gpu_device
+from happy.utils.utils import get_device
 from happy.hdf5.utils import get_datasets_in_patch, filter_by_confidence
 from happy.models.graphsage import SAGE
-from happy.data.samplers.samplers import NeighborSampler
 from happy.cells.cells import get_organ
 from happy.utils.enum_args import OrganArg
+from graphs.graphs.samplers.samplers import NeighborSampler
 
 
 class FeatureArg(str, Enum):
@@ -36,13 +36,9 @@ def main(
     top_conf: bool = False,
     organ: OrganArg = OrganArg.placenta,
 ):
-    organ = get_organ(organ.value)
+    device = get_device()
 
-    if torch.cuda.is_available():
-        set_gpu_device()
-        device = "cuda"
-    else:
-        device = "cpu"
+    organ = get_organ(organ.value)
 
     # Get data from hdf5 files
     predictions, embeddings, coords, confidence = get_raw_data(
@@ -69,7 +65,7 @@ def main(
     )
 
     # Setup the model
-    model, optimiser, x, edge_index, device = setup_model(data)
+    model, optimiser, x, edge_index = setup_model(data, device)
 
     # Umap plot name
     conf_str = "_top_conf" if top_conf else ""
@@ -125,13 +121,12 @@ def setup_graph(coords, k, feature):
     return data
 
 
-def setup_model(data):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def setup_model(data, device):
     model = SAGE(data.num_node_features, hidden_channels=64, num_layers=2)
     model = model.to(device)
     optimiser = torch.optim.Adam(model.parameters(), lr=0.01)
     x, edge_index = data.x.to(device), data.edge_index.to(device)
-    return model, optimiser, x, edge_index, device
+    return model, optimiser, x, edge_index
 
 
 def train(model, data, x, optimiser, train_loader, device):

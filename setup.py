@@ -11,7 +11,9 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Nellaker-group/HAPPY",
-    packages=find_packages(include=["happy", "analysis"]),
+    packages=find_packages(
+        include=["happy", "analysis", "projects.placenta.graphs.graphs.*"],
+    ),
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
