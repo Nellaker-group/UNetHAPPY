@@ -17,6 +17,14 @@ environment_cpu:
 	python setup.py develop
 .PHONY: install
 
+graph_environment:
+	pip install torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric -f https://pytorch-geometric.com/whl/torch-1.8.0+cu101.html
+.PHONY: install
+
+graph_environment_cpu:
+	pip install torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric -f https://pytorch-geometric.com/whl/torch-1.8.0+cpu.html
+.PHONY: install
+
 setup:
 	python setup.py develop
 .PHONY: install
