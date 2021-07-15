@@ -7,6 +7,7 @@ import networkx as nx
 import torch
 from torch_geometric.data import Data
 from scipy.spatial import voronoi_plot_2d
+import numpy as np
 
 import happy.db.eval_runs_interface as db
 from happy.hdf5.utils import (
@@ -78,7 +79,7 @@ def main(
     plot_name = f"x{x_min}_y{y_min}_top_conf" if top_conf else f"x{x_min}_y{y_min}"
 
     if method == "k":
-        vis_for_range_k(5, 6, data, plot_name, save_dir, organ)
+        vis_for_range_k(6, 7, data, plot_name, save_dir, organ)
     elif method == "radius":
         vis_for_range_radius(200, 260, 20, data, plot_name, save_dir, organ)
     elif method == "voronoi":
@@ -140,15 +141,22 @@ def vis_voronoi(data, plot_name, save_dir):
     vor = make_voronoi_graph(data)
     print(f"Plotting...")
 
-    fig = voronoi_plot_2d(
-        vor,
-        show_vertices=False,
-        line_colors="black",
-        line_width=0.5,
-        line_alpha=0.6,
-        point_size=2,
-        figsize=(8, 8),
-        dpi=150,
+    point_size = 0.5 if len(vor.vertices) >= 10000 else 1
+
+    fig = plt.figure(figsize=(8, 8), dpi=150)
+    ax = plt.gca()
+    plt.scatter(
+        vor.points[:, 0], vor.points[:, 1], marker=".", s=point_size, zorder=1000
+    )
+    finite_segments = []
+    for pointidx, simplex in zip(vor.ridge_points, vor.ridge_vertices):
+        simplex = np.asarray(simplex)
+        if np.all(simplex >= 0):
+            finite_segments.append(vor.vertices[simplex])
+    ax.add_collection(
+        LineCollection(
+            finite_segments, colors="black", lw=0.5, alpha=0.6, linestyle="solid"
+        )
     )
     plt.gca().invert_yaxis()
     plt.axis("off")
@@ -170,11 +178,15 @@ def vis_delaunay(data, plot_name, save_dir, organ):
     delaunay = make_delaunay_graph(data)
     print(f"Plotting...")
 
+    point_size = 1 if len(delaunay.simplices) >= 10000 else 2
+
     fig = plt.figure(figsize=(8, 8), dpi=150)
     plt.triplot(
         data.pos[:, 0], data.pos[:, 1], delaunay.simplices, linewidth=0.3, color="black"
     )
-    plt.scatter(data.pos[:, 0], data.pos[:, 1], s=2, zorder=1000, c=colours)
+    plt.scatter(
+        data.pos[:, 0], data.pos[:, 1], marker=".", s=point_size, zorder=1000, c=colours
+    )
     plt.gca().invert_yaxis()
     plt.axis("off")
     fig.tight_layout()
@@ -189,6 +201,8 @@ def _visualize_points(
 ):
     colours_dict = {cell.id: cell.colour for cell in organ.cells}
     colours = [colours_dict[label] for label in labels]
+
+    point_size = 1 if len(edge_index) >= 10000 else 2
 
     fig = plt.figure(figsize=(8, 8), dpi=150)
 
@@ -206,8 +220,7 @@ def _visualize_points(
         ax = plt.gca()
         ax.add_collection(lc)
         ax.autoscale()
-
-    plt.scatter(pos[:, 0], pos[:, 1], s=2, zorder=1000, c=colours)
+    plt.scatter(pos[:, 0], pos[:, 1], marker=".", s=point_size, zorder=1000, c=colours)
     plt.gca().invert_yaxis()
     plt.axis("off")
     fig.tight_layout()
