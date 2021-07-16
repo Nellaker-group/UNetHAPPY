@@ -1,6 +1,5 @@
-import csv
-
 import numpy as np
+import pandas as pd
 from PIL import Image
 from torch.utils.data import Dataset
 
@@ -8,178 +7,98 @@ from happy.utils.image_utils import load_image
 
 
 class NucleiDataset(Dataset):
-    """CSV dataset."""
-
     def __init__(
         self,
         annotations_dir,
         dataset_names,
-        class_list_file,
         split="train",
         transform=None,
     ):
         """
         Args:
-            annotations_dir (string): path to directory with dataset-specific annotation files
-            dataset_names (list): list of directory names of datasets containing annotations files
-            class_list_file (string): csv file with class list
-            split (string): One of "train", "val", "test", "all" for choosing the correct annotations csv file
+            annotations_dir (Path): path to directory with all annotation files
+            dataset_names (list): list of directory names of datasets
+            split (string): One of "train", "val", "test", "all"
+            transform: transforms to apply to the data
         """
         self.annotations_dir = annotations_dir
         self.dataset_names = dataset_names
-        self.class_list_file = class_list_file
         self.split = split
         self.transform = transform
 
+        self.dataset_names = self._load_datasets(dataset_names)
         self.classes = self._load_classes()
-        self.labels = self._load_labels()
-        self.all_annotations = self._load_annotations()
-        self.image_paths = list(self.all_annotations.keys())
+        self.ungrouped_annotations = self._load_annotations()
+
+        self.all_annotations = self._group_annotations_by_image(
+            self.ungrouped_annotations
+        )
 
     def __len__(self):
-        return len(self.image_paths)
+        return len(self.all_annotations)
 
     def __getitem__(self, idx):
-        img = load_image(self.image_paths[idx])
+        img = load_image(self.all_annotations["image_path"][idx])
         annot = self.get_annotations_in_image(idx)
         sample = {"img": img, "annot": annot}
         if self.transform:
             sample = self.transform(sample)
         return sample
 
-    def get_annotations_in_image(self, image_index):
-        # get ground truth annotations
-        annotations_in_image = self.all_annotations[self.image_paths[image_index]]
-        annotations = np.zeros((0, 5))
-
-        # for images without annotations
-        # this sets all of the empty annotations to an empty array of shape (0, 5)
-        if len(annotations_in_image) == 0:
-            return annotations
-
-        # parse annotations
-        for a in annotations_in_image:
-            annotation = np.zeros((1, 5))
-
-            annotation[0, 0] = a["x1"]
-            annotation[0, 1] = a["y1"]
-            annotation[0, 2] = a["x2"]
-            annotation[0, 3] = a["y2"]
-            annotation[0, 4] = self.classes[a["class"]]
-
-            annotations = np.append(annotations, annotation, axis=0)
-
-        return annotations
-
-    # Reads each line of a csv and appends annotation information to each image. Loops through the desired datasets
-    def _load_annotations(self):
-        all_results = {}
-        # This handles a single dataset name
-        if isinstance(self.dataset_names, str):
-            dataset_names = [self.dataset_names]
+    def _load_datasets(self, dataset_names):
+        if isinstance(dataset_names, str):
+            return [dataset_names]
         else:
-            dataset_names = self.dataset_names
-
-        for dataset_name in dataset_names:
-            file_path = f"{self.annotations_dir}/{dataset_name}/{self.split}_nuclei.csv"
-            try:
-                with open(file_path, "r", newline="") as file:
-                    for line, row in enumerate(csv.reader(file, delimiter=",")):
-                        line += 1
-
-                        try:
-                            img_file, x1, y1, x2, y2, class_name = row[:6]
-                        except ValueError:
-                            raise ValueError(
-                                f"line {line}: format should be 'img_file,x1,y1,x2,y2,class_name' or "
-                                f"'img_file,,,,,,'"
-                            )
-                        if img_file not in all_results:
-                            all_results[img_file] = []
-
-                        # Checks for non-empty tiles
-                        if (x1, y1, x2, y2, class_name) == ("", "", "", "", ""):
-                            continue
-                        else:
-                            x1 = self._string_to_int(x1, line)
-                            y1 = self._string_to_int(y1, line)
-                            x2 = self._string_to_int(x2, line)
-                            y2 = self._string_to_int(y2, line)
-
-                            # Check that the bounding box is valid.
-                            if x2 <= x1:
-                                raise ValueError(
-                                    f"line {line}: x2 ({x2}) must be higher than x1 ({x1})"
-                                )
-                            if y2 <= y1:
-                                raise ValueError(
-                                    f"line {line}: y2 ({y2}) must be higher than y1 ({y1})"
-                                )
-
-                            # check if the current class name is correctly present
-                            if class_name not in self.classes:
-                                raise ValueError(
-                                    f"line {line}: unknown class name: '{class_name}' (classes: {self.classes})"
-                                )
-
-                        all_results[img_file].append(
-                            {
-                                "x1": x1,
-                                "x2": x2,
-                                "y1": y1,
-                                "y2": y2,
-                                "class": class_name,
-                            }
-                        )
-            except ValueError:
-                raise ValueError(f"invalid csv annotations file: {file_path}")
-        return all_results
+            return dataset_names
 
     def _load_classes(self):
-        # parse the provided class file
-        try:
-            with open(self.class_list_file, "r", newline="") as file:
-                result = {}
-                for line, row in enumerate(csv.reader(file, delimiter=",")):
-                    line += 1
-                    # check that data in the csv file is well formed
-                    try:
-                        class_name, class_id = row
-                    except ValueError:
-                        raise ValueError(
-                            f"line {line}: format should be 'class_name,class_id'"
-                        )
-                    class_id = self._string_to_int(class_id, line)
-                    if class_name in result:
-                        raise ValueError(
-                            f"line {line}: duplicate class name: '{class_name}'"
-                        )
-                    # if it passes, add it to the results dictionary
-                    result[class_name] = class_id
-                return result
-        except ValueError:
-            raise ValueError(f"invalid csv class file: {self.class_list_file}")
+        return {"nucleus": 0}
 
-    def _load_labels(self):
-        labels = {}
-        for key, value in self.classes.items():
-            labels[value] = key
-        return labels
+    def get_annotations_in_image(self, image_index):
+        # get ground truth annotations
+        image_data = self.all_annotations.iloc[image_index]
+
+        # for images without annotations
+        if np.isnan(image_data["x1"][0]):
+            return np.zeros((0, 5))
+
+        # extract all annotations in the image
+        x1s = np.array(image_data["x1"])
+        y1s = np.array(image_data["y1"])
+        x2s = np.array(image_data["x2"])
+        y2s = np.array(image_data["y2"])
+        class_names = np.array(image_data["class_name"])
+        class_names = np.vectorize(self.classes.get)(class_names)
+        return np.column_stack((x1s, y1s, x2s, y2s, class_names))
+
+    def _load_annotations(self):
+        df_list = []
+        for dataset_name in self.dataset_names:
+            file_path = self.annotations_dir / dataset_name / f"{self.split}_nuclei.csv"
+
+            annotations = pd.read_csv(
+                file_path, names=["image_path", "x1", "y1", "x2", "y2", "class_name"]
+            )
+            assert np.where(annotations["x1"] > annotations["x2"])[0].size == 0
+            assert np.where(annotations["y1"] > annotations["y2"])[0].size == 0
+            df_list.append(annotations)
+        return pd.concat(df_list, ignore_index=True)
+
+    def _group_annotations_by_image(self, df):
+        df = df.groupby("image_path", sort=False, as_index=False).agg(
+            {
+                "x1": lambda x: x.tolist(),
+                "y1": lambda x: x.tolist(),
+                "x2": lambda x: x.tolist(),
+                "y2": lambda x: x.tolist(),
+                "class_name": lambda x: x.tolist(),
+            }
+        )
+        return df
 
     def num_classes(self):
         return max(self.classes.values()) + 1
 
     def image_aspect_ratio(self, image_index):
-        try:
-            image = Image.open(self.image_paths[image_index])
-        except FileNotFoundError:
-            image = Image.open("../" + self.image_paths[image_index])
+        image = Image.open(self.all_annotations["image_path"][image_index])
         return float(image.width) / float(image.height)
-
-    def _string_to_int(self, string, line):
-        try:
-            return int(string)
-        except ValueError:
-            raise ValueError(
-                f"line {line}: malformed {string}, cannot convert to an integer"
-            )

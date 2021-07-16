@@ -6,6 +6,7 @@ import pandas as pd
 import typer
 
 from happy.data.utils import draw_box, draw_centre
+from happy.cells.cells import get_organ
 
 
 class ShapeArg(str, Enum):
@@ -15,6 +16,7 @@ class ShapeArg(str, Enum):
 
 def main(
     project_name: str = typer.Option(...),
+    organ_name: str = typer.Option(...),
     image_path: str = typer.Option(...),
     annot_path: str = typer.Option(...),
     shape: ShapeArg = ShapeArg.point,
@@ -22,10 +24,13 @@ def main(
     """Visualises ground truth boxes or points from annotations for one image
     Args:
         project_name: name of the project dir to save visualisations to
+        organ_name: name of organ
         image_path: relative path to image
         annot_path: relative path to annotations
         shape: one of 'box' or 'point' for visualising the prediction
     """
+    organ = get_organ(organ_name)
+
     project_dir = Path(__file__).parent.parent.parent / "projects" / project_name
     annotation_path = project_dir / annot_path
 
@@ -46,9 +51,9 @@ def main(
         label_name = image_annotations["class"][i]
 
         if shape.value == "point":
-            draw_centre(img, x1, y1, x2, y2, label_name, cell=False)
+            draw_centre(img, x1, y1, x2, y2, label_name, organ, cell=False)
         elif shape.value == "box":
-            draw_box(img, x1, y1, x2, y2, label_name, cell=False)
+            draw_box(img, x1, y1, x2, y2, label_name, organ, cell=False)
         else:
             raise ValueError(f"No such draw shape {shape.value}")
 

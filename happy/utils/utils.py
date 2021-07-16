@@ -1,11 +1,11 @@
 import time
-import os
 from collections import OrderedDict
 
 import GPUtil
+import torch
 
 
-def print_gpu_stats():
+def set_gpu_device():
     print(GPUtil.showUtilization())
     device_ids = GPUtil.getAvailable(
         order="memory", limit=1, maxLoad=0.3, maxMemory=0.3
@@ -16,9 +16,19 @@ def print_gpu_stats():
         device_ids = GPUtil.getAvailable(
             order="memory", limit=1, maxLoad=0.3, maxMemory=0.3
         )
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(device_ids[0])
-    print("Using GPU number ", os.environ["CUDA_VISIBLE_DEVICES"])
-    return os.environ["CUDA_VISIBLE_DEVICES"]
+    device_id = str(device_ids[0])
+    print(f"Using GPU number {device_id}")
+    return device_id
+
+def get_device():
+    if torch.cuda.is_available():
+        device_id = set_gpu_device()
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.enabled = True
+        device = f"cuda:{device_id}"
+    else:
+        device = "cpu"
+    return device
 
 
 def load_weights(state_dict, model):

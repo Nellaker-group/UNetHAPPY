@@ -13,11 +13,17 @@ from happy.data.dataset.nuclei_dataset import NucleiDataset
 from happy.data.samplers.samplers import AspectRatioBasedSampler
 from happy.data.transforms.transforms import Normalizer, Resizer, untransform_image
 from happy.models import retinanet
-from happy.utils.utils import print_gpu_stats, load_weights
+from happy.utils.utils import set_gpu_device, load_weights
 from happy.data.utils import draw_box, draw_centre
 from happy.microscopefile.prediction_saver import PredictionSaver
+from happy.cells.cells import get_organ
 
-print_gpu_stats()
+
+if torch.cuda.is_available():
+    set_gpu_device()
+    device = "cuda"
+else:
+    device = "cpu"
 
 
 class ShapeArg(str, Enum):
@@ -27,8 +33,8 @@ class ShapeArg(str, Enum):
 
 def main(
     project_name: str = typer.Option(...),
+    organ_name: str = typer.Option(...),
     annot_path: str = typer.Option(...),
-    csv_classes: str = typer.Option(...),
     pre_trained: str = typer.Option(...),
     shape: ShapeArg = ShapeArg.point,
     dataset_name: str = typer.Option(...),
@@ -39,18 +45,22 @@ def main(
 
     Args:
         project_name: name of the project dir to save visualisations to
+        organ_name: name of organ
         annot_path: relative path to annotations
-        csv_classes: relative path to class csv
         pre_trained: relative path to pretrained model
         shape: one of 'box' or 'point' for visualising the prediction
         dataset_name: the dataset who's validation set to evaluate over
         score_threshold: the confidence threshold below which to discard predictions
         num_images: the number of images to evaluate
     """
+    organ = get_organ(organ_name)
+
+    project_dir = Path(__file__).parent.parent.parent / "projects" / project_name
+    annotation_path = project_dir / annot_path
+
     dataset = NucleiDataset(
-        annotations_dir=annot_path,
+        annotations_dir=annotation_path,
         dataset_names=[dataset_name],
-        class_list_file=csv_classes,
         split="val",
         transform=transforms.Compose([Normalizer(), Resizer()]),
     )
@@ -67,15 +77,14 @@ def main(
     print("Dataloaders configured")
 
     model = retinanet.build_retina_net(
-        num_classes=dataset.num_classes(), pretrained=False, resnet_depth=101
+        dataset.num_classes(), device="cpu", pretrained=False, resnet_depth=101
     )
 
     state_dict = torch.load(pre_trained)
     model = load_weights(state_dict, model)
-    model = model.cuda()
-    model = torch.nn.DataParallel(model).cuda()
+    model = model.to(device)
     model.eval()
-    print("Pushed model to cuda")
+    print("Pushed model to device")
 
     with torch.no_grad():
         for idx, data in enumerate(dataloader):
@@ -84,7 +93,7 @@ def main(
 
             scale = data["scale"]
 
-            scores, _, boxes = model(data["img"].cuda().float())
+            scores, _, boxes = model(data["img"].to(device).float())
             scores = scores.cpu().numpy()
             boxes = boxes.cpu().numpy()
             boxes /= scale
@@ -96,12 +105,7 @@ def main(
             img = untransform_image(data["img"][0])
 
             save_dir = (
-                Path(__file__).parent.parent.parent
-                / "projects"
-                / project_name
-                / "visualisations"
-                / "nuclei"
-                / f"{dataset_name}_pred"
+                project_dir / "visualisations" / "nuclei" / f"{dataset_name}_pred"
             )
             save_dir.mkdir(parents=True, exist_ok=True)
             save_path = save_dir / f"val_{idx}.png"
@@ -119,9 +123,9 @@ def main(
                     label_name = "nucleus"
 
                     if shape.value == "point":
-                        draw_centre(img, x1, y1, x2, y2, label_name, cell=False)
+                        draw_centre(img, x1, y1, x2, y2, label_name, organ, cell=False)
                     elif shape.value == "box":
-                        draw_box(img, x1, y1, x2, y2, label_name, cell=False)
+                        draw_box(img, x1, y1, x2, y2, label_name, organ, cell=False)
                     else:
                         raise ValueError(f"No such draw shape {shape.value}")
 

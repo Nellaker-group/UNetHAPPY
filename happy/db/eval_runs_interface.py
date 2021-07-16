@@ -20,6 +20,10 @@ def get_slide_path_by_id(slide_id):
     slide = Slide.get_by_id(slide_id)
     return Path(slide.lab.slides_dir) / slide.slide_name
 
+# returns a slide
+def get_slide_by_id(slide_id):
+    return Slide.get_by_id(slide_id)
+
 
 # returns the path to model_weights
 def get_model_weights_by_id(model_id):

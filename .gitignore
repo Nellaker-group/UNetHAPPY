@@ -195,7 +195,6 @@ out/
 **/pretrained_models
 **/visualisations
 **/results
-**/visualisations
 *.pth
 *.pt
 *.csv

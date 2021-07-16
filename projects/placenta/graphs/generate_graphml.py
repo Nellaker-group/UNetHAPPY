@@ -8,7 +8,7 @@ from torch_geometric.data import Data
 from torch_geometric.utils.convert import to_networkx
 
 import happy.db.eval_runs_interface as db
-from happy.utils.utils import print_gpu_stats
+from happy.utils.utils import set_gpu_device
 from happy.hdf5.utils import get_datasets_in_patch
 
 
@@ -30,9 +30,11 @@ def main(
         height: height for defining a subsection/patch of the WSI. -1 for all
         k: nearest neighbours for creating the graph edges
     """
-    use_gpu = False  # a debug flag to allow non GPU testing of stuff. default true
-    if use_gpu:
-        print_gpu_stats()
+    if torch.cuda.is_available():
+        set_gpu_device()
+        device = "cuda"
+    else:
+        device = "cpu"
 
     patch = (
         False if x_min == 0 and y_min == 0 and width == -1 and height == -1 else True
