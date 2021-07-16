@@ -83,13 +83,15 @@ def main(
 
 # Generate training images for nuclei detector
 def make_nuclei_images(
-    save_path, slides, target_pixel_size, width, height, paths_to_coords
+    save_path, slides, target_pixel_size, target_width, target_height, paths_to_coords
 ):
     for i, slide in enumerate(slides):
         coords = pd.read_csv(paths_to_coords[i])
         xs = coords.bx.unique()
         ys = coords.by.unique()
-        _save_pngs(save_path, slide, (xs, ys), target_pixel_size, width, height)
+        _save_pngs(
+            save_path, slide, (xs, ys), target_pixel_size, target_width, target_height
+        )
 
 
 # Generate 200x200 training images for cell classifier
@@ -104,8 +106,8 @@ def make_cell_images(save_path, slides, target_pixel_size, paths_to_coords):
             slide,
             (xs, ys),
             target_pixel_size,
-            width=200,
-            height=200,
+            target_width=200,
+            target_height=200,
             cell_classes=cell_classes.tolist(),
         )
 
@@ -313,8 +315,8 @@ def _save_pngs(
     slide,
     coords,
     target_pixel_size,
-    width,
-    height,
+    target_width,
+    target_height,
     cell_classes=None,
 ):
     slide_name = slide.slide_name
@@ -326,15 +328,15 @@ def _save_pngs(
     ys = (ys - (100 * rescale_ratio)).astype(int) if cell_classes else ys
 
     for i in range(len(xs)):
-        print(f"number: {i}")
         x, y = xs[i], ys[i]
         final_save_path = save_path / cell_classes[i] if cell_classes else save_path
+        final_save_path.mkdir(parents=True, exist_ok=True)
 
         slide_path = str(Path(slide.lab.slides_dir) / slide_name)
         reader = Reader.new(slide_path, slide.lvl_x)
 
-        target_width = width * rescale_ratio
-        target_height = height * rescale_ratio
+        width = target_width * rescale_ratio
+        height = target_height * rescale_ratio
         output_array = _get_image_crop(
             reader, x, y, width, height, target_width, target_height
         )
