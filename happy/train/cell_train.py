@@ -31,7 +31,7 @@ def setup_model(
 
     if not init_from_coco:
         model.load_state_dict(
-            torch.load(pre_trained_path, map_location=device), strict=True
+            torch.load(pre_trained_path, map_location=device)
         )
 
     for child in model.children():
