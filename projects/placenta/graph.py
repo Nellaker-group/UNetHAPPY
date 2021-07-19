@@ -1,23 +1,19 @@
-from pathlib import Path
 from enum import Enum
 
 import typer
 import torch
 import torch.nn.functional as F
 from torch_geometric.data import Data
-from torch_geometric.transforms import Distance
-from torch_cluster import knn_graph
-import umap
-import umap.plot
-import numpy as np
 
-import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device
 from happy.hdf5.utils import get_datasets_in_patch, filter_by_confidence
 from happy.models.graphsage import SAGE
 from happy.cells.cells import get_organ
-from happy.utils.enum_args import OrganArg
+from happy.hdf5.utils import get_embeddings_file
+from happy.logger.logger import Logger
 from graphs.graphs.samplers.samplers import NeighborSampler
+from graphs.graphs.create_graph import make_k_graph, make_delaunay_graph
+from graphs.graphs.embeddings import plot_umap_embeddings
 
 
 class FeatureArg(str, Enum):
@@ -25,35 +21,48 @@ class FeatureArg(str, Enum):
     embeddings = "embeddings"
 
 
+class MethodArg(str, Enum):
+    k = "k"
+    delaunay = "delaunay"
+
+
 def main(
+    project_name: str = 'placenta',
+    organ_name: str = "placenta",
     run_id: int = typer.Option(...),
     x_min: int = 0,
     y_min: int = 0,
     width: int = -1,
     height: int = -1,
-    k: int = 5,
+    k: int = 6,
     feature: FeatureArg = FeatureArg.embeddings,
     top_conf: bool = False,
-    organ: OrganArg = OrganArg.placenta,
+    graph_method: MethodArg = MethodArg.k,
+    epochs: int = 50,
+    layers: int = 4,
+    vis: bool = True,
 ):
     device = get_device()
 
-    organ = get_organ(organ.value)
+    organ = get_organ(organ_name)
+
+    # Setup recording of stats per batch and epoch
+    logger = Logger(list("train"), ["loss"], vis=vis, file=False)
 
     # Get data from hdf5 files
     predictions, embeddings, coords, confidence = get_raw_data(
-        run_id, x_min, y_min, width, height, top_conf
+        project_name, run_id, x_min, y_min, width, height, top_conf
     )
 
     if feature.value == "predictions":
-        feature = predictions
+        feature_data = predictions
     elif feature.value == "embeddings":
-        feature = embeddings
+        feature_data = embeddings
     else:
         raise ValueError(f"No such feature {feature}")
 
     # Create the graph from the raw data
-    data = setup_graph(coords, k, feature)
+    data = setup_graph(coords, k, feature_data, graph_method.value)
 
     # Setup the dataloader which minibatches the graph
     train_loader = NeighborSampler(
@@ -65,7 +74,7 @@ def main(
     )
 
     # Setup the model
-    model, optimiser, x, edge_index = setup_model(data, device)
+    model, optimiser, x, edge_index = setup_model(data, device, layers)
 
     # Umap plot name
     conf_str = "_top_conf" if top_conf else ""
@@ -73,33 +82,28 @@ def main(
 
     # Node embeddings before training
     plot_umap_embeddings(
-        model, x, edge_index, predictions, plot_name, feature, False, organ.value
+        model, x, edge_index, predictions, plot_name, feature.value, False, organ
     )
 
     # Train!
     print("Training:")
-    for epoch in range(1, 31):
+    for epoch in range(1, epochs + 1):
         loss = train(model, data, x, optimiser, train_loader, device)
-        print(f"Epoch: {epoch:03d}, Loss: {loss:.4f}")
+        logger.log_loss("train", epoch, loss)
 
     # Node embeddings after training
     plot_umap_embeddings(
-        model, x, edge_index, predictions, plot_name, feature, True, organ.value
+        model, x, edge_index, predictions, plot_name, feature.value, True, organ
     )
 
 
-def get_raw_data(run_id, x_min, y_min, width, height, top_conf=False):
-    db.init()
-    # Get path to data
-    eval_run = db.get_eval_run_by_id(run_id)
-    embeddings_root = Path(__file__).parent.parent / "results" / "embeddings"
-    embeddings_path = eval_run.embeddings_path
-    embeddings_dir = embeddings_root / embeddings_path
+def get_raw_data(project_name, run_id, x_min, y_min, width, height, top_conf=False):
+    embeddings_path = get_embeddings_file(project_name, run_id)
     print(f"Getting data from: {embeddings_path}")
     print(f"Using patch of size: x{x_min}, y{y_min}, w{width}, h{height}")
     # Get hdf5 datasets contained in specified box/patch of WSI
     predictions, embeddings, coords, confidence = get_datasets_in_patch(
-        embeddings_dir, x_min, y_min, width, height
+        embeddings_path, x_min, y_min, width, height
     )
     if top_conf:
         predictions, embeddings, coords, confidence = filter_by_confidence(
@@ -109,22 +113,23 @@ def get_raw_data(run_id, x_min, y_min, width, height, top_conf=False):
     return predictions, embeddings, coords, confidence
 
 
-def setup_graph(coords, k, feature):
-    print(f"Generating graph for k={k}")
+def setup_graph(coords, k, feature, graph_method):
     data = Data(x=torch.Tensor(feature), pos=torch.Tensor(coords.astype("int32")))
-    data.edge_index = knn_graph(data.pos, k=k + 1, loop=True)
-    get_edge_distance_weights = Distance(cat=False)
-    data = get_edge_distance_weights(data)
-    if data.x.ndim == 1:
-        data.x = data.x.view(-1, 1)
-    print(f"Graph made with {len(data.edge_index[0])} edges")
-    return data
+    if graph_method == "k":
+        graph = make_k_graph(data, k)
+    elif graph_method == "delaunay":
+        graph = make_delaunay_graph(data)
+    else:
+        raise ValueError(f"No such graph method: {graph_method}")
+    if graph.x.ndim == 1:
+        graph.x = graph.x.view(-1, 1)
+    return graph
 
 
-def setup_model(data, device):
-    model = SAGE(data.num_node_features, hidden_channels=64, num_layers=2)
+def setup_model(data, device, layers):
+    model = SAGE(data.num_node_features, hidden_channels=64, num_layers=layers)
     model = model.to(device)
-    optimiser = torch.optim.Adam(model.parameters(), lr=0.01)
+    optimiser = torch.optim.Adam(model.parameters(), lr=0.001)
     x, edge_index = data.x.to(device), data.edge_index.to(device)
     return model, optimiser, x, edge_index
 
@@ -148,50 +153,6 @@ def train(model, data, x, optimiser, train_loader, device):
 
         total_loss += float(loss) * out.size(0)
     return total_loss / data.num_nodes
-
-
-def plot_umap_embeddings(
-    model, x, edge_index, predictions, plot_name, feature, trained, organ
-):
-    embeddings = _get_graph_embeddings(model, x, edge_index)
-    mapper = _fit_umap(embeddings)
-    _plot_umap(mapper, predictions, plot_name, feature, trained, organ)
-
-
-@torch.no_grad()
-def _get_graph_embeddings(model, x, edge_index):
-    print("Getting node embeddings for training data")
-    model.eval()
-    out = model.full_forward(x, edge_index).cpu()
-    return out
-
-
-def _fit_umap(embeddings):
-    print("Fitting UMAP to embeddings")
-    reducer = umap.UMAP(random_state=42, verbose=True, min_dist=0.1, n_neighbors=15)
-    return reducer.fit(embeddings)
-
-
-def _plot_umap(mapper, predictions, plot_name, feature, trained, organ):
-    trained_str = "trained" if trained else "untrained"
-
-    predictions_labelled = np.array([organ.by_id(pred).label for pred in predictions])
-    colours_dict = {cell.label: cell.colour for cell in organ.cells}
-
-    print("Plotting UMAP")
-    plot = umap.plot.points(mapper, labels=predictions_labelled, color_key=colours_dict)
-    save_dir = (
-        Path(__file__).parent.parent
-        / "visualisations"
-        / "graphs"
-        / "graphsage"
-        / feature
-    )
-    save_dir.mkdir(parents=True, exist_ok=True)
-
-    plot_name = f"{trained_str}_{plot_name}.png"
-    plot.figure.savefig(save_dir / plot_name)
-    print(f"UMAP saved to {save_dir / plot_name}")
 
 
 if __name__ == "__main__":

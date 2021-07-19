@@ -91,7 +91,7 @@ def main(
     )
 
     # Setup recording of stats per batch and epoch
-    logger = Logger(hp.vis, list(dataloaders.keys()), ["loss", "accuracy"])
+    logger = Logger(list(dataloaders.keys()), ["loss", "accuracy"], hp.vis)
 
     # Setup training parameters
     optimizer, criterion, scheduler = cell_train.setup_training_params(

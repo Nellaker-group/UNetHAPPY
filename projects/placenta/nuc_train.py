@@ -82,7 +82,7 @@ def main(
     optimizer, scheduler = nuc_train.setup_training_params(model, hp.learning_rate)
 
     # Setup recording of stats per batch and epoch
-    logger = Logger(hp.vis, list(dataloaders.keys()), ["loss", "AP"])
+    logger = Logger(list(dataloaders.keys()), ["loss", "AP"], hp.vis)
 
     # Saves each run by its timestamp
     run_path = nuc_train.setup_run(project_dir, exp_name)
