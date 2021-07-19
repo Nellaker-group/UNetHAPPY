@@ -1,34 +1,42 @@
+from enum import Enum
 from pathlib import Path
 
-import typer
 import matplotlib.pyplot as plt
-from matplotlib.collections import LineCollection
 import networkx as nx
-import torch
-from torch_geometric.data import Data
-from scipy.spatial import voronoi_plot_2d
 import numpy as np
+import torch
+import typer
+from matplotlib.collections import LineCollection
+from torch_geometric.data import Data
 
 import happy.db.eval_runs_interface as db
+from happy.cells.cells import get_organ
 from happy.hdf5.utils import (
     get_datasets_in_patch,
     filter_by_confidence,
     get_embeddings_file,
 )
 from happy.utils.utils import get_project_dir
-from happy.cells.cells import get_organ
 from projects.placenta.graphs.graphs.create_graph import (
     make_k_graph,
     make_radius_k_graph,
-    make_voronoi_graph,
-    make_delaunay_graph,
+    make_voronoi,
+    make_delaunay_triangulation,
 )
+
+
+class MethodArg(str, Enum):
+    k = "k"
+    radius = "radius"
+    voronoi = "voronoi"
+    delaunay = "delaunay"
+    all = "all"
 
 
 def main(
     run_id: int = typer.Option(...),
-    organ_name="placenta",
-    method: str = "k",
+    organ_name: str = "placenta",
+    method: MethodArg = MethodArg.all,
     x_min: int = 0,
     y_min: int = 0,
     width: int = -1,
@@ -40,7 +48,7 @@ def main(
     Args:
         run_id: id of the run which generated the embeddings file
         organ_name: name of the organ to get the cell colours
-        method: graph creation method to use. 'k', 'radius', 'voronoi' or 'delaunay'.
+        method: graph creation method to use.
         x_min: min x coordinate for defining a subsection/patch of the WSI
         y_min: min y coordinate for defining a subsection/patch of the WSI
         width: width for defining a subsection/patch of the WSI. -1 for all
@@ -78,13 +86,18 @@ def main(
     )
     plot_name = f"x{x_min}_y{y_min}_top_conf" if top_conf else f"x{x_min}_y{y_min}"
 
+    method = method.value
     if method == "k":
         vis_for_range_k(6, 7, data, plot_name, save_dir, organ)
     elif method == "radius":
         vis_for_range_radius(200, 260, 20, data, plot_name, save_dir, organ)
     elif method == "voronoi":
-        vis_voronoi(data, plot_name, save_dir)
+        vis_voronoi(data, plot_name, save_dir, organ)
     elif method == "delaunay":
+        vis_delaunay(data, plot_name, save_dir, organ)
+    elif method == "all":
+        vis_for_range_k(6, 7, data, plot_name, save_dir, organ)
+        vis_voronoi(data, plot_name, save_dir, organ)
         vis_delaunay(data, plot_name, save_dir, organ)
     else:
         raise ValueError(f"no such method: {method}")
@@ -133,26 +146,45 @@ def vis_for_range_radius(rad_start, rad_end, k, data, plot_name, save_dir, organ
         print(f"Plot saved to {save_path / plot_name}")
 
 
-def vis_voronoi(data, plot_name, save_dir):
+def vis_voronoi(data, plot_name, save_dir, organ, show_points=False):
+    colours_dict = {cell.id: cell.colour for cell in organ.cells}
+    colours = [colours_dict[label] for label in data.x]
+
     # Specify save graph vis location
     save_path = save_dir / "voronoi"
     save_path.mkdir(parents=True, exist_ok=True)
 
-    vor = make_voronoi_graph(data)
+    vor = make_voronoi(data)
     print(f"Plotting...")
 
     point_size = 0.5 if len(vor.vertices) >= 10000 else 1
 
     fig = plt.figure(figsize=(8, 8), dpi=150)
     ax = plt.gca()
-    plt.scatter(
-        vor.points[:, 0], vor.points[:, 1], marker=".", s=point_size, zorder=1000
-    )
     finite_segments = []
     for pointidx, simplex in zip(vor.ridge_points, vor.ridge_vertices):
         simplex = np.asarray(simplex)
         if np.all(simplex >= 0):
-            finite_segments.append(vor.vertices[simplex])
+            vertices = vor.vertices[simplex]
+            if (
+                vertices[:, 0].min() >= vor.min_bound[0]
+                and vertices[:, 0].max() <= vor.max_bound[0]
+                and vertices[:, 1].min() >= vor.min_bound[1]
+                and vertices[:, 1].max() <= vor.max_bound[1]
+            ):
+                finite_segments.append(vertices)
+    if show_points:
+        plt.scatter(
+            vor.points[:, 0],
+            vor.points[:, 1],
+            marker=".",
+            s=point_size,
+            zorder=1000,
+            c=colours,
+        )
+    else:
+        xys = np.array(finite_segments).reshape(-1, 2)
+        plt.scatter(xys[:, 0], xys[:, 1], marker=".", s=point_size, zorder=1000)
     ax.add_collection(
         LineCollection(
             finite_segments, colors="black", lw=0.5, alpha=0.6, linestyle="solid"
@@ -175,15 +207,13 @@ def vis_delaunay(data, plot_name, save_dir, organ):
     save_path = save_dir / "delaunay"
     save_path.mkdir(parents=True, exist_ok=True)
 
-    delaunay = make_delaunay_graph(data)
+    delaunay = make_delaunay_triangulation(data)
     print(f"Plotting...")
 
-    point_size = 1 if len(delaunay.simplices) >= 10000 else 2
+    point_size = 1 if len(delaunay.edges) >= 10000 else 2
 
     fig = plt.figure(figsize=(8, 8), dpi=150)
-    plt.triplot(
-        data.pos[:, 0], data.pos[:, 1], delaunay.simplices, linewidth=0.3, color="black"
-    )
+    plt.triplot(delaunay, linewidth=0.3, color="black")
     plt.scatter(
         data.pos[:, 0], data.pos[:, 1], marker=".", s=point_size, zorder=1000, c=colours
     )

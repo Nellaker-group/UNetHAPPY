@@ -21,8 +21,8 @@ from graphs.graphs.samplers.samplers import NeighborSampler
 
 
 class FeatureArg(str, Enum):
-    predictions: "predictions"
-    embeddings: "embeddings"
+    predictions = "predictions"
+    embeddings = "embeddings"
 
 
 def main(
