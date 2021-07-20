@@ -13,7 +13,7 @@ from happy.hdf5.utils import get_embeddings_file
 from happy.logger.logger import Logger
 from graphs.graphs.samplers.samplers import NeighborSampler
 from graphs.graphs.create_graph import make_k_graph, make_delaunay_graph
-from graphs.graphs.embeddings import plot_umap_embeddings
+from graphs.graphs.embeddings import plot_umap_embeddings, plot_clustering
 
 
 class FeatureArg(str, Enum):
@@ -68,7 +68,7 @@ def main(
     train_loader = NeighborSampler(
         data.edge_index,
         sizes=[10, 10],
-        batch_size=256,
+        batch_size=1024,
         shuffle=True,
         num_nodes=data.num_nodes,
     )
@@ -92,9 +92,11 @@ def main(
         logger.log_loss("train", epoch, loss)
 
     # Node embeddings after training
-    plot_umap_embeddings(
+    graph_embeddings, mapper = plot_umap_embeddings(
         model, x, edge_index, predictions, plot_name, feature.value, True, organ
     )
+
+    plot_clustering(graph_embeddings, mapper, 5, plot_name, feature.value)
 
 
 def get_raw_data(project_name, run_id, x_min, y_min, width, height, top_conf=False):
