@@ -26,13 +26,23 @@ def setup_data(
 def setup_model(
     model_name, init_from_coco, out_features, pre_trained_path, frozen, device
 ):
-    model = build_cell_classifer(model_name, out_features)
     image_size = (299, 299) if model_name == "inceptionresnetv2" else (224, 224)
 
-    if not init_from_coco:
-        model.load_state_dict(
-            torch.load(pre_trained_path, map_location=device)
-        )
+    if init_from_coco:
+        model = build_cell_classifer(model_name, out_features)
+    else:
+        state_dict = torch.load(pre_trained_path, map_location=device)
+        state_dict_num_outputs = state_dict['fc.output_layer.weight'].size()[0]
+        model = build_cell_classifer(model_name, state_dict_num_outputs)
+        model.load_state_dict(state_dict, strict=True)
+
+        if state_dict_num_outputs != out_features:
+            if model_name == "inceptionresnetv2":
+                num_features = model.last_linear[7].in_features
+                model.last_linear[7] = nn.Linear(num_features, out_features)
+            else:
+                num_features = model.fc[7].in_features
+                model.fc[7] = nn.Linear(num_features, out_features)
 
     for child in model.children():
         for param in child.parameters():

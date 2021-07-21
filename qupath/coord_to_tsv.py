@@ -26,9 +26,9 @@ def main(
         run_id: id of the run which generated the predictions
         slide_name: shorthand name of the slide for naming the tsv file
         nuclei_only: a flag for when there are no cell predictions in the db
-        filtered: whether to filter by network confidence
-        min_conf: min network confidence to include
-        max_conf: max network confidence to include
+        filtered: whether to filter by cell classifier network confidence
+        min_conf: min cell classifier confidence to include
+        max_conf: max cell classifier confidence to include
     """
     db.init()
 
