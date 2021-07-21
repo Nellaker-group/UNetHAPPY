@@ -39,6 +39,7 @@ def main(
     shape: ShapeArg = ShapeArg.point,
     dataset_name: str = typer.Option(...),
     score_threshold: float = 0.2,
+    max_detections: int = 150,
     num_images: int = 10,
 ):
     """Visualises network predictions as boxes or points for one dataset
@@ -51,6 +52,7 @@ def main(
         shape: one of 'box' or 'point' for visualising the prediction
         dataset_name: the dataset who's validation set to evaluate over
         score_threshold: the confidence threshold below which to discard predictions
+        max_detections: number of maximum detections to save, ordered by score
         num_images: the number of images to evaluate
     """
     organ = get_organ(organ_name)
@@ -99,7 +101,7 @@ def main(
             boxes /= scale
 
             filtered_preds = PredictionSaver.filter_by_score(
-                150, score_threshold, scores, boxes
+                max_detections, score_threshold, scores, boxes
             )
 
             img = untransform_image(data["img"][0])
