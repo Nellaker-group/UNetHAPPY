@@ -14,10 +14,22 @@ from happy.data.setup_dataloader import setup_dataloaders
 
 
 def setup_data(
-    organ, annotations_path, hp, image_size, num_workers, multiple_val_sets, val_batch
+    organ,
+    annotations_path,
+    hp,
+    image_size,
+    num_workers,
+    multiple_val_sets,
+    val_batch,
+    oversampled=True,
 ):
     datasets = setup_cell_datasets(
-        organ, annotations_path, hp.dataset_names, image_size, multiple_val_sets
+        organ,
+        annotations_path,
+        hp.dataset_names,
+        image_size,
+        multiple_val_sets,
+        oversampled,
     )
     dataloaders = setup_dataloaders(False, datasets, num_workers, hp.batch, val_batch)
     return dataloaders
@@ -32,7 +44,7 @@ def setup_model(
         model = build_cell_classifer(model_name, out_features)
     else:
         state_dict = torch.load(pre_trained_path, map_location=device)
-        state_dict_num_outputs = state_dict['fc.output_layer.weight'].size()[0]
+        state_dict_num_outputs = state_dict["fc.output_layer.weight"].size()[0]
         model = build_cell_classifer(model_name, state_dict_num_outputs)
         model.load_state_dict(state_dict, strict=True)
 

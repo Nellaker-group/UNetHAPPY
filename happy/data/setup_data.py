@@ -28,10 +28,12 @@ def setup_nuclei_datasets(annot_dir, dataset_names, multiple_val_sets):
     return datasets
 
 
-def setup_cell_datasets(organ, annot_dir, dataset_names, image_size, multiple_val_sets):
+def setup_cell_datasets(
+    organ, annot_dir, dataset_names, image_size, multiple_val_sets, oversampled
+):
     # Create the datasets from all directories specified in dataset_names
     dataset_train = get_cell_dataset(
-        organ, "train", annot_dir, dataset_names, image_size, True
+        organ, "train", annot_dir, dataset_names, image_size, oversampled
     )
     dataset_val = get_cell_dataset(
         organ, "val", annot_dir, dataset_names, image_size, False
