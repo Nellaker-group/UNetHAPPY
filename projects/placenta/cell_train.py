@@ -25,6 +25,7 @@ def main(
     learning_rate: float = 1e-5,
     init_from_coco: bool = False,
     frozen: bool = True,
+    oversampled: bool = True,
     vis: bool = True,
 ):
     """For training a cell classification model
@@ -50,6 +51,7 @@ def main(
         learning_rate: learning rate which decreases every 8 epochs
         init_from_coco: whether to use imagenet pretrained weights
         frozen: whether to freeze most of the layers. True for only fine-tuning
+        oversampled: whether to use the oversampled training csv
         vis: whether to send stats to visdom for visualisation
     """
     device = get_device()
@@ -88,6 +90,7 @@ def main(
         num_workers,
         multiple_val_sets,
         val_batch,
+        oversampled,
     )
 
     # Setup recording of stats per batch and epoch

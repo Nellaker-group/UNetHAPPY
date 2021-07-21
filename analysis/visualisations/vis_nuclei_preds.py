@@ -1,5 +1,6 @@
 from pathlib import Path
 from enum import Enum
+import os
 
 import typer
 import pandas as pd
@@ -13,17 +14,10 @@ from happy.data.dataset.nuclei_dataset import NucleiDataset
 from happy.data.samplers.samplers import AspectRatioBasedSampler
 from happy.data.transforms.transforms import Normalizer, Resizer, untransform_image
 from happy.models import retinanet
-from happy.utils.utils import set_gpu_device, load_weights
+from happy.utils.utils import load_weights, get_device
 from happy.data.utils import draw_box, draw_centre
 from happy.microscopefile.prediction_saver import PredictionSaver
 from happy.cells.cells import get_organ
-
-
-if torch.cuda.is_available():
-    set_gpu_device()
-    device = "cuda"
-else:
-    device = "cpu"
 
 
 class ShapeArg(str, Enum):
@@ -55,10 +49,15 @@ def main(
         max_detections: number of maximum detections to save, ordered by score
         num_images: the number of images to evaluate
     """
+    device = get_device()
+
     organ = get_organ(organ_name)
 
-    project_dir = Path(__file__).parent.parent.parent / "projects" / project_name
+    project_dir = (
+        Path(__file__).absolute().parent.parent.parent / "projects" / project_name
+    )
     annotation_path = project_dir / annot_path
+    os.chdir(str(project_dir))
 
     dataset = NucleiDataset(
         annotations_dir=annotation_path,
@@ -79,10 +78,10 @@ def main(
     print("Dataloaders configured")
 
     model = retinanet.build_retina_net(
-        dataset.num_classes(), device="cpu", pretrained=False, resnet_depth=101
+        dataset.num_classes(), device=device, pretrained=False, resnet_depth=101
     )
 
-    state_dict = torch.load(pre_trained)
+    state_dict = torch.load(pre_trained, map_location=device)
     model = load_weights(state_dict, model)
     model = model.to(device)
     model.eval()
@@ -95,7 +94,7 @@ def main(
 
             scale = data["scale"]
 
-            scores, _, boxes = model(data["img"].to(device).float())
+            scores, _, boxes = model(data["img"].to(device).float(), device)
             scores = scores.cpu().numpy()
             boxes = boxes.cpu().numpy()
             boxes /= scale
@@ -135,7 +134,7 @@ def main(
             else:
                 print(f"no predictions on val_{idx}.png")
 
-            cv2.imwrite(save_path, img)
+            cv2.imwrite(str(save_path), img)
 
 
 if __name__ == "__main__":
