@@ -6,7 +6,7 @@ import typer
 from happy.utils.hyperparameters import Hyperparameters
 from happy.utils.utils import get_device
 from happy.logger.logger import Logger
-from happy.train import nuc_train
+from happy.train import nuc_train, utils
 
 
 def main(
@@ -84,8 +84,8 @@ def main(
     # Setup recording of stats per batch and epoch
     logger = Logger(list(dataloaders.keys()), ["loss", "AP"], hp.vis)
 
-    # Saves each run by its timestamp
-    run_path = nuc_train.setup_run(project_dir, exp_name)
+    # Save each run by it's timestamp
+    run_path = utils.setup_run(project_dir, exp_name, "nuclei")
 
     # train!
     try:

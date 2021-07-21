@@ -7,7 +7,7 @@ from happy.utils.hyperparameters import Hyperparameters
 from happy.utils.utils import get_device
 from happy.logger.logger import Logger
 from happy.cells.cells import get_organ
-from happy.train import cell_train
+from happy.train import cell_train, utils
 
 
 def main(
@@ -99,7 +99,7 @@ def main(
     )
 
     # Save each run by it's timestamp
-    run_path = cell_train.setup_run(project_dir, exp_name)
+    run_path = utils.setup_run(project_dir, exp_name, "cell_class")
 
     # train!
     try:

@@ -1,4 +1,5 @@
 from enum import Enum
+from pathlib import Path
 
 import typer
 import torch
@@ -11,6 +12,7 @@ from happy.models.graphsage import SAGE
 from happy.cells.cells import get_organ
 from happy.hdf5.utils import get_embeddings_file
 from happy.logger.logger import Logger
+from happy.train.utils import setup_run
 from graphs.graphs.samplers.samplers import NeighborSampler
 from graphs.graphs.create_graph import make_k_graph, make_delaunay_graph
 from graphs.graphs.embeddings import plot_umap_embeddings, plot_clustering
@@ -29,6 +31,7 @@ class MethodArg(str, Enum):
 def main(
     project_name: str = 'placenta',
     organ_name: str = "placenta",
+    exp_name: str = typer.Option(...),
     run_id: int = typer.Option(...),
     x_min: int = 0,
     y_min: int = 0,
@@ -43,6 +46,10 @@ def main(
     vis: bool = True,
 ):
     device = get_device()
+
+    project_dir = (
+        Path(__file__).absolute().parent.parent.parent / "projects" / project_name
+    )
 
     organ = get_organ(organ_name)
 
@@ -68,7 +75,7 @@ def main(
     train_loader = NeighborSampler(
         data.edge_index,
         sizes=[10, 10],
-        batch_size=1024,
+        batch_size=10240,
         shuffle=True,
         num_nodes=data.num_nodes,
     )
@@ -79,6 +86,9 @@ def main(
     # Umap plot name
     conf_str = "_top_conf" if top_conf else ""
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
+
+    # Saves each run by its timestamp
+    run_path = setup_run(project_dir, exp_name, "graph")
 
     # Node embeddings before training
     plot_umap_embeddings(

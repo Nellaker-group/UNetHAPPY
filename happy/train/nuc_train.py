@@ -52,14 +52,6 @@ def setup_training_params(model, learning_rate):
     return optimizer, scheduler
 
 
-def setup_run(project_dir, exp_name):
-    fmt = "%Y-%m-%dT%H:%M:%S"
-    timestamp = datetime.strftime(datetime.utcnow(), fmt)
-    run_path = project_dir / "results" / "nuclei" / exp_name / timestamp
-    run_path.mkdir(parents=True, exist_ok=True)
-    return run_path
-
-
 def train(epochs, model, dataloaders, optimizer, logger, scheduler, run_path, device):
     prev_best_ap = 0
     batch_count = 0

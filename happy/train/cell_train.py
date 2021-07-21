@@ -31,7 +31,7 @@ def setup_model(
 
     if not init_from_coco:
         model.load_state_dict(
-            torch.load(pre_trained_path, map_location=device)
+            torch.load(pre_trained_path, map_location=device), strict=False
         )
 
     for child in model.children():
@@ -60,14 +60,6 @@ def setup_training_params(model, learning_rate):
     criterion = nn.CrossEntropyLoss()
     scheduler = StepLR(optimizer, step_size=8, gamma=0.1)
     return optimizer, criterion, scheduler
-
-
-def setup_run(project_dir, exp_name):
-    fmt = "%Y-%m-%dT%H:%M:%S"
-    timestamp = datetime.strftime(datetime.utcnow(), fmt)
-    run_path = project_dir / "results" / "cell_class" / exp_name / timestamp
-    run_path.mkdir(parents=True, exist_ok=True)
-    return run_path
 
 
 def train(
