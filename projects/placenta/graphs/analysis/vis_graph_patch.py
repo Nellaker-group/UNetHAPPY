@@ -114,7 +114,7 @@ def vis_for_range_k(k_start, k_end, data, plot_name, save_dir, organ):
 
         plot_name = f"k{k}_{plot_name}.png"
         print(f"Plotting...")
-        _visualize_points(
+        visualize_points(
             organ,
             save_path / plot_name,
             data.pos,
@@ -136,7 +136,7 @@ def vis_for_range_radius(rad_start, rad_end, k, data, plot_name, save_dir, organ
 
         print(f"Plotting...")
         plot_name = f"k{k}_{plot_name}.png"
-        _visualize_points(
+        visualize_points(
             organ,
             save_path / plot_name,
             data.pos,
@@ -226,11 +226,12 @@ def vis_delaunay(data, plot_name, save_dir, organ):
     print(f"Plot saved to {save_path / plot_name}")
 
 
-def _visualize_points(
-    organ, save_path, pos, labels=None, edge_index=None, edge_weight=None
+def visualize_points(
+    organ, save_path, pos, labels=None, edge_index=None, edge_weight=None, colours=None
 ):
-    colours_dict = {cell.id: cell.colour for cell in organ.cells}
-    colours = [colours_dict[label] for label in labels]
+    if colours is None:
+        colours_dict = {cell.id: cell.colour for cell in organ.cells}
+        colours = [colours_dict[label] for label in labels]
 
     point_size = 1 if len(edge_index) >= 10000 else 2
 

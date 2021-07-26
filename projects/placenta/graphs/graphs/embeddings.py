@@ -68,3 +68,4 @@ def plot_clustering(graph_embeddings, mapper, num_clusters, plot_name, feature):
     plot_name = f"clustered_{plot_name}.png"
     plot.figure.savefig(save_dir / plot_name)
     print(f"Clustered UMAP saved to {save_dir / plot_name}")
+    return kmeans_labels

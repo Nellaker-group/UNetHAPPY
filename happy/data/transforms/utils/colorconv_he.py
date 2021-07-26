@@ -2,6 +2,7 @@ import numpy as np
 from scipy import linalg
 from skimage.util import dtype
 
+# TODO: compare implementation with https://github.com/DIAGNijmegen/pathology-he-auto-augment/blob/main/he-randaugment/custom_hed_transform.py
 
 rgb_from_he_1 = np.array([
     [0.644211, 0.716556, 0.266844],

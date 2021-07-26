@@ -16,6 +16,7 @@ from happy.train.utils import setup_run
 from graphs.graphs.samplers.samplers import NeighborSampler
 from graphs.graphs.create_graph import make_k_graph, make_delaunay_graph
 from graphs.graphs.embeddings import plot_umap_embeddings, plot_clustering
+from graphs.analysis.vis_graph_patch import visualize_points
 
 
 class FeatureArg(str, Enum):
@@ -29,7 +30,7 @@ class MethodArg(str, Enum):
 
 
 def main(
-    project_name: str = 'placenta',
+    project_name: str = "placenta",
     organ_name: str = "placenta",
     exp_name: str = typer.Option(...),
     run_id: int = typer.Option(...),
@@ -43,6 +44,7 @@ def main(
     graph_method: MethodArg = MethodArg.k,
     epochs: int = 50,
     layers: int = 4,
+    num_clusters: int = 5,
     vis: bool = True,
 ):
     device = get_device()
@@ -88,7 +90,7 @@ def main(
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
 
     # Saves each run by its timestamp
-    run_path = setup_run(project_dir, exp_name, "graph")
+    # run_path = setup_run(project_dir, exp_name, "graph")
 
     # Node embeddings before training
     plot_umap_embeddings(
@@ -106,7 +108,33 @@ def main(
         model, x, edge_index, predictions, plot_name, feature.value, True, organ
     )
 
-    plot_clustering(graph_embeddings, mapper, 5, plot_name, feature.value)
+    kmeans_labels = plot_clustering(
+        graph_embeddings, mapper, num_clusters, plot_name, feature.value
+    )
+
+    embeddings_path = get_embeddings_file(organ_name, run_id)
+    save_dirs = Path(*embeddings_path.parts[-3:-1])
+    save_path = (
+        project_dir
+        / "visualisations"
+        / "graphs"
+        / "graphsage"
+        / "clustered"
+        / "kmeans"
+        / save_dirs
+        / f"w{width}_h{height}"
+    )
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    visualize_points(
+        organ,
+        save_path / f"c{num_clusters}_x{x_min}_y{y_min}.png",
+        data.pos,
+        labels=data.x,
+        edge_index=data.edge_index,
+        edge_weight=data.edge_attr,
+        colours=kmeans_labels
+    )
 
 
 def get_raw_data(project_name, run_id, x_min, y_min, width, height, top_conf=False):
