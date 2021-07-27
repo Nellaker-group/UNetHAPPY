@@ -213,7 +213,9 @@ def validate_model(
             datasets,
             run_path,
         )
-    return val_accuracy
+        return val_accuracy
+    else:
+        return prev_best_accuracy
 
 
 def validation_confusion_matrices(organ, logger, pred, truth, datasets, run_path):

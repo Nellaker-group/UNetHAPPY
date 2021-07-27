@@ -134,7 +134,9 @@ def validate_model(
         torch.save(model.state_dict(), model_weights_path)
         print("Best model saved")
 
-    return avg_precs["val_all"]
+        return avg_precs["val_all"]
+    else:
+        return prev_best_ap
 
 
 def save_state(logger, model, hp, run_path):
