@@ -3,6 +3,7 @@ from torch_geometric.transforms import Distance
 from scipy.spatial import Voronoi
 import matplotlib.tri as tri
 import numpy as np
+import torch
 
 
 def make_k_graph(data, k):
@@ -59,10 +60,11 @@ def make_delaunay_triangulation(data):
     return triang
 
 
-# TODO: the edge index should be a Tensor
 def make_delaunay_graph(data):
     print(f"Generating delaunay graph")
     triang = tri.Triangulation(data.pos[:, 0], data.pos[:, 1])
-    data.edge_index = triang.edges
+    data.edge_index = torch.tensor(triang.edges.astype("int64"), dtype=torch.long).T
+    get_edge_distance_weights = Distance(cat=False)
+    data = get_edge_distance_weights(data)
     print("Graph made!")
     return data
