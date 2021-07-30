@@ -20,6 +20,7 @@ class MethodArg(str, Enum):
     k = "k"
     delaunay = "delaunay"
 
+device = get_device()
 
 def main(
     project_name: str = "placenta",
@@ -38,7 +39,7 @@ def main(
     layers: int = 4,
     vis: bool = True,
 ):
-    device = get_device()
+
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
 
@@ -61,7 +62,7 @@ def main(
     data = graph_train.setup_graph(coords, k, feature_data, graph_method.value)
 
     # Setup the dataloader which minibatches the graph
-    train_loader = graph_train.setup_dataloader(data, 10240, 10)
+    train_loader = graph_train.setup_dataloader(data, 51200, 10)
 
     # Setup the model
     model, optimiser, x, edge_index = graph_train.setup_model(data, device, layers)
@@ -108,15 +109,15 @@ def main(
 
 if __name__ == "__main__":
     run_id = 16
-    exp_name = "delaunay_diff_layers_15000"
+    exp_name = "k_diff_layers_45000"
     x_min = 41203
     y_min = 21344
-    width = 15000
-    height = 15000
+    width = 45000
+    height = 45000
     graph_method = MethodArg.k
-    vis = True
+    vis = False
 
-    for i in range(1, 3):
+    for i in range(2, 3):
         epochs = 50 * i
 
         for j in range(1, 6):

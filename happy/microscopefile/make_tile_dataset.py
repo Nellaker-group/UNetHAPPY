@@ -212,6 +212,7 @@ def make_nuclei_annotations(
         )
 
 
+# TODO: change this to be consistent with nuclei annotation creation. To use the coord csvs
 # Generate ground truth annotation csvs for cell classifier
 def make_cell_annotations(save_path, split=None):
     # Creates the image path for each annotation/image
@@ -254,6 +255,7 @@ def make_cell_annotations(save_path, split=None):
         )
 
 
+# TODO: change this to be consistent with nuclei annotation creation. To use the coord csvs
 # Generate ground truth annotation csvs for empty tiles
 def make_empty_annotations(save_path, split=None):
     image_names = [Path(*save_path.parts[-3:]) / f for f in listdir(save_path)]
