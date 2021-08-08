@@ -55,9 +55,13 @@ def setup_dataloader(data, batch_size, num_neighbors):
 def setup_model(data, device, layers):
     model = SAGE(data.num_node_features, hidden_channels=64, num_layers=layers)
     model = model.to(device)
-    optimiser = torch.optim.Adam(model.parameters(), lr=0.001)
+    return model
+
+
+def setup_parameters(data, model, learning_rate, device):
+    optimiser = torch.optim.Adam(model.parameters(), lr=learning_rate)
     x, edge_index = data.x.to(device), data.edge_index.to(device)
-    return model, optimiser, x, edge_index
+    return optimiser, x, edge_index
 
 
 def train(model, data, x, optimiser, train_loader, device):

@@ -39,7 +39,6 @@ def main(
     layers: int = 4,
     vis: bool = True,
 ):
-
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
 
@@ -65,7 +64,10 @@ def main(
     train_loader = graph_train.setup_dataloader(data, 51200, 10)
 
     # Setup the model
-    model, optimiser, x, edge_index = graph_train.setup_model(data, device, layers)
+    model = graph_train.setup_model(data, device, layers)
+
+    # Setup the training parameters
+    optimiser, x, edge_index = graph_train.setup_parameters(data, model, 0.001, device)
 
     # Umap plot name
     conf_str = "_top_conf" if top_conf else ""
