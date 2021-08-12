@@ -1,45 +1,9 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.data import Data
 import pandas as pd
 
-from happy.hdf5.utils import get_datasets_in_patch, filter_by_confidence
 from happy.models.graphsage import SAGE
-from happy.hdf5.utils import get_embeddings_file
 from projects.placenta.graphs.graphs.samplers.samplers import NeighborSampler
-from projects.placenta.graphs.graphs.create_graph import (
-    make_k_graph,
-    make_delaunay_graph,
-)
-
-
-def get_raw_data(project_name, run_id, x_min, y_min, width, height, top_conf=False):
-    embeddings_path = get_embeddings_file(project_name, run_id)
-    print(f"Getting data from: {embeddings_path}")
-    print(f"Using patch of size: x{x_min}, y{y_min}, w{width}, h{height}")
-    # Get hdf5 datasets contained in specified box/patch of WSI
-    predictions, embeddings, coords, confidence = get_datasets_in_patch(
-        embeddings_path, x_min, y_min, width, height
-    )
-    if top_conf:
-        predictions, embeddings, coords, confidence = filter_by_confidence(
-            predictions, embeddings, coords, confidence, 0.9, 1.0
-        )
-    print(f"Data loaded with {len(predictions)} nodes")
-    return predictions, embeddings, coords, confidence
-
-
-def setup_graph(coords, k, feature, graph_method):
-    data = Data(x=torch.Tensor(feature), pos=torch.Tensor(coords.astype("int32")))
-    if graph_method == "k":
-        graph = make_k_graph(data, k)
-    elif graph_method == "delaunay":
-        graph = make_delaunay_graph(data)
-    else:
-        raise ValueError(f"No such graph method: {graph_method}")
-    if graph.x.ndim == 1:
-        graph.x = graph.x.view(-1, 1)
-    return graph
 
 
 def setup_dataloader(data, batch_size, num_neighbors):
@@ -104,7 +68,7 @@ def save_state(
     layers,
     vis,
 ):
-    torch.save(model.state_dict(), run_path / "graph_model.pt")
+    torch.save(model, run_path / "graph_model.pt")
 
     params_df = pd.DataFrame(
         {

@@ -27,7 +27,7 @@ def draw_centre(img, x1, y1, x2, y2, label_name, organ, cell=True):
     if not cell:
         cv2.circle(img, (x, y), 5, (255, 182, 109), 3)
     else:
-        hex_colour = organ.by_label(label_name).colour
+        hex_colour = organ.cell_by_label(label_name).colour
         label_coords = (int(x) - 15, int(y) - 10)
         colour = _labels_and_colours(img, label_name, label_coords, hex_colour)
         cv2.circle(img, (x, y), 5, colour, 3)
@@ -39,7 +39,7 @@ def draw_box(img, x1, y1, x2, y2, label_name, organ, cell=True):
     if not cell:
         cv2.rectangle(img, (x1, y1), (x2, y2), color=(255, 182, 109), thickness=2)
     else:
-        hex_colour = organ.by_label(label_name).colour
+        hex_colour = organ.cell_by_label(label_name).colour
         label_coords = (box[0], box[1] - 10)
         colour = _labels_and_colours(img, label_name, label_coords, hex_colour)
         cv2.rectangle(img, (x1, y1), (x2, y2), color=colour, thickness=2)

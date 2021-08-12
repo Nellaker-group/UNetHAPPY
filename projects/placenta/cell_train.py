@@ -6,7 +6,7 @@ import typer
 from happy.utils.hyperparameters import Hyperparameters
 from happy.utils.utils import get_device
 from happy.logger.logger import Logger
-from happy.cells.cells import get_organ
+from happy.organs.organs import get_organ
 from happy.train import cell_train, utils
 
 

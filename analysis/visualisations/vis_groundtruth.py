@@ -6,7 +6,7 @@ import pandas as pd
 import typer
 
 from happy.data.utils import draw_box, draw_centre
-from happy.cells.cells import get_organ
+from happy.organs.organs import get_organ
 
 
 class ShapeArg(str, Enum):

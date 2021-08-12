@@ -17,7 +17,7 @@ from happy.models import retinanet
 from happy.utils.utils import load_weights, get_device
 from happy.data.utils import draw_box, draw_centre
 from happy.microscopefile.prediction_saver import PredictionSaver
-from happy.cells.cells import get_organ
+from happy.organs.organs import get_organ
 
 
 class ShapeArg(str, Enum):

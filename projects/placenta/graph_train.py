@@ -1,26 +1,19 @@
-from enum import Enum
-
 import typer
 
+from graphs.graphs.create_graph import get_raw_data, setup_graph
 from happy.utils.utils import get_device
-from happy.cells.cells import get_organ
+from happy.organs.organs import get_organ
 from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
-from graphs.graphs.embeddings import generate_umap
+from graphs.graphs.embeddings import get_graph_embeddings, fit_umap, plot_graph_umap
+from graphs.graphs.enums import FeatureArg, MethodArg
+from graphs.graphs.utils import get_feature
 from graphs.graphs import graph_train
 
 
-class FeatureArg(str, Enum):
-    predictions = "predictions"
-    embeddings = "embeddings"
-
-
-class MethodArg(str, Enum):
-    k = "k"
-    delaunay = "delaunay"
-
 device = get_device()
+
 
 def main(
     project_name: str = "placenta",
@@ -46,19 +39,14 @@ def main(
     logger = Logger(list(["train"]), ["loss"], vis=vis, file=True)
 
     # Get data from hdf5 files
-    predictions, embeddings, coords, confidence = graph_train.get_raw_data(
+    predictions, embeddings, coords, confidence = get_raw_data(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
 
-    if feature.value == "predictions":
-        feature_data = predictions
-    elif feature.value == "embeddings":
-        feature_data = embeddings
-    else:
-        raise ValueError(f"No such feature {feature}")
+    feature_data = get_feature(feature.value, predictions, embeddings)
 
     # Create the graph from the raw data
-    data = graph_train.setup_graph(coords, k, feature_data, graph_method.value)
+    data = setup_graph(coords, k, feature_data, graph_method.value)
 
     # Setup the dataloader which minibatches the graph
     train_loader = graph_train.setup_dataloader(data, 51200, 10)
@@ -78,7 +66,7 @@ def main(
 
     # Node embeddings before training
     generate_umap(
-        model, x, edge_index, organ, predictions, run_path, f"untrained_{plot_name}"
+        model, x, edge_index, organ, predictions, run_path, f"untrained_{plot_name}.png"
     )
 
     # Train!
@@ -86,6 +74,11 @@ def main(
     for epoch in range(1, epochs + 1):
         loss = graph_train.train(model, data, x, optimiser, train_loader, device)
         logger.log_loss("train", epoch, loss)
+
+    # Node embeddings after training
+    generate_umap(
+        model, x, edge_index, organ, predictions, run_path, f"trained_{plot_name}.png"
+    )
 
     # Save the fully trained model
     graph_train.save_state(
@@ -109,17 +102,23 @@ def main(
     )
 
 
+def generate_umap(model, x, edge_index, organ, predictions, run_path, plot_name):
+    graph_embeddings = get_graph_embeddings(model, x, edge_index)
+    fitted_umap = fit_umap(graph_embeddings)
+    plot_graph_umap(organ, predictions, fitted_umap, run_path, plot_name)
+
+
 if __name__ == "__main__":
     run_id = 16
-    exp_name = "k_diff_layers_45000"
-    x_min = 41203
-    y_min = 21344
-    width = 45000
-    height = 45000
+    exp_name = "new_k_diff_layers_all"
+    x_min = 0
+    y_min = 0
+    width = -1
+    height = -1
     graph_method = MethodArg.k
     vis = False
 
-    for i in range(2, 3):
+    for i in range(1, 3):
         epochs = 50 * i
 
         for j in range(1, 6):
@@ -137,3 +136,5 @@ if __name__ == "__main__":
                 graph_method=graph_method,
                 vis=vis,
             )
+
+    # typer.run(main)

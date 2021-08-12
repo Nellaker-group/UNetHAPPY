@@ -4,7 +4,7 @@ import typer
 
 import happy.db.eval_runs_interface as db
 from happy.hdf5.utils import filter_hdf5
-from happy.cells.cells import get_organ
+from happy.organs.organs import get_organ
 from happy.hdf5.utils import get_embeddings_file
 
 

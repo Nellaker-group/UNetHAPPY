@@ -2,7 +2,6 @@ from enum import Enum
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import networkx as nx
 import numpy as np
 import torch
 import typer
@@ -10,7 +9,7 @@ from matplotlib.collections import LineCollection
 from torch_geometric.data import Data
 
 import happy.db.eval_runs_interface as db
-from happy.cells.cells import get_organ
+from happy.organs.organs import get_organ
 from happy.hdf5.utils import (
     get_datasets_in_patch,
     filter_by_confidence,
@@ -251,25 +250,19 @@ def visualize_points(
         ax = plt.gca()
         ax.add_collection(lc)
         ax.autoscale()
-    plt.scatter(pos[:, 0], pos[:, 1], marker=".", s=point_size, zorder=1000, c=colours)
+    plt.scatter(
+        pos[:, 0],
+        pos[:, 1],
+        marker=".",
+        s=point_size,
+        zorder=1000,
+        c=colours,
+        cmap="Spectral",
+    )
     plt.gca().invert_yaxis()
     plt.axis("off")
     fig.tight_layout()
     plt.savefig(save_path)
-
-
-def _vis_with_networkx(data, organ):
-    print(f"Generating graph with networkx")
-    print(f"Plotting...")
-
-    labels = nx.get_node_attributes(data, "x").values()
-    colours_dict = {cell.id: cell.colour for cell in organ.cells}
-    colours = [colours_dict[label] for label in labels]
-    fig = plt.figure(figsize=(8, 8), dpi=150)
-    nx.draw(
-        data, cmap=plt.get_cmap("Set1"), node_color=colours, node_size=75, linewidths=6
-    )
-    plt.show()
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ from typing import Optional
 
 import typer
 
-from happy.cells.cells import get_organ
+from happy.organs.organs import get_organ
 from happy.utils.utils import get_device
 from happy.eval import nuclei_eval, cell_eval
 import happy.db.eval_runs_interface as db

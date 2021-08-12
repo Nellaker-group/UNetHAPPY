@@ -1,9 +1,45 @@
 from torch_cluster import knn_graph, radius_graph
+from torch_geometric.data import Data
 from torch_geometric.transforms import Distance
 from scipy.spatial import Voronoi
 import matplotlib.tri as tri
 import numpy as np
 import torch
+
+from happy.hdf5.utils import (
+    get_embeddings_file,
+    get_datasets_in_patch,
+    filter_by_confidence,
+)
+
+
+def get_raw_data(project_name, run_id, x_min, y_min, width, height, top_conf=False):
+    embeddings_path = get_embeddings_file(project_name, run_id)
+    print(f"Getting data from: {embeddings_path}")
+    print(f"Using patch of size: x{x_min}, y{y_min}, w{width}, h{height}")
+    # Get hdf5 datasets contained in specified box/patch of WSI
+    predictions, embeddings, coords, confidence = get_datasets_in_patch(
+        embeddings_path, x_min, y_min, width, height
+    )
+    if top_conf:
+        predictions, embeddings, coords, confidence = filter_by_confidence(
+            predictions, embeddings, coords, confidence, 0.9, 1.0
+        )
+    print(f"Data loaded with {len(predictions)} nodes")
+    return predictions, embeddings, coords, confidence
+
+
+def setup_graph(coords, k, feature, graph_method):
+    data = Data(x=torch.Tensor(feature), pos=torch.Tensor(coords.astype("int32")))
+    if graph_method == "k":
+        graph = make_k_graph(data, k)
+    elif graph_method == "delaunay":
+        graph = make_delaunay_graph(data)
+    else:
+        raise ValueError(f"No such graph method: {graph_method}")
+    if graph.x.ndim == 1:
+        graph.x = graph.x.view(-1, 1)
+    return graph
 
 
 def make_k_graph(data, k):
