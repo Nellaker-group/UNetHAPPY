@@ -16,7 +16,9 @@ def setup_dataloader(data, batch_size, num_neighbors):
     )
 
 
-def setup_model(data, device, layers):
+def setup_model(data, device, layers, pretrained=None):
+    if pretrained:
+        return torch.load(pretrained, map_location=device)
     model = SAGE(data.num_node_features, hidden_channels=64, num_layers=layers)
     model = model.to(device)
     return model

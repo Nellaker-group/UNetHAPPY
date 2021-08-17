@@ -1,3 +1,5 @@
+from typing import Optional
+
 import typer
 
 from graphs.graphs.create_graph import get_raw_data, setup_graph
@@ -26,6 +28,7 @@ def main(
     height: int = -1,
     k: int = 6,
     feature: FeatureArg = FeatureArg.embeddings,
+    pretrained: Optional[str] = None,
     top_conf: bool = False,
     graph_method: MethodArg = MethodArg.k,
     epochs: int = 50,
@@ -52,33 +55,26 @@ def main(
     train_loader = graph_train.setup_dataloader(data, 51200, 10)
 
     # Setup the model
-    model = graph_train.setup_model(data, device, layers)
+    model = graph_train.setup_model(data, device, layers, pretrained)
 
     # Setup the training parameters
     optimiser, x, edge_index = graph_train.setup_parameters(data, model, 0.001, device)
-
-    # Umap plot name
-    conf_str = "_top_conf" if top_conf else ""
-    plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
 
     # Saves each run by its timestamp
     run_path = setup_run(project_dir, exp_name, "graph")
 
     # Node embeddings before training
-    generate_umap(
-        model, x, edge_index, organ, predictions, run_path, f"untrained_{plot_name}.png"
-    )
+    # conf_str = "_top_conf" if top_conf else ""
+    # plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
+    # generate_umap(
+    #     model, x, edge_index, organ, predictions, run_path, f"untrained_{plot_name}.png"
+    # )
 
     # Train!
     print("Training:")
     for epoch in range(1, epochs + 1):
         loss = graph_train.train(model, data, x, optimiser, train_loader, device)
         logger.log_loss("train", epoch, loss)
-
-    # Node embeddings after training
-    generate_umap(
-        model, x, edge_index, organ, predictions, run_path, f"trained_{plot_name}.png"
-    )
 
     # Save the fully trained model
     graph_train.save_state(
@@ -109,32 +105,32 @@ def generate_umap(model, x, edge_index, organ, predictions, run_path, plot_name)
 
 
 if __name__ == "__main__":
-    run_id = 16
-    exp_name = "new_k_diff_layers_all"
-    x_min = 0
-    y_min = 0
-    width = -1
-    height = -1
-    graph_method = MethodArg.k
-    vis = False
+    # run_id = 16
+    # exp_name = "new_k_diff_layers_45000"
+    # x_min = 41203
+    # y_min = 21344
+    # width = 45000
+    # height = 45000
+    # graph_method = MethodArg.k
+    # vis = False
+    #
+    # for i in range(1, 3):
+    #     epochs = 50 * i
+    #
+    #     for j in range(1, 6):
+    #         layers = 2 ** j
+    #
+    #         main(
+    #             run_id=run_id,
+    #             exp_name=exp_name,
+    #             x_min=x_min,
+    #             y_min=y_min,
+    #             width=width,
+    #             height=height,
+    #             epochs=epochs,
+    #             layers=layers,
+    #             graph_method=graph_method,
+    #             vis=vis,
+    #         )
 
-    for i in range(1, 3):
-        epochs = 50 * i
-
-        for j in range(1, 6):
-            layers = 2 ** j
-
-            main(
-                run_id=run_id,
-                exp_name=exp_name,
-                x_min=x_min,
-                y_min=y_min,
-                width=width,
-                height=height,
-                epochs=epochs,
-                layers=layers,
-                graph_method=graph_method,
-                vis=vis,
-            )
-
-    # typer.run(main)
+    typer.run(main)

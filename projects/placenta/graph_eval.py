@@ -1,10 +1,15 @@
 from pathlib import Path
+import os
 
 import typer
 import torch
-import pandas as pd
-import numpy as np
-from sklearn.metrics.cluster import adjusted_rand_score, adjusted_mutual_info_score
+from sklearn.metrics.cluster import (
+    adjusted_rand_score,
+    normalized_mutual_info_score,
+    adjusted_mutual_info_score,
+    fowlkes_mallows_score,
+    homogeneity_completeness_v_measure,
+)
 
 from happy.utils.utils import get_device
 from happy.utils.utils import get_project_dir
@@ -20,6 +25,7 @@ from graphs.graphs.embeddings import (
 from graphs.graphs.utils import get_feature
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
+from graphs.graphs.create_graph import get_groundtruth_patch
 
 
 def main(
@@ -38,6 +44,7 @@ def main(
     graph_method: MethodArg = MethodArg.k,
     num_clusters: int = 3,
     clustering_method: str = "kmeans",
+    plot_umap: bool = True,
 ):
     device = get_device()
     project_dir = get_project_dir(project_name)
@@ -47,14 +54,14 @@ def main(
     predictions, embeddings, coords, confidence = get_raw_data(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
+
     feature_data = get_feature(feature.value, predictions, embeddings)
     data = setup_graph(coords, k, feature_data, graph_method.value)
     x = data.x.to(device)
     edge_index = data.edge_index.to(device)
 
-    # TODO: the coords don't match with xs and ys for some reason... Fix this
     # Get ground truth manually annotated data
-    xs, ys, tissue_class = get_ground_truth_patch(
+    xs, ys, tissue_class = get_groundtruth_patch(
         organ, project_dir, x_min, y_min, width, height
     )
 
@@ -72,33 +79,39 @@ def main(
     # Setup paths
     save_path = Path(*pretrained_path.parts[:-1]) / "eval"
     save_path.mkdir(exist_ok=True)
+    cluster_save_path = save_path / clustering_method / f"{num_clusters}_clusters"
+    cluster_save_path.mkdir(parents=True, exist_ok=True)
     conf_str = "_top_conf" if top_conf else ""
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
 
-    # fit and plot umap using graph embeddings of the trained model
+    # Get graph embeddings of trained model on patch
     graph_embeddings = get_graph_embeddings(model, x, edge_index)
-    fitted_umap = fit_umap(graph_embeddings)
-    plot_graph_umap(organ, predictions, fitted_umap, save_path, f"eval_{plot_name}.png")
 
-    save_path = Path(*save_path.parts) / clustering_method / f"{num_clusters}_clusters"
-    save_path.mkdir(parents=True, exist_ok=True)
+    # fit and plot umap with cell classes
+    if plot_umap:
+        fitted_umap = fit_umap(graph_embeddings)
+        plot_graph_umap(
+            organ, predictions, fitted_umap, save_path, f"eval_{plot_name}.png"
+        )
 
     # Fit a clustering method on the graph embeddings
-    cluster_labels = fit_clustering(
-        num_clusters, graph_embeddings, clustering_method, fitted_umap
-    )
+    if clustering_method == 'umap' and plot_umap:
+        cluster_labels = fit_clustering(
+            num_clusters, graph_embeddings, clustering_method, mapper=fitted_umap
+        )
+        plot_clustering(fitted_umap, plot_name, cluster_save_path, cluster_labels)
+    else:
+        cluster_labels = fit_clustering(
+            num_clusters, graph_embeddings, clustering_method, mapper=None
+        )
 
     # Evaluate against ground truth tissue annotations
-    rand_score = adjusted_rand_score(tissue_class, cluster_labels)
-    mutual_info_score = adjusted_mutual_info_score(tissue_class, cluster_labels)
-    print(f"Rand score: {rand_score}")
-    print(f"Matual info score: {mutual_info_score}")
+    evaluate(tissue_class, cluster_labels)
 
-    plot_clustering(fitted_umap, plot_name, save_path, cluster_labels)
-
+    # Visualise cluster labels on graph patch
     visualize_points(
         organ,
-        save_path / f"patch_{plot_name}.png",
+        cluster_save_path / f"patch_{plot_name}.png",
         data.pos,
         labels=data.x,
         edge_index=data.edge_index,
@@ -107,31 +120,53 @@ def main(
     )
 
 
-def get_ground_truth_patch(organ, project_dir, x_min, y_min, width, height):
-    ground_truth_df = pd.read_csv(
-        project_dir / "results" / "tissue_annots" / "139_tissue_points.csv"
-    )
-    xs = ground_truth_df["px"].to_numpy()
-    ys = ground_truth_df["py"].to_numpy()
-    tissue_classes = ground_truth_df["class"].to_numpy()
-
-    if x_min == 0 and y_min == 0 and width == -1 and height == -1:
-        tissue_ids = np.array(
-            [organ.tissue_by_label(tissue_name).id for tissue_name in tissue_classes])
-        return xs, ys, tissue_ids
-
-    mask = np.logical_and(
-        (np.logical_and(xs > x_min, (ys > y_min))),
-        (np.logical_and(xs < (x_min + width), (ys < (y_min + height)))),
-    )
-    patch_xs = xs[mask]
-    patch_ys = ys[mask]
-    patch_tissue_classes = tissue_classes[mask]
-
-    patch_tissue_ids = np.array(
-        [organ.tissue_by_label(tissue_name).id for tissue_name in patch_tissue_classes])
-    return patch_xs, patch_ys, patch_tissue_ids
+def evaluate(tissue_class, cluster_labels):
+    adj_rand_score = adjusted_rand_score(tissue_class, cluster_labels)
+    norm_mutual_info_score = normalized_mutual_info_score(tissue_class, cluster_labels)
+    adj_mutual_info_score = adjusted_mutual_info_score(tissue_class, cluster_labels)
+    fm_score = fowlkes_mallows_score(tissue_class, cluster_labels)
+    hcv_scores = list(homogeneity_completeness_v_measure(tissue_class, cluster_labels))
+    hcv_scores = [round(score, 3) for score in hcv_scores]
+    print("-----------------------")
+    print(f"Adjusted rand score: {adj_rand_score:.3f}")
+    print(f"Normalised mutual info score: {norm_mutual_info_score:.3f}")
+    print(f"Adjusted mutual info score: {adj_mutual_info_score:.3f}")
+    print(f"Fowlkes Mallows score: {fm_score:.3f}")
+    print(f"Homgeneity | Completeness | V-Measure: {hcv_scores}")
+    print("-----------------------")
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    exp_name = "new_k_diff_layers_all"
+    run_id = 16
+    graph_method = MethodArg.k
+    x_min = 41203
+    y_min = 21344
+    width = 15000
+    height = 15000
+    num_clusters = 4
+    clustering_method = "kmeans"
+
+    project_dir = get_project_dir("placenta")
+    exp_dir = project_dir / "results" / "graph" / exp_name
+
+    for dir in os.listdir(exp_dir):
+        if os.path.isdir(os.path.join(exp_dir, dir)):
+            model_weights_dir = dir
+            print(f"Getting model from: {model_weights_dir}")
+
+            main(
+                exp_name=exp_name,
+                model_weights_dir=model_weights_dir,
+                run_id=run_id,
+                graph_method=graph_method,
+                x_min=x_min,
+                y_min=y_min,
+                width=width,
+                height=height,
+                num_clusters=num_clusters,
+                clustering_method=clustering_method,
+                plot_umap=False,
+            )
+
+    # typer.run(main)

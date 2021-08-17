@@ -55,8 +55,8 @@ PLACENTA = Organ(
         Tissue("MVilli", "Mesenchymal Villi", "fetal", 1),
         Tissue("TVilli", "Terminal Villi", "fetal", 2),
         Tissue("IVilli", "Intermediary Villi", "fetal", 3),
-        Tissue("SVilli", "Villi Stem", "fetal", 4),
-        Tissue("AVilli", "Anchoring Villi", "fetal", 5),
+        Tissue("AVilli", "Anchoring Villi", "fetal", 4),
+        Tissue("SVilli", "Villi Stem", "fetal", 5),
         Tissue("Chorion", "Chorion", "fetal", 6),
         Tissue("Maternal", "Maternal Decidua", "maternal", 7),
         Tissue("Necrose", "Necrosed", "other", 8),
@@ -67,6 +67,5 @@ ADIPOCYTE = Organ([], [])
 
 
 def get_organ(organ_name):
-    # organ_dicts = {"placenta": PLACENTA}
     organ_dicts = {"placenta": PLACENTA, "liver": LIVER, "adipocyte": ADIPOCYTE}
     return organ_dicts[organ_name]

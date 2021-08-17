@@ -1,3 +1,4 @@
+import pandas as pd
 from torch_cluster import knn_graph, radius_graph
 from torch_geometric.data import Data
 from torch_geometric.transforms import Distance
@@ -13,6 +14,37 @@ from happy.hdf5.utils import (
 )
 
 
+def get_groundtruth_patch(organ, project_dir, x_min, y_min, width, height):
+    ground_truth_df = pd.read_csv(
+        project_dir / "results" / "tissue_annots" / "139_tissue_points.tsv", sep='\t'
+    )
+    xs = ground_truth_df["px"].to_numpy()
+    ys = ground_truth_df["py"].to_numpy()
+    tissue_classes = ground_truth_df["class"].to_numpy()
+
+    if x_min == 0 and y_min == 0 and width == -1 and height == -1:
+        sort_args = np.lexsort((ys, xs))
+        tissue_ids = np.array(
+            [organ.tissue_by_label(tissue_name).id for tissue_name in tissue_classes]
+        )
+        return xs[sort_args], ys[sort_args], tissue_ids[sort_args]
+
+    mask = np.logical_and(
+        (np.logical_and(xs > x_min, (ys > y_min))),
+        (np.logical_and(xs < (x_min + width), (ys < (y_min + height)))),
+    )
+    patch_xs = xs[mask]
+    patch_ys = ys[mask]
+    patch_tissue_classes = tissue_classes[mask]
+
+    patch_tissue_ids = np.array(
+        [organ.tissue_by_label(tissue_name).id for tissue_name in patch_tissue_classes]
+    )
+    sort_args = np.lexsort((patch_ys, patch_xs))
+
+    return patch_xs[sort_args], patch_ys[sort_args], patch_tissue_ids[sort_args]
+
+
 def get_raw_data(project_name, run_id, x_min, y_min, width, height, top_conf=False):
     embeddings_path = get_embeddings_file(project_name, run_id)
     print(f"Getting data from: {embeddings_path}")
@@ -26,6 +58,13 @@ def get_raw_data(project_name, run_id, x_min, y_min, width, height, top_conf=Fal
             predictions, embeddings, coords, confidence, 0.9, 1.0
         )
     print(f"Data loaded with {len(predictions)} nodes")
+    sort_args = np.lexsort((coords[:, 1], coords[:, 0]))
+    coords = coords[sort_args]
+    predictions = predictions[sort_args]
+    embeddings = embeddings[sort_args]
+    confidence = confidence[sort_args]
+    print("Data sorted by x coordinates")
+
     return predictions, embeddings, coords, confidence
 
 
