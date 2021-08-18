@@ -94,16 +94,16 @@ def main(
             organ, predictions, fitted_umap, save_path, f"eval_{plot_name}.png"
         )
 
+
     # Fit a clustering method on the graph embeddings
-    if clustering_method == 'umap' and plot_umap:
-        cluster_labels = fit_clustering(
-            num_clusters, graph_embeddings, clustering_method, mapper=fitted_umap
-        )
+    mapper = fitted_umap if clustering_method == 'umap' else None
+    cluster_labels = fit_clustering(
+        num_clusters, graph_embeddings, clustering_method, mapper=mapper
+    )
+
+    # Plot the cluster labels onto the umap of the graph embeddings
+    if plot_umap:
         plot_clustering(fitted_umap, plot_name, cluster_save_path, cluster_labels)
-    else:
-        cluster_labels = fit_clustering(
-            num_clusters, graph_embeddings, clustering_method, mapper=None
-        )
 
     # Evaluate against ground truth tissue annotations
     evaluate(tissue_class, cluster_labels)
@@ -137,36 +137,36 @@ def evaluate(tissue_class, cluster_labels):
 
 
 if __name__ == "__main__":
-    exp_name = "new_k_diff_layers_all"
-    run_id = 16
-    graph_method = MethodArg.k
-    x_min = 41203
-    y_min = 21344
-    width = 15000
-    height = 15000
-    num_clusters = 4
-    clustering_method = "kmeans"
+    # exp_name = "new_k_diff_layers_all"
+    # run_id = 16
+    # graph_method = MethodArg.k
+    # x_min = 41203
+    # y_min = 21344
+    # width = 15000
+    # height = 15000
+    # num_clusters = 4
+    # clustering_method = "kmeans"
+    #
+    # project_dir = get_project_dir("placenta")
+    # exp_dir = project_dir / "results" / "graph" / exp_name
+    #
+    # for dir in os.listdir(exp_dir):
+    #     if os.path.isdir(os.path.join(exp_dir, dir)):
+    #         model_weights_dir = dir
+    #         print(f"Getting model from: {model_weights_dir}")
+    #
+    #         main(
+    #             exp_name=exp_name,
+    #             model_weights_dir=model_weights_dir,
+    #             run_id=run_id,
+    #             graph_method=graph_method,
+    #             x_min=x_min,
+    #             y_min=y_min,
+    #             width=width,
+    #             height=height,
+    #             num_clusters=num_clusters,
+    #             clustering_method=clustering_method,
+    #             plot_umap=False,
+    #         )
 
-    project_dir = get_project_dir("placenta")
-    exp_dir = project_dir / "results" / "graph" / exp_name
-
-    for dir in os.listdir(exp_dir):
-        if os.path.isdir(os.path.join(exp_dir, dir)):
-            model_weights_dir = dir
-            print(f"Getting model from: {model_weights_dir}")
-
-            main(
-                exp_name=exp_name,
-                model_weights_dir=model_weights_dir,
-                run_id=run_id,
-                graph_method=graph_method,
-                x_min=x_min,
-                y_min=y_min,
-                width=width,
-                height=height,
-                num_clusters=num_clusters,
-                clustering_method=clustering_method,
-                plot_umap=False,
-            )
-
-    # typer.run(main)
+    typer.run(main)

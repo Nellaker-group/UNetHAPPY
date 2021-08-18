@@ -32,10 +32,11 @@ def main(
     top_conf: bool = False,
     graph_method: MethodArg = MethodArg.k,
     epochs: int = 50,
-    layers: int = 4,
+    layers: Optional[int] = None,
     vis: bool = True,
 ):
     project_dir = get_project_dir(project_name)
+    pretrained_path = project_dir / pretrained if pretrained else None
     organ = get_organ(organ_name)
 
     # Setup recording of stats per batch and epoch
@@ -55,7 +56,7 @@ def main(
     train_loader = graph_train.setup_dataloader(data, 51200, 10)
 
     # Setup the model
-    model = graph_train.setup_model(data, device, layers, pretrained)
+    model = graph_train.setup_model(data, device, layers, pretrained_path)
 
     # Setup the training parameters
     optimiser, x, edge_index = graph_train.setup_parameters(data, model, 0.001, device)
