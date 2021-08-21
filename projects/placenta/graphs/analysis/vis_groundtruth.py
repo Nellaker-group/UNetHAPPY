@@ -1,7 +1,8 @@
 import typer
-import matplotlib.pyplot as plt
+import numpy as np
 
 from projects.placenta.graphs.graphs.create_graph import get_groundtruth_patch
+from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
 from happy.utils.utils import get_project_dir
 from happy.organs.organs import get_organ
 
@@ -33,12 +34,12 @@ def main(
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}"
     save_path = save_dir / plot_name
 
-    fig = plt.figure(figsize=(8, 8), dpi=150)
-    plt.scatter(xs, ys, marker=".", s=1, zorder=1000, c=tissue_class, cmap="Spectral")
-    plt.gca().invert_yaxis()
-    plt.axis("off")
-    fig.tight_layout()
-    plt.savefig(save_path)
+    visualize_points(
+        organ,
+        save_path,
+        np.stack((xs, ys), axis=1),
+        colours=tissue_class,
+    )
 
 
 if __name__ == "__main__":

@@ -232,7 +232,7 @@ def visualize_points(
         colours_dict = {cell.id: cell.colour for cell in organ.cells}
         colours = [colours_dict[label] for label in labels]
 
-    point_size = 1 if len(edge_index) >= 10000 else 2
+    point_size = 1 if len(pos) >= 10000 else 2
 
     fig = plt.figure(figsize=(8, 8), dpi=150)
 

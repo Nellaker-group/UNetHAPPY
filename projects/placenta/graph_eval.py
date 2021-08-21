@@ -94,7 +94,6 @@ def main(
             organ, predictions, fitted_umap, save_path, f"eval_{plot_name}.png"
         )
 
-
     # Fit a clustering method on the graph embeddings
     mapper = fitted_umap if clustering_method == 'umap' else None
     cluster_labels = fit_clustering(
@@ -105,6 +104,12 @@ def main(
     if plot_umap:
         plot_clustering(fitted_umap, plot_name, cluster_save_path, cluster_labels)
 
+    # Remove unlabelled (class 0) ground truth points
+    unlabelled_inds = tissue_class.nonzero()
+    tissue_class = tissue_class[unlabelled_inds]
+    cluster_labels = cluster_labels[unlabelled_inds]
+    pos = data.pos[unlabelled_inds]
+
     # Evaluate against ground truth tissue annotations
     evaluate(tissue_class, cluster_labels)
 
@@ -112,10 +117,7 @@ def main(
     visualize_points(
         organ,
         cluster_save_path / f"patch_{plot_name}.png",
-        data.pos,
-        labels=data.x,
-        edge_index=data.edge_index,
-        edge_weight=data.edge_attr,
+        pos,
         colours=cluster_labels,
     )
 
