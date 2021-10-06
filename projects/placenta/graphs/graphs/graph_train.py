@@ -25,7 +25,7 @@ def setup_dataloader(model_type, data, batch_size, num_neighbors):
             data.edge_index,
             node_idx=None,
             sizes=[10, 10, 25, 25],
-            batch_size=256,
+            batch_size=1024,
             shuffle=True,
             num_workers=12,
         )
@@ -101,6 +101,7 @@ def save_state(
     feature,
     top_conf,
     graph_method,
+    learning_rate,
     epochs,
     layers,
 ):
@@ -119,6 +120,7 @@ def save_state(
             "feature": feature.value,
             "top_conf": top_conf,
             "graph_method": graph_method.value,
+            "learning_rate": learning_rate,
             "epochs": epochs,
             "layers": layers,
         },

@@ -34,6 +34,7 @@ def main(
     graph_method: MethodArg = MethodArg.k,
     epochs: int = 50,
     layers: Optional[int] = None,
+    learning_rate: float = 0.001,
     vis: bool = True,
     plot_pre_embeddings: bool = False,
 ):
@@ -60,7 +61,9 @@ def main(
     model = graph_train.setup_model(model_type, data, device, layers, pretrained_path)
 
     # Setup the training parameters
-    optimiser, x, edge_index = graph_train.setup_parameters(data, model, 0.001, device)
+    optimiser, x, edge_index = graph_train.setup_parameters(
+        data, model, learning_rate, device
+    )
 
     # Saves each run by its timestamp
     run_path = setup_run(project_dir, f"{model_type}/{exp_name}", "graph")
@@ -103,6 +106,7 @@ def main(
         feature,
         top_conf,
         graph_method,
+        learning_rate,
         epochs,
         layers,
     )
