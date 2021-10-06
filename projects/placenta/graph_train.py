@@ -30,10 +30,12 @@ def main(
     feature: FeatureArg = FeatureArg.embeddings,
     pretrained: Optional[str] = None,
     top_conf: bool = False,
+    model_type: str = "graphsage",
     graph_method: MethodArg = MethodArg.k,
     epochs: int = 50,
     layers: Optional[int] = None,
     vis: bool = True,
+    plot_pre_embeddings: bool = False,
 ):
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
@@ -46,35 +48,43 @@ def main(
     predictions, embeddings, coords, confidence = get_raw_data(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
-
     feature_data = get_feature(feature.value, predictions, embeddings)
 
     # Create the graph from the raw data
     data = setup_graph(coords, k, feature_data, graph_method.value)
 
     # Setup the dataloader which minibatches the graph
-    train_loader = graph_train.setup_dataloader(data, 51200, 10)
+    train_loader = graph_train.setup_dataloader(model_type, data, 51200, 10)
 
     # Setup the model
-    model = graph_train.setup_model(data, device, layers, pretrained_path)
+    model = graph_train.setup_model(model_type, data, device, layers, pretrained_path)
 
     # Setup the training parameters
     optimiser, x, edge_index = graph_train.setup_parameters(data, model, 0.001, device)
 
     # Saves each run by its timestamp
-    run_path = setup_run(project_dir, exp_name, "graph")
+    run_path = setup_run(project_dir, f"{model_type}/{exp_name}", "graph")
 
     # Node embeddings before training
-    # conf_str = "_top_conf" if top_conf else ""
-    # plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
-    # generate_umap(
-    #     model, x, edge_index, organ, predictions, run_path, f"untrained_{plot_name}.png"
-    # )
+    if plot_pre_embeddings:
+        conf_str = "_top_conf" if top_conf else ""
+        plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
+        generate_umap(
+            model,
+            x,
+            edge_index,
+            organ,
+            predictions,
+            run_path,
+            f"untrained_{plot_name}.png",
+        )
 
     # Train!
     print("Training:")
     for epoch in range(1, epochs + 1):
-        loss = graph_train.train(model, data, x, optimiser, train_loader, device)
+        loss = graph_train.train(
+            model_type, model, data, x, optimiser, train_loader, device
+        )
         logger.log_loss("train", epoch, loss)
 
     # Save the fully trained model
@@ -95,7 +105,6 @@ def main(
         graph_method,
         epochs,
         layers,
-        vis,
     )
 
 

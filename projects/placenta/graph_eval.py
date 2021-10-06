@@ -41,6 +41,7 @@ def main(
     k: int = 6,
     feature: FeatureArg = FeatureArg.embeddings,
     top_conf: bool = False,
+    model_type: str = "graphsage",
     graph_method: MethodArg = MethodArg.k,
     num_clusters: int = 3,
     clustering_method: str = "kmeans",
@@ -70,6 +71,7 @@ def main(
         project_dir
         / "results"
         / "graph"
+        / model_type
         / exp_name
         / model_weights_dir
         / "graph_model.pt"
@@ -85,7 +87,7 @@ def main(
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
 
     # Get graph embeddings of trained model on patch
-    graph_embeddings = get_graph_embeddings(model, x, edge_index)
+    graph_embeddings = get_graph_embeddings(model_type, model, x, edge_index)
 
     # fit and plot umap with cell classes
     if plot_umap:

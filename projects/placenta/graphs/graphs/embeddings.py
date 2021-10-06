@@ -15,10 +15,15 @@ def plot_graph_umap(organ, predictions, mapper, save_dir, plot_name):
 
 
 @torch.no_grad()
-def get_graph_embeddings(model, x, edge_index):
-    print("Getting node embeddings for training data")
+def get_graph_embeddings(model_type, model, x, edge_index):
+    print("Generating node embeddings")
     model.eval()
-    out = model.full_forward(x, edge_index).cpu()
+    if model_type == 'graphsage':
+        out = model.full_forward(x, edge_index).cpu()
+    elif model_type == 'infomax':
+        out = model.encoder.full_forward(x, edge_index).cpu()
+    else:
+        raise ValueError(f"No such model type implemented: {model_type}")
     return out
 
 

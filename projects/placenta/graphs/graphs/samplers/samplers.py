@@ -1,9 +1,9 @@
 import torch
 from torch_cluster import random_walk
-from torch_geometric.data import NeighborSampler as BaseNeighborSampler
+from torch_geometric.data import NeighborSampler
 
 
-class NeighborSampler(BaseNeighborSampler):
+class PosNegNeighborSampler(NeighborSampler):
     def sample(self, batch):
         batch = torch.tensor(batch)
         row, col, _ = self.adj_t.coo()
@@ -17,4 +17,4 @@ class NeighborSampler(BaseNeighborSampler):
         )
 
         batch = torch.cat([batch, pos_batch, neg_batch], dim=0)
-        return super(NeighborSampler, self).sample(batch)
+        return super(PosNegNeighborSampler, self).sample(batch)
