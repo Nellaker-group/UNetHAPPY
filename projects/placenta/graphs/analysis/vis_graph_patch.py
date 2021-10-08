@@ -41,6 +41,7 @@ def main(
     width: int = -1,
     height: int = -1,
     top_conf: bool = False,
+    plot_edges: bool = False,
 ):
     """Generates a graph and saves it's visualisation. Node are coloured by cell type
 
@@ -53,6 +54,7 @@ def main(
         width: width for defining a subsection/patch of the WSI. -1 for all
         height: height for defining a subsection/patch of the WSI. -1 for all
         top_conf: filter the nodes to only those >90% network confidence
+        plot_edges: whether to plot edges or just points
     """
     # Create database connection
     db.init()
@@ -87,7 +89,9 @@ def main(
 
     method = method.value
     if method == "k":
-        vis_for_range_k(6, 7, data, plot_name, save_dir, organ)
+        vis_for_range_k(
+            6, 7, data, plot_name, save_dir, organ, width, height, plot_edges
+        )
     elif method == "radius":
         vis_for_range_radius(200, 260, 20, data, plot_name, save_dir, organ)
     elif method == "voronoi":
@@ -95,14 +99,25 @@ def main(
     elif method == "delaunay":
         vis_delaunay(data, plot_name, save_dir, organ)
     elif method == "all":
-        vis_for_range_k(6, 7, data, plot_name, save_dir, organ)
+        vis_for_range_k(
+            6, 7, data, plot_name, save_dir, organ, width, height, plot_edges
+        )
         vis_voronoi(data, plot_name, save_dir, organ)
         vis_delaunay(data, plot_name, save_dir, organ)
     else:
         raise ValueError(f"no such method: {method}")
 
 
-def vis_for_range_k(k_start, k_end, data, plot_name, save_dir, organ):
+def vis_for_range_k(
+    k_start, k_end, data, plot_name, save_dir, organ, width, height, plot_edges=True
+):
+    if not plot_edges:
+        edge_index = None
+        edge_weight = None
+    else:
+        edge_index = data.edge_index
+        edge_weight = data.edge_attr
+
     # Specify save graph vis location
     save_path = save_dir / "max_radius"
     save_path.mkdir(parents=True, exist_ok=True)
@@ -118,8 +133,10 @@ def vis_for_range_k(k_start, k_end, data, plot_name, save_dir, organ):
             save_path / plot_name,
             data.pos,
             labels=data.x,
-            edge_index=data.edge_index,
-            edge_weight=data.edge_attr,
+            edge_index=edge_index,
+            edge_weight=edge_weight,
+            width=width,
+            height=height,
         )
         print(f"Plot saved to {save_path / plot_name}")
 
@@ -226,7 +243,15 @@ def vis_delaunay(data, plot_name, save_dir, organ):
 
 
 def visualize_points(
-    organ, save_path, pos, labels=None, edge_index=None, edge_weight=None, colours=None
+    organ,
+    save_path,
+    pos,
+    width=None,
+    height=None,
+    labels=None,
+    edge_index=None,
+    edge_weight=None,
+    colours=None,
 ):
     if colours is None:
         colours_dict = {cell.id: cell.colour for cell in organ.cells}
@@ -234,7 +259,9 @@ def visualize_points(
 
     point_size = 1 if len(pos) >= 10000 else 2
 
-    fig = plt.figure(figsize=(8, 8), dpi=150)
+    figsize = _calc_figsize(pos, width, height)
+
+    fig = plt.figure(figsize=figsize, dpi=150)
 
     if edge_index is not None:
         line_collection = []
@@ -262,7 +289,22 @@ def visualize_points(
     plt.gca().invert_yaxis()
     plt.axis("off")
     fig.tight_layout()
-    plt.savefig(save_path)
+    plt.savefig(save_path, bbox_inches='tight', pad_inches=0.0)
+
+
+def _calc_figsize(pos, width, height):
+    if width is None and height is None:
+        return 8, 8
+    if width == -1 and height == -1:
+        pos_width = max(pos[:, 0]) - min(pos[:, 0])
+        pos_height = max(pos[:, 1]) - min(pos[:, 1])
+        ratio = pos_width / pos_height
+        length = ratio * 8
+        return length, 8
+    else:
+        ratio = width / height
+        length = ratio * 8
+        return length, 8
 
 
 if __name__ == "__main__":

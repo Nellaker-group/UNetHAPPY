@@ -33,7 +33,7 @@ def main(
     model_type: str = "graphsage",
     graph_method: MethodArg = MethodArg.k,
     epochs: int = 50,
-    layers: Optional[int] = None,
+    layers: int = typer.Option(...),
     learning_rate: float = 0.001,
     vis: bool = True,
     plot_pre_embeddings: bool = False,
@@ -55,7 +55,7 @@ def main(
     data = setup_graph(coords, k, feature_data, graph_method.value)
 
     # Setup the dataloader which minibatches the graph
-    train_loader = graph_train.setup_dataloader(model_type, data, 51200, 10)
+    train_loader = graph_train.setup_dataloader(model_type, data, layers, 51200, 10)
 
     # Setup the model
     model = graph_train.setup_model(model_type, data, device, layers, pretrained_path)

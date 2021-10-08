@@ -39,6 +39,8 @@ def main(
         save_path,
         np.stack((xs, ys), axis=1),
         colours=tissue_class,
+        width=width,
+        height=height,
     )
 
 

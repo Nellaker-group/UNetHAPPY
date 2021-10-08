@@ -46,6 +46,7 @@ def main(
     num_clusters: int = 3,
     clustering_method: str = "kmeans",
     plot_umap: bool = True,
+    remove_unlabelled: bool = True,
 ):
     device = get_device()
     project_dir = get_project_dir(project_name)
@@ -60,6 +61,7 @@ def main(
     data = setup_graph(coords, k, feature_data, graph_method.value)
     x = data.x.to(device)
     edge_index = data.edge_index.to(device)
+    pos = data.pos
 
     # Get ground truth manually annotated data
     xs, ys, tissue_class = get_groundtruth_patch(
@@ -107,20 +109,25 @@ def main(
         plot_clustering(fitted_umap, plot_name, cluster_save_path, cluster_labels)
 
     # Remove unlabelled (class 0) ground truth points
-    unlabelled_inds = tissue_class.nonzero()
-    tissue_class = tissue_class[unlabelled_inds]
-    cluster_labels = cluster_labels[unlabelled_inds]
-    pos = data.pos[unlabelled_inds]
+    if remove_unlabelled:
+        unlabelled_inds = tissue_class.nonzero()
+        tissue_class = tissue_class[unlabelled_inds]
+        cluster_labels = cluster_labels[unlabelled_inds]
+        pos = pos[unlabelled_inds]
 
     # Evaluate against ground truth tissue annotations
-    evaluate(tissue_class, cluster_labels)
+    if run_id == 16:
+        evaluate(tissue_class, cluster_labels)
 
     # Visualise cluster labels on graph patch
+    print("Generating image")
     visualize_points(
         organ,
         cluster_save_path / f"patch_{plot_name}.png",
         pos,
         colours=cluster_labels,
+        width=width,
+        height=height,
     )
 
 

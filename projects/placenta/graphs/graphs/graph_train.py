@@ -11,23 +11,24 @@ from projects.placenta.graphs.graphs.samplers.samplers import (
 )
 
 
-def setup_dataloader(model_type, data, batch_size, num_neighbors):
+def setup_dataloader(model_type, data, num_layers, batch_size, num_neighbors):
     if model_type == "graphsage":
         return PosNegNeighborSampler(
             data.edge_index,
-            sizes=[num_neighbors, num_neighbors],
+            sizes=[num_neighbors for _ in range(num_layers)],
             batch_size=batch_size,
             shuffle=True,
             num_nodes=data.num_nodes,
+            num_workers=8,
         )
     elif model_type == "infomax":
         return NeighborSampler(
             data.edge_index,
             node_idx=None,
-            sizes=[10, 10, 25, 25],
-            batch_size=1024,
+            sizes=[num_neighbors for _ in range(num_layers)],
+            batch_size=batch_size,
             shuffle=True,
-            num_workers=12,
+            num_workers=8,
         )
 
 
