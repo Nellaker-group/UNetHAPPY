@@ -19,7 +19,9 @@ class Tissue:
     label: str
     name: str
     tissue_type: str
+    alt_label: str
     id: int
+    alt_id: int
 
     def __str__(self):
         return f"{self.label}"
@@ -51,15 +53,15 @@ PLACENTA = Organ(
         Cell("VEN", "Vascular Endothelial ", "#ff9600", "#734c0e", 4),
     ],
     [
-        Tissue("Unlabelled", "Unlabelled", "other", 0),
-        Tissue("MVilli", "Mesenchymal Villi", "fetal", 1),
-        Tissue("TVilli", "Terminal Villi", "fetal", 2),
-        Tissue("IVilli", "Intermediary Villi", "fetal", 3),
-        Tissue("AVilli", "Anchoring Villi", "fetal", 4),
-        Tissue("SVilli", "Villi Stem", "fetal", 5),
-        Tissue("Chorion", "Chorion", "fetal", 6),
-        Tissue("Maternal", "Maternal Decidua", "maternal", 7),
-        Tissue("Necrose", "Necrosed", "other", 8),
+        Tissue("Unlabelled", "Unlabelled", "other", "Unlabelled", 0, 0),
+        Tissue("MVilli", "Mesenchymal Villi", "fetal", "SmallVilli", 1, 1),
+        Tissue("TVilli", "Terminal Villi", "fetal", "SmallVilli", 2, 1),
+        Tissue("IVilli", "Intermediary Villi", "fetal", "MediumVilli", 3, 3),
+        Tissue("AVilli", "Anchoring Villi", "fetal", "StemVilli", 4, 5),
+        Tissue("SVilli", "Villi Stem", "fetal", "StemVilli", 5, 5),
+        Tissue("Chorion", "Chorion", "fetal", "StemVilli", 6, 5),
+        Tissue("Maternal", "Maternal Decidua", "maternal", "Maternal", 7, 7),
+        Tissue("Necrose", "Necrosed Tissue", "other", "Necrose", 8, 8),
     ],
 )
 LIVER = Organ([], [])

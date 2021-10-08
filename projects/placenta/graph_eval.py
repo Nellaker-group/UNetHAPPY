@@ -47,6 +47,7 @@ def main(
     clustering_method: str = "kmeans",
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
+    alt_groundtruth: bool = False,
 ):
     device = get_device()
     project_dir = get_project_dir(project_name)
@@ -65,7 +66,7 @@ def main(
 
     # Get ground truth manually annotated data
     xs, ys, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height
+        organ, project_dir, x_min, y_min, width, height, alt_groundtruth
     )
 
     # Setup trained model
