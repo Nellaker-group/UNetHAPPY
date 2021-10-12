@@ -3,23 +3,41 @@ import torch.nn.functional as F
 from torch_geometric.data import NeighborSampler
 from torch_geometric.nn import DeepGraphInfomax
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from happy.models.graphsage import SAGE
 from happy.models.infomax import Encoder, corruption, summary_fn
 from projects.placenta.graphs.graphs.samplers.samplers import (
     PosNegNeighborSampler,
+    CurriculumPosNegNeighborSampler,
 )
 
 
-def setup_dataloader(model_type, data, num_layers, batch_size, num_neighbors):
+def setup_dataloader(
+    model_type, data, num_layers, batch_size, num_neighbors, num_curriculum=0
+):
     if model_type == "graphsage":
+        if num_curriculum > 0:
+            return CurriculumPosNegNeighborSampler(
+                num_curriculum,
+                data.edge_index,
+                sizes=[num_neighbors for _ in range(num_layers)],
+                batch_size=batch_size,
+                shuffle=True,
+                num_nodes=data.num_nodes,
+                num_workers=12,
+                return_e_id=False,
+                drop_last=True,
+            )
         return PosNegNeighborSampler(
             data.edge_index,
             sizes=[num_neighbors for _ in range(num_layers)],
             batch_size=batch_size,
             shuffle=True,
             num_nodes=data.num_nodes,
-            num_workers=8,
+            num_workers=12,
+            return_e_id=False,
         )
     elif model_type == "infomax":
         return NeighborSampler(
@@ -28,7 +46,7 @@ def setup_dataloader(model_type, data, num_layers, batch_size, num_neighbors):
             sizes=[num_neighbors for _ in range(num_layers)],
             batch_size=batch_size,
             shuffle=True,
-            num_workers=8,
+            num_workers=12,
         )
 
 
@@ -56,25 +74,61 @@ def setup_parameters(data, model, learning_rate, device):
     return optimiser, x, edge_index
 
 
-def train(model_type, model, data, x, optimiser, train_loader, device):
+def train(
+    model_type,
+    model,
+    x,
+    optimiser,
+    batch,
+    train_loader,
+    device,
+    num_curriculum,
+    run_path,
+    epoch_num,
+):
     model.train()
     total_loss = 0
     total_examples = 0
-    for batch_size, n_id, adjs in train_loader:
+    for batch_i, (batch_size, n_id, adjs) in enumerate(train_loader):
         # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
         adjs = [adj.to(device) for adj in adjs]
         optimiser.zero_grad()
 
-        if model_type == 'graphsage':
+        if model_type == "graphsage":
             out = model(x[n_id], adjs)
-            out, pos_out, neg_out = out.split(out.size(0) // 3, dim=0)
+            if num_curriculum > 0:
+                num_neg = train_loader.num_negatives
 
-            pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
-            neg_loss = F.logsigmoid(-(out * neg_out).sum(-1)).mean()
-            loss = -pos_loss - neg_loss
+                out, pos_out, neg_out = out.split(
+                    [batch, batch, batch * num_neg], dim=0
+                )
+                pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
+                neg_loss = torch.empty(batch * num_neg)
+                losses_to_plot = torch.empty(10, num_neg)
+
+                for i, node in enumerate(out):
+                    negative_nodes = neg_out[i * num_neg : (i + 1) * num_neg]
+                    neg_node_losses = F.logsigmoid(-(node * negative_nodes).sum(-1))
+                    sorted_neg_node_loss = neg_node_losses.sort(descending=True)[0]
+
+                    if i < 10:
+                        losses_to_plot[i] = sorted_neg_node_loss
+
+                    # TODO: pick randomly from the first 10% of options
+                    neg_node_loss = sorted_neg_node_loss[0]
+                    neg_loss[i] = neg_node_loss
+
+                if batch_i == 0:
+                    _plot_negative_losses(run_path, epoch_num, losses_to_plot)
+                loss = -pos_loss - neg_loss.mean()
+            else:
+                out, pos_out, neg_out = out.split(out.size(0) // 3, dim=0)
+                pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
+                neg_loss = F.logsigmoid(-(out * neg_out).sum(-1)).mean()
+                loss = -pos_loss - neg_loss
             total_loss += float(loss) * out.size(0)
-            total_examples = data.num_nodes
-        elif model_type == 'infomax':
+            total_examples += out.size(0)
+        elif model_type == "infomax":
             pos_z, neg_z, summary = model(x[n_id], adjs)
             loss = model.loss(pos_z, neg_z, summary)
             total_loss += float(loss) * pos_z.size(0)
@@ -102,9 +156,12 @@ def save_state(
     feature,
     top_conf,
     graph_method,
+    batch_size,
+    num_neighbours,
     learning_rate,
     epochs,
     layers,
+    num_curriculum,
 ):
     torch.save(model, run_path / "graph_model.pt")
 
@@ -121,9 +178,12 @@ def save_state(
             "feature": feature.value,
             "top_conf": top_conf,
             "graph_method": graph_method.value,
+            "batch_size": batch_size,
+            "num_neighbours": num_neighbours,
             "learning_rate": learning_rate,
             "epochs": epochs,
             "layers": layers,
+            "num_curriculum": num_curriculum,
         },
         index=[0],
     )
@@ -134,3 +194,15 @@ def save_state(
 
 def _summary_lambda(z, *args, **kwargs):
     return torch.sigmoid(z.mean(dim=0))
+
+
+def _plot_negative_losses(run_path, iteration, all_neg_losses):
+    all_neg_losses = all_neg_losses.detach().cpu().numpy()
+    df = pd.DataFrame(all_neg_losses, index=list(range(0, len(all_neg_losses))))
+
+    ax = sns.lineplot(data=df.T, legend=False, markers=True)
+    ax.set(xlabel="Ranked negative nodes", ylabel="Negative Node Loss")
+
+    save_path = run_path / f"neg_losses_{iteration}.png"
+    plt.savefig(save_path)
+    plt.close()

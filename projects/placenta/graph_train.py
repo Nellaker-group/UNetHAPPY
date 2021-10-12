@@ -32,11 +32,14 @@ def main(
     top_conf: bool = False,
     model_type: str = "graphsage",
     graph_method: MethodArg = MethodArg.k,
+    batch_size: int = 51200,
+    num_neighbours: int = 10,
     epochs: int = 50,
     layers: int = typer.Option(...),
     learning_rate: float = 0.001,
     vis: bool = True,
     plot_pre_embeddings: bool = False,
+    num_curriculum: int = 0,
 ):
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
@@ -55,7 +58,9 @@ def main(
     data = setup_graph(coords, k, feature_data, graph_method.value)
 
     # Setup the dataloader which minibatches the graph
-    train_loader = graph_train.setup_dataloader(model_type, data, layers, 51200, 10)
+    train_loader = graph_train.setup_dataloader(
+        model_type, data, layers, batch_size, num_neighbours, num_curriculum
+    )
 
     # Setup the model
     model = graph_train.setup_model(model_type, data, device, layers, pretrained_path)
@@ -86,7 +91,16 @@ def main(
     print("Training:")
     for epoch in range(1, epochs + 1):
         loss = graph_train.train(
-            model_type, model, data, x, optimiser, train_loader, device
+            model_type,
+            model,
+            x,
+            optimiser,
+            batch_size,
+            train_loader,
+            device,
+            num_curriculum,
+            run_path,
+            epoch,
         )
         logger.log_loss("train", epoch, loss)
 
@@ -106,9 +120,12 @@ def main(
         feature,
         top_conf,
         graph_method,
+        batch_size,
+        num_neighbours,
         learning_rate,
         epochs,
         layers,
+        num_curriculum,
     )
 
 
@@ -119,32 +136,4 @@ def generate_umap(model, x, edge_index, organ, predictions, run_path, plot_name)
 
 
 if __name__ == "__main__":
-    # run_id = 16
-    # exp_name = "new_k_diff_layers_45000"
-    # x_min = 41203
-    # y_min = 21344
-    # width = 45000
-    # height = 45000
-    # graph_method = MethodArg.k
-    # vis = False
-    #
-    # for i in range(1, 3):
-    #     epochs = 50 * i
-    #
-    #     for j in range(1, 6):
-    #         layers = 2 ** j
-    #
-    #         main(
-    #             run_id=run_id,
-    #             exp_name=exp_name,
-    #             x_min=x_min,
-    #             y_min=y_min,
-    #             width=width,
-    #             height=height,
-    #             epochs=epochs,
-    #             layers=layers,
-    #             graph_method=graph_method,
-    #             vis=vis,
-    #         )
-
     typer.run(main)
