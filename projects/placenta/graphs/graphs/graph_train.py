@@ -1,3 +1,5 @@
+import random
+
 import torch
 import torch.nn.functional as F
 from torch_geometric.data import NeighborSampler
@@ -103,7 +105,7 @@ def train(
                     [batch, batch, batch * num_neg], dim=0
                 )
                 pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
-                neg_loss = torch.empty(batch * num_neg)
+                neg_loss = torch.empty(batch)
                 losses_to_plot = torch.empty(10, num_neg)
 
                 for i, node in enumerate(out):
@@ -111,11 +113,14 @@ def train(
                     neg_node_losses = F.logsigmoid(-(node * negative_nodes).sum(-1))
                     sorted_neg_node_loss = neg_node_losses.sort(descending=True)[0]
 
+                    # Store 10 negative losses to plot
                     if i < 10:
                         losses_to_plot[i] = sorted_neg_node_loss
 
-                    # TODO: pick randomly from the first 10% of options
-                    neg_node_loss = sorted_neg_node_loss[0]
+                    # pick randomly from the best 10% of options
+                    neg_node_loss = sorted_neg_node_loss[
+                        random.randint(0, int(num_neg / 10))
+                    ]
                     neg_loss[i] = neg_node_loss
 
                 if batch_i == 0:
@@ -163,7 +168,7 @@ def save_state(
     layers,
     num_curriculum,
 ):
-    torch.save(model, run_path / "graph_model.pt")
+    save_model(model, run_path / "graph_model.pt")
 
     params_df = pd.DataFrame(
         {
@@ -192,6 +197,10 @@ def save_state(
     logger.to_csv(run_path / "graph_train_stats.csv")
 
 
+def save_model(model, save_path):
+    torch.save(model, save_path)
+
+
 def _summary_lambda(z, *args, **kwargs):
     return torch.sigmoid(z.mean(dim=0))
 
@@ -203,6 +212,8 @@ def _plot_negative_losses(run_path, iteration, all_neg_losses):
     ax = sns.lineplot(data=df.T, legend=False, markers=True)
     ax.set(xlabel="Ranked negative nodes", ylabel="Negative Node Loss")
 
-    save_path = run_path / f"neg_losses_{iteration}.png"
+    save_dir = run_path / "neg_loss_plots"
+    save_dir.mkdir(parents=True, exist_ok=True)
+    save_path = save_dir / f"neg_losses_{iteration}.png"
     plt.savefig(save_path)
     plt.close()

@@ -89,7 +89,7 @@ def main(
 
     # Train!
     print("Training:")
-    for epoch in range(1, epochs + 1):
+    for i, epoch in enumerate(range(1, epochs + 1)):
         loss = graph_train.train(
             model_type,
             model,
@@ -103,6 +103,8 @@ def main(
             epoch,
         )
         logger.log_loss("train", epoch, loss)
+        if i % 50 == 0 and i != 0 and i != epoch:
+            graph_train.save_model(model, run_path / f"{epoch}_graph_model.pt")
 
     # Save the fully trained model
     graph_train.save_state(
