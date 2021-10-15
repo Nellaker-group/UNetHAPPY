@@ -1,5 +1,3 @@
-import random
-
 import torch
 import torch.nn.functional as F
 from torch_geometric.data import NeighborSampler
@@ -13,25 +11,44 @@ from happy.models.infomax import Encoder, corruption, summary_fn
 from projects.placenta.graphs.graphs.samplers.samplers import (
     PosNegNeighborSampler,
     CurriculumPosNegNeighborSampler,
+    SimpleCurriculumPosNegNeighborSampler,
 )
 
 
 def setup_dataloader(
-    model_type, data, num_layers, batch_size, num_neighbors, num_curriculum=0
+    model_type,
+    data,
+    num_layers,
+    batch_size,
+    num_neighbors,
+    num_curriculum=0,
+    simple_curriculum=False,
 ):
     if model_type == "graphsage":
         if num_curriculum > 0:
-            return CurriculumPosNegNeighborSampler(
-                num_curriculum,
-                data.edge_index,
-                sizes=[num_neighbors for _ in range(num_layers)],
-                batch_size=batch_size,
-                shuffle=True,
-                num_nodes=data.num_nodes,
-                num_workers=12,
-                return_e_id=False,
-                drop_last=True,
-            )
+            if simple_curriculum:
+                return SimpleCurriculumPosNegNeighborSampler(
+                    num_curriculum,
+                    data.edge_index,
+                    sizes=[num_neighbors for _ in range(num_layers)],
+                    batch_size=batch_size,
+                    shuffle=True,
+                    num_nodes=data.num_nodes,
+                    num_workers=12,
+                    return_e_id=False,
+                )
+            else:
+                return CurriculumPosNegNeighborSampler(
+                    num_curriculum,
+                    data.edge_index,
+                    sizes=[num_neighbors for _ in range(num_layers)],
+                    batch_size=batch_size,
+                    shuffle=True,
+                    num_nodes=data.num_nodes,
+                    num_workers=12,
+                    return_e_id=False,
+                    drop_last=True,
+                )
         return PosNegNeighborSampler(
             data.edge_index,
             sizes=[num_neighbors for _ in range(num_layers)],
@@ -40,7 +57,6 @@ def setup_dataloader(
             num_nodes=data.num_nodes,
             num_workers=12,
             return_e_id=False,
-            drop_last=True,
         )
     elif model_type == "infomax":
         return NeighborSampler(
@@ -50,7 +66,6 @@ def setup_dataloader(
             batch_size=batch_size,
             shuffle=True,
             num_workers=12,
-            drop_last=True,
         )
 
 
@@ -88,8 +103,14 @@ def train(
     device,
     run_path,
     epoch_num,
+    simple_curriculum,
 ):
     model.train()
+
+    num_neg = (
+        train_loader.num_negatives if hasattr(train_loader, "num_negatives") else 0
+    )
+
     total_loss = 0
     total_examples = 0
     for batch_i, (batch_size, n_id, adjs) in enumerate(train_loader):
@@ -98,11 +119,6 @@ def train(
         optimiser.zero_grad()
 
         if model_type == "graphsage":
-            if hasattr(train_loader, "num_negatives"):
-                num_neg = train_loader.num_negatives
-            else:
-                num_neg = 0
-
             out = model(x[n_id], adjs)
             loss = _graphsage_batch(
                 batch,
@@ -112,9 +128,10 @@ def train(
                 run_path,
                 epoch_num,
                 num_neg,
+                simple_curriculum,
             )
-            total_loss += float(loss) * out.size(0)
-            total_examples += out.size(0)
+            total_loss += float(loss) * batch
+            total_examples += batch
         elif model_type == "infomax":
             pos_z, neg_z, summary = model(x[n_id], adjs)
             loss = _infomax_batch(model, pos_z, neg_z, summary)
@@ -128,17 +145,30 @@ def train(
     return total_loss / total_examples
 
 
-def _graphsage_batch(batch_size, out, batch_i, device, run_path, epoch_num, num_neg):
+def _graphsage_batch(
+    batch_size, out, batch_i, device, run_path, epoch_num, num_neg, simple_curriculum
+):
     if num_neg > 0:
-        out, pos_out, neg_out = out.split(
-            [batch_size, batch_size, batch_size * num_neg], dim=0
-        )
+        if simple_curriculum:
+            out, pos_out = out.split(out.size(0) // 2, dim=0)
+        else:
+            out, pos_out, neg_out = out.split(
+                [batch_size, batch_size, batch_size * num_neg], dim=0
+            )
+
         pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
-        neg_loss = torch.empty(batch_size, device=device)
+        neg_loss = torch.empty(out.size(0), device=device)
         losses_to_plot = torch.empty(10, num_neg, device=device)
 
         for i, node in enumerate(out):
-            negative_nodes = neg_out[i * num_neg : (i + 1) * num_neg]
+            if simple_curriculum:
+                rand_inds = torch.randint(out.size(0), (num_neg,), device=device)
+                while i in rand_inds:
+                    rand_inds = torch.randint(out.size(0), (num_neg,), device=device)
+                negative_nodes = out[rand_inds]
+            else:
+                negative_nodes = neg_out[i * num_neg: (i + 1) * num_neg]
+
             neg_node_losses = F.logsigmoid(-(node * negative_nodes).sum(-1))
             sorted_neg_node_loss = neg_node_losses.sort(descending=True)[0]
 

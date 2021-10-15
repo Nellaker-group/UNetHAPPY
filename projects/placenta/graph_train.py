@@ -39,6 +39,7 @@ def main(
     vis: bool = True,
     plot_pre_embeddings: bool = False,
     num_curriculum: int = 0,
+    simple_curriculum: bool = False,
 ):
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
@@ -58,7 +59,13 @@ def main(
 
     # Setup the dataloader which minibatches the graph
     train_loader = graph_train.setup_dataloader(
-        model_type, data, layers, batch_size, num_neighbours, num_curriculum
+        model_type,
+        data,
+        layers,
+        batch_size,
+        num_neighbours,
+        num_curriculum,
+        simple_curriculum,
     )
 
     # Setup the model
@@ -97,9 +104,9 @@ def main(
             batch_size,
             train_loader,
             device,
-            # num_curriculum,
             run_path,
             epoch,
+            simple_curriculum,
         )
         logger.log_loss("train", epoch, loss)
         if i % 50 == 0 and i != 0 and i != epoch:

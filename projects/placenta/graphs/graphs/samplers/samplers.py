@@ -43,3 +43,20 @@ class CurriculumPosNegNeighborSampler(NeighborSampler):
 
         batch = torch.cat([batch, pos_batch, neg_batch], dim=0)
         return super(CurriculumPosNegNeighborSampler, self).sample(batch)
+
+
+class SimpleCurriculumPosNegNeighborSampler(NeighborSampler):
+    def __init__(self, num_negatives, *args, **kwargs):
+        self.num_negatives = num_negatives
+        super(SimpleCurriculumPosNegNeighborSampler, self).__init__(*args, **kwargs)
+
+    def sample(self, batch):
+        batch = torch.tensor(batch)
+        row, col, _ = self.adj_t.coo()
+
+        # For each node in `batch`, we sample a direct neighbor (as positive
+        # example) and use other target nodes for calculating the negative examples
+        pos_batch = random_walk(row, col, batch, walk_length=1, coalesced=False)[:, 1]
+
+        batch = torch.cat([batch, pos_batch], dim=0)
+        return super(SimpleCurriculumPosNegNeighborSampler, self).sample(batch)

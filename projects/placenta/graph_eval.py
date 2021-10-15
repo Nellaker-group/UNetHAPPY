@@ -114,6 +114,7 @@ def main(
     # Plot the cluster labels onto the umap of the graph embeddings
     if plot_umap:
         plot_clustering(fitted_umap, plot_name, cluster_save_path, cluster_labels)
+        plot_clustering(fitted_umap, f"gt_{plot_name}", cluster_save_path, tissue_class)
 
     # Remove unlabelled (class 0) ground truth points
     if remove_unlabelled:
