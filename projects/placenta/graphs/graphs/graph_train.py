@@ -86,7 +86,6 @@ def train(
     batch,
     train_loader,
     device,
-    num_curriculum,
     run_path,
     epoch_num,
 ):
@@ -102,7 +101,7 @@ def train(
             if hasattr(train_loader, "num_negatives"):
                 num_neg = train_loader.num_negatives
             else:
-                num_neg = None
+                num_neg = 0
 
             out = model(x[n_id], adjs)
             loss = _graphsage_batch(
@@ -113,7 +112,6 @@ def train(
                 run_path,
                 epoch_num,
                 num_neg,
-                num_curriculum=num_curriculum,
             )
             total_loss += float(loss) * out.size(0)
             total_examples += out.size(0)
@@ -130,10 +128,8 @@ def train(
     return total_loss / total_examples
 
 
-def _graphsage_batch(
-    batch_size, out, batch_i, device, run_path, epoch_num, num_neg, num_curriculum=0
-):
-    if num_curriculum > 0:
+def _graphsage_batch(batch_size, out, batch_i, device, run_path, epoch_num, num_neg):
+    if num_neg > 0:
         out, pos_out, neg_out = out.split(
             [batch_size, batch_size, batch_size * num_neg], dim=0
         )

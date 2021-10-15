@@ -36,6 +36,7 @@ def main(
     organ_name: str = "placenta",
     exp_name: str = typer.Option(...),
     model_weights_dir: str = typer.Option(...),
+    model_name: str = typer.Option(...),
     run_id: int = typer.Option(...),
     x_min: int = 0,
     y_min: int = 0,
@@ -82,7 +83,7 @@ def main(
         / model_type
         / exp_name
         / model_weights_dir
-        / "101_graph_model.pt"
+        / model_name
     )
     model = torch.load(pretrained_path, map_location=device)
 

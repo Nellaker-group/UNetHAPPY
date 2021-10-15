@@ -13,7 +13,6 @@ from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.graphs.utils import get_feature
 from graphs.graphs import graph_train
 
-
 device = get_device()
 
 
@@ -98,7 +97,7 @@ def main(
             batch_size,
             train_loader,
             device,
-            num_curriculum,
+            # num_curriculum,
             run_path,
             epoch,
         )
