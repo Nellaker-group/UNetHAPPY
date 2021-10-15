@@ -40,6 +40,7 @@ def setup_dataloader(
             num_nodes=data.num_nodes,
             num_workers=12,
             return_e_id=False,
+            drop_last=True,
         )
     elif model_type == "infomax":
         return NeighborSampler(
@@ -49,6 +50,7 @@ def setup_dataloader(
             batch_size=batch_size,
             shuffle=True,
             num_workers=12,
+            drop_last=True,
         )
 
 
@@ -97,45 +99,27 @@ def train(
         optimiser.zero_grad()
 
         if model_type == "graphsage":
-            out = model(x[n_id], adjs)
-            if num_curriculum > 0:
+            if hasattr(train_loader, "num_negatives"):
                 num_neg = train_loader.num_negatives
-
-                out, pos_out, neg_out = out.split(
-                    [batch, batch, batch * num_neg], dim=0
-                )
-                pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
-                neg_loss = torch.empty(batch)
-                losses_to_plot = torch.empty(10, num_neg)
-
-                for i, node in enumerate(out):
-                    negative_nodes = neg_out[i * num_neg : (i + 1) * num_neg]
-                    neg_node_losses = F.logsigmoid(-(node * negative_nodes).sum(-1))
-                    sorted_neg_node_loss = neg_node_losses.sort(descending=True)[0]
-
-                    # Store 10 negative losses to plot
-                    if i < 10:
-                        losses_to_plot[i] = sorted_neg_node_loss
-
-                    # pick randomly from the best 20% of options
-                    neg_node_loss = sorted_neg_node_loss[
-                        random.randint(0, int(num_neg / 20))
-                    ]
-                    neg_loss[i] = neg_node_loss
-
-                if batch_i == 0:
-                    _plot_negative_losses(run_path, epoch_num, losses_to_plot)
-                loss = -pos_loss - neg_loss.mean()
             else:
-                out, pos_out, neg_out = out.split(out.size(0) // 3, dim=0)
-                pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
-                neg_loss = F.logsigmoid(-(out * neg_out).sum(-1)).mean()
-                loss = -pos_loss - neg_loss
+                num_neg = None
+
+            out = model(x[n_id], adjs)
+            loss = _graphsage_batch(
+                batch,
+                out,
+                batch_i,
+                device,
+                run_path,
+                epoch_num,
+                num_neg,
+                num_curriculum=num_curriculum,
+            )
             total_loss += float(loss) * out.size(0)
             total_examples += out.size(0)
         elif model_type == "infomax":
             pos_z, neg_z, summary = model(x[n_id], adjs)
-            loss = model.loss(pos_z, neg_z, summary)
+            loss = _infomax_batch(model, pos_z, neg_z, summary)
             total_loss += float(loss) * pos_z.size(0)
             total_examples += pos_z.size(0)
         else:
@@ -144,6 +128,46 @@ def train(
         loss.backward()
         optimiser.step()
     return total_loss / total_examples
+
+
+def _graphsage_batch(
+    batch_size, out, batch_i, device, run_path, epoch_num, num_neg, num_curriculum=0
+):
+    if num_curriculum > 0:
+        out, pos_out, neg_out = out.split(
+            [batch_size, batch_size, batch_size * num_neg], dim=0
+        )
+        pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
+        neg_loss = torch.empty(batch_size, device=device)
+        losses_to_plot = torch.empty(10, num_neg, device=device)
+
+        for i, node in enumerate(out):
+            negative_nodes = neg_out[i * num_neg : (i + 1) * num_neg]
+            neg_node_losses = F.logsigmoid(-(node * negative_nodes).sum(-1))
+            sorted_neg_node_loss = neg_node_losses.sort(descending=True)[0]
+
+            # Store 10 negative losses to plot
+            if i < 10:
+                losses_to_plot[i] = sorted_neg_node_loss
+
+            # pick randomly from the best 25% of options
+            neg_node_loss = sorted_neg_node_loss[
+                torch.randint(int(num_neg * 0.25), (1,), device=device)[0]
+            ]
+            neg_loss[i] = neg_node_loss
+
+        if batch_i == 0:
+            _plot_negative_losses(run_path, epoch_num, losses_to_plot)
+        return -pos_loss - neg_loss.mean()
+    else:
+        out, pos_out, neg_out = out.split(out.size(0) // 3, dim=0)
+        pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
+        neg_loss = F.logsigmoid(-(out * neg_out).sum(-1)).mean()
+        return -pos_loss - neg_loss
+
+
+def _infomax_batch(model, pos_z, neg_z, summary):
+    return model.loss(pos_z, neg_z, summary)
 
 
 def save_state(
