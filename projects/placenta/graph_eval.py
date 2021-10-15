@@ -1,5 +1,4 @@
 from pathlib import Path
-import os
 
 import typer
 import torch
@@ -10,6 +9,8 @@ from sklearn.metrics.cluster import (
     fowlkes_mallows_score,
     homogeneity_completeness_v_measure,
 )
+import numpy as np
+from scipy.spatial.distance import euclidean
 
 from happy.utils.utils import get_device
 from happy.utils.utils import get_project_dir
@@ -26,6 +27,8 @@ from graphs.graphs.utils import get_feature
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
 from graphs.graphs.create_graph import get_groundtruth_patch
+
+np.random.seed(2)
 
 
 def main(
@@ -48,6 +51,8 @@ def main(
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
     alt_groundtruth: bool = False,
+    relabel: bool = False,
+    relabel_by_centroid: bool = False,
 ):
     device = get_device()
     project_dir = get_project_dir(project_name)
@@ -77,7 +82,7 @@ def main(
         / model_type
         / exp_name
         / model_weights_dir
-        / "graph_model.pt"
+        / "101_graph_model.pt"
     )
     model = torch.load(pretrained_path, map_location=device)
 
@@ -100,8 +105,8 @@ def main(
         )
 
     # Fit a clustering method on the graph embeddings
-    mapper = fitted_umap if clustering_method == 'umap' else None
-    cluster_labels = fit_clustering(
+    mapper = fitted_umap if clustering_method == "umap" else None
+    cluster_labels, cluster_method = fit_clustering(
         num_clusters, graph_embeddings, clustering_method, mapper=mapper
     )
 
@@ -115,6 +120,28 @@ def main(
         tissue_class = tissue_class[unlabelled_inds]
         cluster_labels = cluster_labels[unlabelled_inds]
         pos = pos[unlabelled_inds]
+
+    if relabel:
+        colour_permute = [7, 5, 6, 1, 2, 3, 4, 0]
+        if len(colour_permute) == num_clusters:
+            cluster_labels = np.choose(cluster_labels, colour_permute).astype(np.int64)
+        else:
+            pass
+
+    if relabel_by_centroid:
+        ids = {}
+        for i in range(num_clusters):
+            cluster_pts_indices = np.where(cluster_method.labels_ == i)[0]
+            cluster_cen = cluster_method.cluster_centers_[i]
+            min_idx = np.argmin(
+                [
+                    euclidean(graph_embeddings[idx], cluster_cen)
+                    for idx in cluster_pts_indices
+                ]
+            )
+            true_label_for_id = tissue_class[min_idx]
+            ids[i] = true_label_for_id
+            print(ids)
 
     # Evaluate against ground truth tissue annotations
     if run_id == 16:

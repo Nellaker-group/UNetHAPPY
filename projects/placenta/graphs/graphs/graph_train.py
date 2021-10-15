@@ -117,9 +117,9 @@ def train(
                     if i < 10:
                         losses_to_plot[i] = sorted_neg_node_loss
 
-                    # pick randomly from the best 10% of options
+                    # pick randomly from the best 20% of options
                     neg_node_loss = sorted_neg_node_loss[
-                        random.randint(0, int(num_neg / 10))
+                        random.randint(0, int(num_neg / 20))
                     ]
                     neg_loss[i] = neg_node_loss
 

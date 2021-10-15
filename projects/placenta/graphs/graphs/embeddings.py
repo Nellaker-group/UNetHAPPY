@@ -35,15 +35,16 @@ def fit_umap(graph_embeddings):
 
 def fit_clustering(num_clusters, graph_embeddings, clustering_method, mapper=None):
     if clustering_method == "kmeans":
-        labels = KMeans(n_clusters=num_clusters).fit_predict(graph_embeddings)
+        cluster_method = KMeans(n_clusters=num_clusters).fit(graph_embeddings)
     elif clustering_method == 'dbscan':
-        labels = DBSCAN(eps=0.1).fit_predict(graph_embeddings)
+        cluster_method = DBSCAN(eps=0.1).fit(graph_embeddings)
     elif clustering_method == 'umap':
-        umap_embeddings = mapper.transform(graph_embeddings)
-        labels = KMeans(n_clusters=num_clusters).fit_predict(umap_embeddings)
+        graph_embeddings = mapper.transform(graph_embeddings)
+        cluster_method = KMeans(n_clusters=num_clusters).fit(graph_embeddings)
     else:
         raise ValueError(f"No such clustering method: {clustering_method}")
-    return labels
+    labels = cluster_method.predict(graph_embeddings)
+    return labels, cluster_method
 
 
 def plot_clustering(mapper, plot_name, save_dir, cluster_labels):

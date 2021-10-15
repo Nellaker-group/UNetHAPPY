@@ -62,6 +62,7 @@ PLACENTA = Organ(
         Tissue("Chorion", "Chorion", "fetal", "StemVilli", 6, 5),
         Tissue("Maternal", "Maternal Decidua", "maternal", "Maternal", 7, 7),
         Tissue("Necrose", "Necrosed Tissue", "other", "Necrose", 8, 8),
+        Tissue("Infection", "Infected Tissue", "other", "Infection", 9, 9),
     ],
 )
 LIVER = Organ([], [])
