@@ -157,7 +157,7 @@ def _graphsage_batch(
             )
 
         pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
-        neg_loss = torch.empty(out.size(0), device=device)
+        neg_similarities = torch.empty(out.size(0), device=device)
         losses_to_plot = torch.empty(10, num_neg, device=device)
 
         for i, node in enumerate(out):
@@ -167,20 +167,23 @@ def _graphsage_batch(
                     rand_inds = torch.randint(out.size(0), (num_neg,), device=device)
                 negative_nodes = out[rand_inds]
             else:
-                negative_nodes = neg_out[i * num_neg: (i + 1) * num_neg]
+                negative_nodes = neg_out[i * num_neg : (i + 1) * num_neg]
 
-            neg_node_losses = F.logsigmoid(-(node * negative_nodes).sum(-1))
-            sorted_neg_node_loss = neg_node_losses.sort(descending=True)[0]
+            sorted_node_similarity = (
+                (-(node * negative_nodes)).sum(-1).sort(descending=True)
+            )[0]
 
             # Store 10 negative losses to plot
             if i < 10:
-                losses_to_plot[i] = sorted_neg_node_loss
+                losses_to_plot[i] = sorted_node_similarity
 
             # pick randomly from the best 25% of options
-            neg_node_loss = sorted_neg_node_loss[
+            neg_node = sorted_node_similarity[
                 torch.randint(int(num_neg * 0.25), (1,), device=device)[0]
             ]
-            neg_loss[i] = neg_node_loss
+            neg_similarities[i] = neg_node
+
+        neg_loss = F.logsigmoid(neg_similarities)
 
         if batch_i == 0:
             _plot_negative_losses(run_path, epoch_num, losses_to_plot)
@@ -255,7 +258,8 @@ def _summary_lambda(z, *args, **kwargs):
     return torch.sigmoid(z.mean(dim=0))
 
 
-def _plot_negative_losses(run_path, iteration, all_neg_losses):
+def _plot_negative_losses(run_path, iteration, neg_similarities):
+    all_neg_losses = F.logsigmoid(neg_similarities)
     all_neg_losses = all_neg_losses.detach().cpu().numpy()
     df = pd.DataFrame(all_neg_losses, index=list(range(0, len(all_neg_losses))))
 

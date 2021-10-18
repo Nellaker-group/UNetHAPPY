@@ -86,11 +86,18 @@ def main(
         / model_name
     )
     model = torch.load(pretrained_path, map_location=device)
+    model_epochs = (
+        "model_final"
+        if model_name == "graph_model.pt"
+        else f"model_{model_name.split('_')[0]}"
+    )
 
     # Setup paths
-    save_path = Path(*pretrained_path.parts[:-1]) / "eval"
-    save_path.mkdir(exist_ok=True)
-    cluster_save_path = save_path / clustering_method / f"{num_clusters}_clusters"
+    save_path = Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs
+    save_path.mkdir(parents=True, exist_ok=True)
+    cluster_save_path = (
+        save_path / clustering_method / f"{num_clusters}_clusters"
+    )
     cluster_save_path.mkdir(parents=True, exist_ok=True)
     conf_str = "_top_conf" if top_conf else ""
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
