@@ -94,16 +94,7 @@ def setup_parameters(data, model, learning_rate, device):
 
 
 def train(
-    model_type,
-    model,
-    x,
-    optimiser,
-    batch,
-    train_loader,
-    device,
-    run_path,
-    epoch_num,
-    simple_curriculum,
+    model_type, model, x, optimiser, batch, train_loader, device, simple_curriculum
 ):
     model.train()
 
@@ -121,14 +112,7 @@ def train(
         if model_type == "graphsage":
             out = model(x[n_id], adjs)
             loss = _graphsage_batch(
-                batch,
-                out,
-                batch_i,
-                device,
-                run_path,
-                epoch_num,
-                num_neg,
-                simple_curriculum,
+                batch, out, batch_i, device, num_neg, simple_curriculum
             )
             total_loss += float(loss) * batch
             total_examples += batch
@@ -145,49 +129,60 @@ def train(
     return total_loss / total_examples
 
 
-def _graphsage_batch(
-    batch_size, out, batch_i, device, run_path, epoch_num, num_neg, simple_curriculum
-):
+def _graphsage_batch(batch_size, out, batch_i, device, num_neg, simple_curriculum):
     if num_neg > 0:
         if simple_curriculum:
             out, pos_out = out.split(out.size(0) // 2, dim=0)
+
+            rand_out_inds = torch.randint(
+                out.size(0), (out.size(0) * num_neg,), device=device
+            )
+            node_inds = torch.arange(start=0, end=out.size(0), device=device)
+            # Make sure the other outs used as negatives do not match the current out
+            matching_inds = torch.where(
+                torch.eq(node_inds.repeat_interleave(num_neg), rand_out_inds), 1, 0
+            )
+            if ~torch.eq(matching_inds.sum(), 0):
+                bad_inds = torch.nonzero(matching_inds).reshape(-1)
+                rand_out_inds[bad_inds] = rand_out_inds[bad_inds] + 1
+                # If the last possible element was 'bad', find it and -2 from it
+                values_that_are_too_big = torch.where(
+                    torch.eq(rand_out_inds, out.size(0)), 1, 0
+                )
+                final_bad_inds = torch.nonzero(values_that_are_too_big).reshape(-1)
+                rand_out_inds[final_bad_inds] = (torch.sub(rand_out_inds, 2))[
+                    final_bad_inds
+                ]
+            neg_out = out[rand_out_inds]
+            neg_out = torch.reshape(neg_out, (out.size(0), num_neg, 64))
+            all_neg_similarities = (
+                (-(neg_out * out[:, None])).sum(-1).sort(descending=True)[0]
+            )
         else:
             out, pos_out, neg_out = out.split(
                 [batch_size, batch_size, batch_size * num_neg], dim=0
             )
+            neg_out = torch.reshape(neg_out, (out.size(0), num_neg, 64))
+            all_neg_similarities = (
+                (-(neg_out * out[:, None])).sum(-1).sort(descending=True)[0]
+            )
 
+        # pick randomly from the best 25% of options
+        rand_inds = torch.randint(int(num_neg * 0.25), (out.size(0),), device=device)
+        inds_multiplication = torch.arange(
+            start=1, end=out.size(0) * num_neg, step=num_neg, device=device
+        )
+        chosen_negative_inds = rand_inds + inds_multiplication
+        neg_similarities = torch.flatten(all_neg_similarities)[chosen_negative_inds]
+
+        neg_loss = F.logsigmoid(neg_similarities).mean()
         pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
-        neg_similarities = torch.empty(out.size(0), device=device)
-        losses_to_plot = torch.empty(10, num_neg, device=device)
 
-        for i, node in enumerate(out):
-            if simple_curriculum:
-                rand_inds = torch.randint(out.size(0), (num_neg,), device=device)
-                while i in rand_inds:
-                    rand_inds = torch.randint(out.size(0), (num_neg,), device=device)
-                negative_nodes = out[rand_inds]
-            else:
-                negative_nodes = neg_out[i * num_neg : (i + 1) * num_neg]
-
-            sorted_node_similarity = (
-                (-(node * negative_nodes)).sum(-1).sort(descending=True)
-            )[0]
-
-            # Store 10 negative losses to plot
-            if i < 10:
-                losses_to_plot[i] = sorted_node_similarity
-
-            # pick randomly from the best 25% of options
-            neg_node = sorted_node_similarity[
-                torch.randint(int(num_neg * 0.25), (1,), device=device)[0]
-            ]
-            neg_similarities[i] = neg_node
-
-        neg_loss = F.logsigmoid(neg_similarities)
-
+        # Store 10 sorted negative losses to plot per batch
         if batch_i == 0:
-            _plot_negative_losses(run_path, epoch_num, losses_to_plot)
-        return -pos_loss - neg_loss.mean()
+            similarities_to_plot = all_neg_similarities[:10]
+            _plot_negative_losses(similarities_to_plot)
+        return -pos_loss - neg_loss
     else:
         out, pos_out, neg_out = out.split(out.size(0) // 3, dim=0)
         pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
@@ -258,16 +253,11 @@ def _summary_lambda(z, *args, **kwargs):
     return torch.sigmoid(z.mean(dim=0))
 
 
-def _plot_negative_losses(run_path, iteration, neg_similarities):
+def _plot_negative_losses(neg_similarities):
+    # TODO: colour the segments by negative node ground truth and label anchor ground truth
     all_neg_losses = F.logsigmoid(neg_similarities)
     all_neg_losses = all_neg_losses.detach().cpu().numpy()
     df = pd.DataFrame(all_neg_losses, index=list(range(0, len(all_neg_losses))))
 
     ax = sns.lineplot(data=df.T, legend=False, markers=True)
     ax.set(xlabel="Ranked negative nodes", ylabel="Negative Node Loss")
-
-    save_dir = run_path / "neg_loss_plots"
-    save_dir.mkdir(parents=True, exist_ok=True)
-    save_path = save_dir / f"neg_losses_{iteration}.png"
-    plt.savefig(save_path)
-    plt.close()

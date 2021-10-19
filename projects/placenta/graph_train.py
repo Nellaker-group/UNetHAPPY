@@ -1,6 +1,7 @@
 from typing import Optional
 
 import typer
+import matplotlib.pyplot as plt
 
 from graphs.graphs.create_graph import get_raw_data, setup_graph
 from happy.utils.utils import get_device
@@ -95,7 +96,7 @@ def main(
 
     # Train!
     print("Training:")
-    for i, epoch in enumerate(range(1, epochs + 1)):
+    for epoch in range(1, epochs + 1):
         loss = graph_train.train(
             model_type,
             model,
@@ -104,13 +105,17 @@ def main(
             batch_size,
             train_loader,
             device,
-            run_path,
-            epoch,
             simple_curriculum,
         )
         logger.log_loss("train", epoch, loss)
-        if i % 50 == 0 and i != 0 and i != epoch:
+        if epoch % 51 == 0 and epoch != 1:
             graph_train.save_model(model, run_path / f"{epoch}_graph_model.pt")
+
+        save_dir = run_path / "neg_loss_plots"
+        save_dir.mkdir(parents=True, exist_ok=True)
+        save_path = save_dir / f"neg_losses_{epoch}.png"
+        plt.savefig(save_path)
+        plt.close()
 
     # Save the fully trained model
     graph_train.save_state(
