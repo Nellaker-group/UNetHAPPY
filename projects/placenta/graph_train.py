@@ -2,6 +2,7 @@ from typing import Optional
 
 import typer
 import matplotlib.pyplot as plt
+import numpy as np
 
 from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
@@ -60,7 +61,7 @@ def main(
     _, _, tissue_class = get_groundtruth_patch(
         organ, project_dir, x_min, y_min, width, height, False
     )
-    num_classes = max(tissue_class) + 1
+    num_classes = len(np.unique([tissue.id for tissue in organ.tissues]))
 
     # Create the graph from the raw data
     data = setup_graph(coords, k, feature_data, graph_method.value)
