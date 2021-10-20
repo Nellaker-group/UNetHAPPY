@@ -94,6 +94,7 @@ def main(
     model.eval()
     out, embeddings = model.inference(x, eval_loader, device)
     predicted_labels = out.argmax(dim=-1, keepdim=True).squeeze()
+    predicted_labels = predicted_labels.cpu().numpy()
 
     if plot_umap:
         # fit and plot umap with cell classes
@@ -114,7 +115,7 @@ def main(
 
     # Evaluate against ground truth tissue annotations
     if run_id == 16:
-        evaluate(tissue_class, predicted_labels)
+        evaluate(tissue_class, predicted_labels, out.cpu().detach().numpy())
 
     # Visualise cluster labels on graph patch
     print("Generating image")
@@ -128,13 +129,10 @@ def main(
     )
 
 
-def evaluate(tissue_class, predicted_labels):
+def evaluate(tissue_class, predicted_labels, out):
     accuracy = accuracy_score(tissue_class, predicted_labels)
     f1_micro = f1_score(tissue_class, predicted_labels, average="micro")
-    try:
-        top_3_accuracy = top_k_accuracy_score(tissue_class, predicted_labels, k=3)
-    except ValueError:
-        top_3_accuracy = 0
+    top_3_accuracy = top_k_accuracy_score(tissue_class, out, k=3)
     print("-----------------------")
     print(f"Accuracy: {accuracy:.3f}")
     print(f"Top 3 accuracy: {top_3_accuracy:.3f}")

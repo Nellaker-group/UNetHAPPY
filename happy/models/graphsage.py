@@ -37,9 +37,9 @@ class SupervisedSAGE(nn.Module):
         self.num_layers = num_layers
         self.convs = nn.ModuleList()
 
-        for i in range(num_layers + 1):
+        for i in range(num_layers):
             in_channels = in_channels if i == 0 else hidden_channels
-            hidden_channels = out_channels if i == num_layers else hidden_channels
+            hidden_channels = out_channels if i == num_layers - 1 else hidden_channels
             self.convs.append(SAGEConv(in_channels, hidden_channels))
 
     def forward(self, x, adjs):

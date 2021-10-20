@@ -98,7 +98,7 @@ def setup_model(model_type, data, device, layers, pretrained=None, num_classes=N
 def setup_parameters(data, model, learning_rate, tissue_class, device):
     optimiser = torch.optim.Adam(model.parameters(), lr=learning_rate)
     x, edge_index = data.x.to(device), data.edge_index.to(device)
-    tissue_class = torch.LongTensor(tissue_class, device=device)
+    tissue_class = torch.Tensor(tissue_class).type(torch.LongTensor).to(device)
     return optimiser, x, edge_index, tissue_class
 
 
