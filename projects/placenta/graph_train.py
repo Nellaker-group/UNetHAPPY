@@ -47,7 +47,10 @@ def main(
     organ = get_organ(organ_name)
 
     # Setup recording of stats per batch and epoch
-    logger = Logger(list(["train"]), ["loss"], vis=vis, file=True)
+    if not model_type == 'sup_graphsage':
+        logger = Logger(list(["train"]), ["loss, accuracy"], vis=vis, file=True)
+    else:
+        logger = Logger(list(["train"]), ["loss"], vis=vis, file=True)
 
     # Get data from hdf5 files
     predictions, embeddings, coords, confidence = get_raw_data(
@@ -57,6 +60,7 @@ def main(
     _, _, tissue_class = get_groundtruth_patch(
         organ, project_dir, x_min, y_min, width, height, False
     )
+    num_classes = max(tissue_class) + 1
 
     # Create the graph from the raw data
     data = setup_graph(coords, k, feature_data, graph_method.value)
@@ -73,11 +77,13 @@ def main(
     )
 
     # Setup the model
-    model = graph_train.setup_model(model_type, data, device, layers, pretrained_path)
+    model = graph_train.setup_model(
+        model_type, data, device, layers, pretrained_path, num_classes
+    )
 
     # Setup the training parameters
-    optimiser, x, edge_index = graph_train.setup_parameters(
-        data, model, learning_rate, device
+    optimiser, x, edge_index, tissue_class = graph_train.setup_parameters(
+        data, model, learning_rate, tissue_class, device
     )
 
     # Saves each run by its timestamp
@@ -100,7 +106,7 @@ def main(
     # Train!
     print("Training:")
     for epoch in range(1, epochs + 1):
-        loss = graph_train.train(
+        loss, accuracy = graph_train.train(
             model_type,
             model,
             x,
@@ -112,6 +118,9 @@ def main(
             tissue_class,
         )
         logger.log_loss("train", epoch, loss)
+        if model_type == "sup_graphsage":
+            logger.log_accuracy("train", epoch, accuracy)
+
         if epoch % 50 == 0 and epoch != epochs:
             graph_train.save_model(model, run_path / f"{epoch}_graph_model.pt")
 

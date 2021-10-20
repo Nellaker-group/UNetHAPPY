@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-from happy.models.graphsage import SAGE
+from happy.models.graphsage import SAGE, SupervisedSAGE
 from happy.models.infomax import Encoder, corruption, summary_fn
 from projects.placenta.graphs.graphs.samplers.samplers import (
     PosNegNeighborSampler,
@@ -59,7 +59,7 @@ def setup_dataloader(
             num_workers=12,
             return_e_id=False,
         )
-    elif model_type == "infomax":
+    elif model_type == "infomax" or model_type == "sup_graphsage":
         return NeighborSampler(
             data.edge_index,
             node_idx=None,
@@ -70,11 +70,18 @@ def setup_dataloader(
         )
 
 
-def setup_model(model_type, data, device, layers=None, pretrained=None):
+def setup_model(model_type, data, device, layers, pretrained=None, num_classes=None):
     if pretrained:
         return torch.load(pretrained / "graph_model.pt", map_location=device)
     if model_type == "graphsage":
         model = SAGE(data.num_node_features, hidden_channels=64, num_layers=layers)
+    elif model_type == "sup_graphsage":
+        model = SupervisedSAGE(
+            data.num_node_features,
+            hidden_channels=64,
+            out_channels=num_classes,
+            num_layers=layers,
+        )
     elif model_type == "infomax":
         model = DeepGraphInfomax(
             hidden_channels=512,
@@ -88,10 +95,11 @@ def setup_model(model_type, data, device, layers=None, pretrained=None):
     return model
 
 
-def setup_parameters(data, model, learning_rate, device):
+def setup_parameters(data, model, learning_rate, tissue_class, device):
     optimiser = torch.optim.Adam(model.parameters(), lr=learning_rate)
     x, edge_index = data.x.to(device), data.edge_index.to(device)
-    return optimiser, x, edge_index
+    tissue_class = torch.LongTensor(tissue_class, device=device)
+    return optimiser, x, edge_index, tissue_class
 
 
 def train(
@@ -113,6 +121,7 @@ def train(
 
     total_loss = 0
     total_examples = 0
+    total_correct = 0
     for batch_i, (batch_size, n_id, adjs) in enumerate(train_loader):
         # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
         adjs = [adj.to(device) for adj in adjs]
@@ -132,9 +141,17 @@ def train(
             )
             total_loss += float(loss) * batch
             total_examples += batch
+        elif model_type == "sup_graphsage":
+            out = model(x[n_id], adjs)
+            loss = F.nll_loss(out, tissue_class[n_id[:batch_size]])
+            total_loss += float(loss)
+            total_correct += int(
+                out.argmax(dim=-1).eq(tissue_class[n_id[:batch_size]]).sum()
+            )
+            total_examples += out.size(0)
         elif model_type == "infomax":
             pos_z, neg_z, summary = model(x[n_id], adjs)
-            loss = _infomax_batch(model, pos_z, neg_z, summary)
+            loss = model.loss(pos_z, neg_z, summary)
             total_loss += float(loss) * pos_z.size(0)
             total_examples += pos_z.size(0)
         else:
@@ -142,7 +159,7 @@ def train(
 
         loss.backward()
         optimiser.step()
-    return total_loss / total_examples
+    return total_loss / total_examples, total_correct / total_examples
 
 
 def _graphsage_batch(
@@ -225,10 +242,6 @@ def _graphsage_batch(
         pos_loss = F.logsigmoid((out * pos_out).sum(-1)).mean()
         neg_loss = F.logsigmoid(-(out * neg_out).sum(-1)).mean()
         return -pos_loss - neg_loss
-
-
-def _infomax_batch(model, pos_z, neg_z, summary):
-    return model.loss(pos_z, neg_z, summary)
 
 
 def save_state(

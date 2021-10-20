@@ -47,8 +47,8 @@ def fit_clustering(num_clusters, graph_embeddings, clustering_method, mapper=Non
     return labels, cluster_method
 
 
-def plot_clustering(mapper, plot_name, save_dir, cluster_labels):
+def plot_labels_on_umap(mapper, plot_name, save_dir, cluster_labels):
     plot = umap.plot.points(mapper, labels=cluster_labels)
-    plot_name = f"clustered_{plot_name}.png"
+    plot_name = f"labelled_{plot_name}.png"
     plot.figure.savefig(save_dir / plot_name)
     print(f"Clustered UMAP saved to {save_dir / plot_name}")
