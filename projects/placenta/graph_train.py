@@ -3,7 +3,7 @@ from typing import Optional
 import typer
 import matplotlib.pyplot as plt
 
-from graphs.graphs.create_graph import get_raw_data, setup_graph
+from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
 from happy.organs.organs import get_organ
 from happy.logger.logger import Logger
@@ -54,6 +54,9 @@ def main(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
     feature_data = get_feature(feature.value, predictions, embeddings)
+    _, _, tissue_class = get_groundtruth_patch(
+        organ, project_dir, x_min, y_min, width, height, False
+    )
 
     # Create the graph from the raw data
     data = setup_graph(coords, k, feature_data, graph_method.value)
@@ -106,16 +109,18 @@ def main(
             train_loader,
             device,
             simple_curriculum,
+            tissue_class,
         )
         logger.log_loss("train", epoch, loss)
-        if epoch % 51 == 0 and epoch != 1:
+        if epoch % 50 == 0 and epoch != epochs:
             graph_train.save_model(model, run_path / f"{epoch}_graph_model.pt")
 
-        save_dir = run_path / "neg_loss_plots"
-        save_dir.mkdir(parents=True, exist_ok=True)
-        save_path = save_dir / f"neg_losses_{epoch}.png"
-        plt.savefig(save_path)
-        plt.close()
+        if num_curriculum > 0:
+            save_dir = run_path / "neg_loss_plots"
+            save_dir.mkdir(parents=True, exist_ok=True)
+            save_path = save_dir / f"neg_losses_{epoch}.png"
+            plt.savefig(save_path)
+            plt.close()
 
     # Save the fully trained model
     graph_train.save_state(

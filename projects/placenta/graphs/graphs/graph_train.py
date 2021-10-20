@@ -5,6 +5,7 @@ from torch_geometric.nn import DeepGraphInfomax
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 
 from happy.models.graphsage import SAGE
 from happy.models.infomax import Encoder, corruption, summary_fn
@@ -94,7 +95,15 @@ def setup_parameters(data, model, learning_rate, device):
 
 
 def train(
-    model_type, model, x, optimiser, batch, train_loader, device, simple_curriculum
+    model_type,
+    model,
+    x,
+    optimiser,
+    batch,
+    train_loader,
+    device,
+    simple_curriculum,
+    tissue_class,
 ):
     model.train()
 
@@ -112,7 +121,14 @@ def train(
         if model_type == "graphsage":
             out = model(x[n_id], adjs)
             loss = _graphsage_batch(
-                batch, out, batch_i, device, num_neg, simple_curriculum
+                batch,
+                out,
+                batch_i,
+                device,
+                n_id,
+                num_neg,
+                simple_curriculum,
+                tissue_class,
             )
             total_loss += float(loss) * batch
             total_examples += batch
@@ -129,10 +145,13 @@ def train(
     return total_loss / total_examples
 
 
-def _graphsage_batch(batch_size, out, batch_i, device, num_neg, simple_curriculum):
+def _graphsage_batch(
+    batch_size, out, batch_i, device, n_id, num_neg, simple_curriculum, tissue_class
+):
     if num_neg > 0:
         if simple_curriculum:
             out, pos_out = out.split(out.size(0) // 2, dim=0)
+            out_ids, _ = n_id[: out.size(0) + pos_out.size(0)].split(out.size(0), dim=0)
 
             rand_out_inds = torch.randint(
                 out.size(0), (out.size(0) * num_neg,), device=device
@@ -155,16 +174,21 @@ def _graphsage_batch(batch_size, out, batch_i, device, num_neg, simple_curriculu
                 ]
             neg_out = out[rand_out_inds]
             neg_out = torch.reshape(neg_out, (out.size(0), num_neg, 64))
-            all_neg_similarities = (
-                (-(neg_out * out[:, None])).sum(-1).sort(descending=True)[0]
+            all_neg_similarities, sort_inds = (
+                (-(neg_out * out[:, None])).sum(-1).sort(descending=True)
             )
+            neg_ids = out_ids[rand_out_inds]
+
         else:
             out, pos_out, neg_out = out.split(
                 [batch_size, batch_size, batch_size * num_neg], dim=0
             )
+            out_ids, _, neg_ids = n_id.split[: batch_size * 2 + batch_size * num_neg](
+                [batch_size, batch_size, batch_size * num_neg], dim=0
+            )
             neg_out = torch.reshape(neg_out, (out.size(0), num_neg, 64))
-            all_neg_similarities = (
-                (-(neg_out * out[:, None])).sum(-1).sort(descending=True)[0]
+            all_neg_similarities, sort_inds = (
+                (-(neg_out * out[:, None])).sum(-1).sort(descending=True)
             )
 
         # pick randomly from the best 25% of options
@@ -180,8 +204,21 @@ def _graphsage_batch(batch_size, out, batch_i, device, num_neg, simple_curriculu
 
         # Store 10 sorted negative losses to plot per batch
         if batch_i == 0:
-            similarities_to_plot = all_neg_similarities[:10]
-            _plot_negative_losses(similarities_to_plot)
+            num_lines = 1
+
+            # ids of possible negatives
+            neg_ids = torch.reshape(neg_ids, (out.size(0), num_neg))
+            neg_ids = torch.gather(neg_ids, dim=1, index=sort_inds)
+
+            negative_ids_to_plot = neg_ids[:num_lines]
+            target_node_ids_to_plot = out_ids[:num_lines]
+            similarities_to_plot = all_neg_similarities[:num_lines]
+            _plot_negative_losses(
+                similarities_to_plot,
+                negative_ids_to_plot,
+                target_node_ids_to_plot,
+                tissue_class,
+            )
         return -pos_loss - neg_loss
     else:
         out, pos_out, neg_out = out.split(out.size(0) // 3, dim=0)
@@ -253,11 +290,38 @@ def _summary_lambda(z, *args, **kwargs):
     return torch.sigmoid(z.mean(dim=0))
 
 
-def _plot_negative_losses(neg_similarities):
-    # TODO: colour the segments by negative node ground truth and label anchor ground truth
+def _plot_negative_losses(
+    neg_similarities, negative_ids_to_plot, target_node_ids_to_plot, tissue_class
+):
     all_neg_losses = F.logsigmoid(neg_similarities)
     all_neg_losses = all_neg_losses.detach().cpu().numpy()
+
+    target_classes = tissue_class[target_node_ids_to_plot.cpu().numpy()]
+    negative_classes = tissue_class[negative_ids_to_plot.cpu().numpy()]
+
     df = pd.DataFrame(all_neg_losses, index=list(range(0, len(all_neg_losses))))
 
-    ax = sns.lineplot(data=df.T, legend=False, markers=True)
+    normalise_colours = np.linspace(0, 255, 10, dtype=int)
+
+    palette = [
+        sns.color_palette("Spectral", as_cmap=True)(normalise_colours[target_class])
+        for target_class in target_classes
+    ]
+
+    ax = sns.lineplot(data=df.T, markers=True, palette=palette)
     ax.set(xlabel="Ranked negative nodes", ylabel="Negative Node Loss")
+    plt.legend(title="Anchor", labels=target_classes)
+
+    for i in range(len(df)):
+        for x in range(len(df.T)):
+            y = df.T[i][x]
+            plt.text(
+                x=x,
+                y=y,
+                s=negative_classes[i][x],
+                color=sns.color_palette("Spectral", as_cmap=True)(
+                    normalise_colours[negative_classes[i][x]]
+                ),
+                fontsize="large",
+                fontweight="bold",
+            )
