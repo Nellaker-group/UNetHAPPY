@@ -62,9 +62,8 @@ def setup_dataloader(
         )
     elif model_type == "sup_clustergcn":
         cluster_data = ClusterData(
-            data, num_parts=int(data.x.size()[0] / 10), recursive=False
+            data, num_parts=int(data.x.size()[0] / num_neighbors), recursive=False
         )
-        # cluster_data = ClusterData(data, num_parts=1500, recursive=False)
         return ClusterLoader(
             cluster_data, batch_size=batch_size, shuffle=True, num_workers=12
         )
