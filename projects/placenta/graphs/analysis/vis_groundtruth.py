@@ -14,13 +14,13 @@ def main(
     y_min: int = 0,
     width: int = -1,
     height: int = -1,
-    alt_label: bool = False,
+    label_type: str = "full",
 ):
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
 
     xs, ys, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, alt_label
+        organ, project_dir, x_min, y_min, width, height, label_type
     )
 
     save_dir = (

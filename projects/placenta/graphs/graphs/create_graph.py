@@ -15,7 +15,7 @@ from happy.hdf5.utils import (
 
 
 def get_groundtruth_patch(
-    organ, project_dir, x_min, y_min, width, height, alt_label=False
+    organ, project_dir, x_min, y_min, width, height, label_type="full"
 ):
     ground_truth_df = pd.read_csv(
         project_dir / "results" / "tissue_annots" / "139_tissue_points.tsv", sep="\t"
@@ -28,9 +28,7 @@ def get_groundtruth_patch(
         sort_args = np.lexsort((ys, xs))
         tissue_ids = np.array(
             [
-                organ.tissue_by_label(tissue_name).id
-                if not alt_label
-                else organ.tissue_by_label(tissue_name).alt_id
+                _get_id_by_tissue_name(organ, tissue_name, label_type)
                 for tissue_name in tissue_classes
             ]
         )
@@ -47,15 +45,22 @@ def get_groundtruth_patch(
 
     patch_tissue_ids = np.array(
         [
-            organ.tissue_by_label(tissue_name).id
-            if not alt_label
-            else organ.tissue_by_label(tissue_name).alt_id
+            _get_id_by_tissue_name(organ, tissue_name, label_type)
             for tissue_name in patch_tissue_classes
         ]
     )
     sort_args = np.lexsort((patch_ys, patch_xs))
 
     return patch_xs[sort_args], patch_ys[sort_args], patch_tissue_ids[sort_args]
+
+def _get_id_by_tissue_name(organ, tissue_name, id_type):
+    if id_type == "full":
+        tissue_id = organ.tissue_by_label(tissue_name).id
+    elif id_type == "alt":
+        tissue_id = organ.tissue_by_label(tissue_name).alt_id
+    else:
+        tissue_id = organ.tissue_by_label(tissue_name).tissue_id
+    return tissue_id
 
 
 def get_raw_data(project_name, run_id, x_min, y_min, width, height, top_conf=False):

@@ -19,8 +19,8 @@ from graphs.graphs.create_graph import get_raw_data, setup_graph
 from graphs.graphs.embeddings import (
     get_graph_embeddings,
     fit_umap,
-    plot_graph_umap,
-    plot_labels_on_umap,
+    plot_cell_graph_umap,
+    plot_tissue_umap,
     fit_clustering,
 )
 from graphs.graphs.utils import get_feature
@@ -51,7 +51,7 @@ def main(
     clustering_method: str = "kmeans",
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
-    alt_groundtruth: bool = False,
+    label_type: str = "full",
     relabel: bool = False,
     relabel_by_centroid: bool = False,
 ):
@@ -71,8 +71,8 @@ def main(
     pos = data.pos
 
     # Get ground truth manually annotated data
-    xs, ys, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, alt_groundtruth
+    _, _, tissue_class = get_groundtruth_patch(
+        organ, project_dir, x_min, y_min, width, height, label_type
     )
 
     # Setup trained model
@@ -95,9 +95,7 @@ def main(
     # Setup paths
     save_path = Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs
     save_path.mkdir(parents=True, exist_ok=True)
-    cluster_save_path = (
-        save_path / clustering_method / f"{num_clusters}_clusters"
-    )
+    cluster_save_path = save_path / clustering_method / f"{num_clusters}_clusters"
     cluster_save_path.mkdir(parents=True, exist_ok=True)
     conf_str = "_top_conf" if top_conf else ""
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
@@ -108,7 +106,7 @@ def main(
     # fit and plot umap with cell classes
     if plot_umap:
         fitted_umap = fit_umap(graph_embeddings)
-        plot_graph_umap(
+        plot_cell_graph_umap(
             organ, predictions, fitted_umap, save_path, f"eval_{plot_name}.png"
         )
 
@@ -120,8 +118,12 @@ def main(
 
     # Plot the cluster labels onto the umap of the graph embeddings
     if plot_umap:
-        plot_labels_on_umap(fitted_umap, plot_name, cluster_save_path, cluster_labels)
-        plot_labels_on_umap(fitted_umap, f"gt_{plot_name}", cluster_save_path, tissue_class)
+        plot_tissue_umap(
+            organ, fitted_umap, plot_name, cluster_save_path, cluster_labels
+        )
+        plot_tissue_umap(
+            organ, fitted_umap, f"gt_{plot_name}", cluster_save_path, tissue_class
+        )
 
     # Remove unlabelled (class 0) ground truth points
     if remove_unlabelled:
@@ -129,6 +131,11 @@ def main(
         tissue_class = tissue_class[unlabelled_inds]
         cluster_labels = cluster_labels[unlabelled_inds]
         pos = pos[unlabelled_inds]
+
+    # Print some prediction count info
+    unique, counts = np.unique(cluster_labels, return_counts=True)
+    unique_counts = dict(zip(unique, counts))
+    print(f"Predictions per label: {unique_counts}")
 
     if relabel:
         colour_permute = [7, 5, 6, 1, 2, 3, 4, 0]

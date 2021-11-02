@@ -3,6 +3,8 @@ from typing import Optional
 import typer
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+from torch_geometric.transforms import ToUndirected
 
 from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
@@ -10,7 +12,11 @@ from happy.organs.organs import get_organ
 from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
-from graphs.graphs.embeddings import get_graph_embeddings, fit_umap, plot_graph_umap
+from graphs.graphs.embeddings import (
+    get_graph_embeddings,
+    fit_umap,
+    plot_cell_graph_umap,
+)
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.graphs.utils import get_feature
 from graphs.graphs import graph_train
@@ -48,8 +54,8 @@ def main(
     organ = get_organ(organ_name)
 
     # Setup recording of stats per batch and epoch
-    if not model_type == 'sup_graphsage':
-        logger = Logger(list(["train"]), ["loss, accuracy"], vis=vis, file=True)
+    if model_type.split("_")[0] == "sup":
+        logger = Logger(list(["train"]), ["loss", "accuracy"], vis=vis, file=True)
     else:
         logger = Logger(list(["train"]), ["loss"], vis=vis, file=True)
 
@@ -59,12 +65,15 @@ def main(
     )
     feature_data = get_feature(feature.value, predictions, embeddings)
     _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, False
+        organ, project_dir, x_min, y_min, width, height, "full"
     )
     num_classes = len(np.unique([tissue.id for tissue in organ.tissues]))
 
     # Create the graph from the raw data
     data = setup_graph(coords, k, feature_data, graph_method.value)
+    data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
+    if model_type == "sup_clustergcn":
+        data = ToUndirected()(data)
 
     # Setup the dataloader which minibatches the graph
     train_loader = graph_train.setup_dataloader(
@@ -77,15 +86,16 @@ def main(
         simple_curriculum,
     )
 
+    # Setup the training parameters
+    x, edge_index, tissue_class = graph_train.send_to_device(
+        data, tissue_class, device
+    )
+
     # Setup the model
     model = graph_train.setup_model(
         model_type, data, device, layers, pretrained_path, num_classes
     )
-
-    # Setup the training parameters
-    optimiser, x, edge_index, tissue_class = graph_train.setup_parameters(
-        data, model, learning_rate, tissue_class, device
-    )
+    optimiser = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # Saves each run by its timestamp
     run_path = setup_run(project_dir, f"{model_type}/{exp_name}", "graph")
@@ -118,9 +128,9 @@ def main(
             simple_curriculum,
             tissue_class,
         )
-        logger.log_loss("train", epoch, loss)
-        if model_type == "sup_graphsage":
-            logger.log_accuracy("train", epoch, accuracy)
+        logger.log_loss("train", epoch-1, loss)
+        if model_type.split("_")[0] == "sup":
+            logger.log_accuracy("train", epoch-1, accuracy)
 
         if epoch % 50 == 0 and epoch != epochs:
             graph_train.save_model(model, run_path / f"{epoch}_graph_model.pt")
@@ -160,7 +170,7 @@ def main(
 def generate_umap(model, x, edge_index, organ, predictions, run_path, plot_name):
     graph_embeddings = get_graph_embeddings(model, x, edge_index)
     fitted_umap = fit_umap(graph_embeddings)
-    plot_graph_umap(organ, predictions, fitted_umap, run_path, plot_name)
+    plot_cell_graph_umap(organ, predictions, fitted_umap, run_path, plot_name)
 
 
 if __name__ == "__main__":
