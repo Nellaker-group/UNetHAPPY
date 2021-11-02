@@ -36,7 +36,7 @@ def plot_interactive(
     )
 
 
-def plot_umap(organ, predictions, mapper):
+def plot_cell_umap(organ, predictions, mapper):
     colours_dict = {cell.label: cell.colour for cell in organ.cells}
     predictions_labelled = np.array([organ.cells[pred].label for pred in predictions])
     return umap.plot.points(mapper, labels=predictions_labelled, color_key=colours_dict)

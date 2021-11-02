@@ -13,13 +13,13 @@ def get_confusion_matrix(organ, pred, truth):
     return pd.DataFrame(cm, columns=cell_labels, index=cell_labels).astype(int)
 
 
-def plot_confusion_matrix(cm, dataset_name, run_path):
+def plot_confusion_matrix(cm, dataset_name, run_path, fmt="d"):
     save_path = run_path / f"{dataset_name}_confusion_matrix.png"
 
-    sns.heatmap(cm, annot=True, cmap="Blues", square=True, fmt="d")
-    plt.title(f"Cell Classification for {dataset_name} Validation")
+    sns.heatmap(cm, annot=True, cmap="Blues", square=True, fmt=fmt)
+    plt.title(f"Classification for {dataset_name} Validation")
     plt.ylabel("True Label")
-    plt.xlabel("Predicated Label")
+    plt.xlabel("Predicted Label")
     plt.tight_layout()
     plt.savefig(save_path)
     plt.close()

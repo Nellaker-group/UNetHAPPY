@@ -9,7 +9,7 @@ import happy.db.eval_runs_interface as db
 from happy.hdf5.utils import get_embeddings_file, get_hdf5_datasets
 from happy.organs.organs import get_organ
 from utils import setup, embeddings_results_path
-from plots import plot_interactive, plot_umap
+from plots import plot_interactive, plot_cell_umap
 
 
 def main(
@@ -59,7 +59,7 @@ def main(
         save(plot, save_dir / plot_name)
     else:
         plot_name = f"{start}-{end}.png"
-        plot = plot_umap(organ, predictions, mapper)
+        plot = plot_cell_umap(organ, predictions, mapper)
         print(f"saving plot to {save_dir / plot_name}")
         plot.figure.savefig(save_dir / plot_name)
 
