@@ -7,10 +7,15 @@ from sklearn.metrics import (
     top_k_accuracy_score,
     f1_score,
     confusion_matrix,
+    cohen_kappa_score,
+    roc_auc_score,
 )
 import numpy as np
 import pandas as pd
 from torch_geometric.data import NeighborSampler
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.special import softmax
 
 from happy.utils.utils import get_device, get_project_dir
 from happy.train.utils import plot_confusion_matrix
@@ -97,20 +102,15 @@ def main(
     )
 
     # Run inference and get predicted labels for nodes
-    print("Running inference")
-    model.eval()
-    out, graph_embeddings = model.inference(x, eval_loader, device)
-    predicted_labels = out.argmax(dim=-1, keepdim=True).squeeze()
-    predicted_labels = predicted_labels.cpu().numpy()
-    out = out.cpu().detach().numpy()
+    out, graph_embeddings, predicted_labels = _get_model_predictions(
+        model, x, eval_loader, device
+    )
 
     # Remove unlabelled (class 0) ground truth points
     if remove_unlabelled and run_id == 16:
-        unlabelled_inds = tissue_class.nonzero()
-        tissue_class = tissue_class[unlabelled_inds]
-        predicted_labels = predicted_labels[unlabelled_inds]
-        pos = pos[unlabelled_inds]
-        out = np.delete(out[unlabelled_inds], 0, axis=1)
+        unlabelled_inds, tissue_class, predicted_labels, pos, out = _remove_unlabelled(
+            tissue_class, predicted_labels, pos, out
+        )
 
         if plot_umap:
             graph_embeddings = graph_embeddings[unlabelled_inds]
@@ -127,14 +127,18 @@ def main(
             )
 
     # Print some prediction count info
-    unique, counts = np.unique(predicted_labels, return_counts=True)
-    unique_counts = dict(zip(unique, counts))
-    print(f"Predictions per label: {unique_counts}")
+    _print_prediction_stats(predicted_labels)
 
     # Evaluate against ground truth tissue annotations
     if run_id == 16:
         evaluate(
-            tissue_class, predicted_labels, out, organ, save_path, remove_unlabelled
+            tissue_class,
+            predicted_labels,
+            out,
+            organ,
+            save_path,
+            remove_unlabelled,
+            label_type,
         )
 
     # Visualise cluster labels on graph patch
@@ -149,24 +153,75 @@ def main(
     )
 
 
-def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled):
+def evaluate(
+    tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled, label_type
+):
     accuracy = accuracy_score(tissue_class, predicted_labels)
-    f1_micro = f1_score(tissue_class, predicted_labels, average="micro")
+    f1_macro = f1_score(tissue_class, predicted_labels, average="macro")
     top_3_accuracy = top_k_accuracy_score(tissue_class, out, k=3)
+    cohen_kappa = cohen_kappa_score(tissue_class, predicted_labels)
+    roc_auc = roc_auc_score(
+        tissue_class, softmax(out, axis=-1), average="macro", multi_class="ovr"
+    )
     print("-----------------------")
     print(f"Accuracy: {accuracy:.3f}")
     print(f"Top 3 accuracy: {top_3_accuracy:.3f}")
-    print(f"F1 micro score: {f1_micro:.3f}")
+    print(f"F1 macro score: {f1_macro:.3f}")
+    print(f"Cohen's Kappa score: {cohen_kappa:.3f}")
+    print(f"ROC AUC macro: {roc_auc:.3f}")
     print("-----------------------")
 
-    cell_labels = [tissue.label for tissue in organ.tissues]
-    if remove_unlabelled:
-        cell_labels = cell_labels[-len(cell_labels) + 1:]
+    if label_type == "full":
+        cell_labels = [tissue.label for tissue in organ.tissues]
+    elif label_type == "alt":
+        cell_labels = np.array([tissue.alt_label for tissue in organ.tissues])[
+            [0, 1, 3, 4, 7, 8, 9]
+        ]
+    elif label_type == "tissue":
+        cell_labels = np.array([tissue.alt_label for tissue in organ.tissues])[
+            [0, 1, 7, 8]
+        ]
+    else:
+        raise ValueError(f"No such label type: {label_type}")
 
     cm = confusion_matrix(predicted_labels, tissue_class)
+    if remove_unlabelled:
+        cell_labels = cell_labels[-len(cell_labels) + 1 :]
+        cm = cm[-9:, -9:] # Might have to change this for the other labels
     cm_df = pd.DataFrame(cm, columns=cell_labels, index=cell_labels).astype(int)
 
+    plt.figure(figsize=(10, 8))
+    sns.set(font_scale=1.1)
     plot_confusion_matrix(cm_df / len(tissue_class), "9 Tissue", run_path, ".1%")
+
+
+def _remove_unlabelled(tissue_class, predicted_labels, pos, out):
+    labelled_inds = tissue_class.nonzero()
+    tissue_class = tissue_class[labelled_inds]
+    pos = pos[labelled_inds]
+    out = out[labelled_inds]
+    # Remove the 0th prediction prob if there were any 0 valued predictions
+    if np.any(predicted_labels == 0):
+        out = np.delete(out, 0, axis=1)
+    predicted_labels = predicted_labels[labelled_inds]
+    return labelled_inds, tissue_class, predicted_labels, pos, out
+
+
+@torch.no_grad()
+def _get_model_predictions(model, x, eval_loader, device):
+    print("Running inference")
+    model.eval()
+    out, graph_embeddings = model.inference(x, eval_loader, device)
+    predicted_labels = out.argmax(dim=-1, keepdim=True).squeeze()
+    predicted_labels = predicted_labels.cpu().numpy()
+    out = out.cpu().detach().numpy()
+    return out, graph_embeddings, predicted_labels
+
+
+def _print_prediction_stats(predicted_labels):
+    unique, counts = np.unique(predicted_labels, return_counts=True)
+    unique_counts = dict(zip(unique, counts))
+    print(f"Predictions per label: {unique_counts}")
 
 
 if __name__ == "__main__":

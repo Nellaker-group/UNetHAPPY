@@ -57,3 +57,4 @@ def plot_tissue_umap(organ, mapper, plot_name, save_dir, cluster_labels):
     plot_name = f"labelled_{plot_name}.png"
     plot.figure.savefig(save_dir / plot_name)
     print(f"Clustered UMAP saved to {save_dir / plot_name}")
+    plt.close(plot.figure)

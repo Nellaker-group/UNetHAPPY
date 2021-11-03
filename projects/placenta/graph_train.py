@@ -48,6 +48,7 @@ def main(
     plot_pre_embeddings: bool = False,
     num_curriculum: int = 0,
     simple_curriculum: bool = False,
+    label_type: str = "full",
 ):
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
@@ -65,9 +66,9 @@ def main(
     )
     feature_data = get_feature(feature.value, predictions, embeddings)
     _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, "full"
+        organ, project_dir, x_min, y_min, width, height, label_type
     )
-    num_classes = len(np.unique([tissue.id for tissue in organ.tissues]))
+    num_classes = len(np.unique(tissue_class))
 
     # Create the graph from the raw data
     data = setup_graph(coords, k, feature_data, graph_method.value)
@@ -164,6 +165,7 @@ def main(
         epochs,
         layers,
         num_curriculum,
+        label_type,
     )
 
 

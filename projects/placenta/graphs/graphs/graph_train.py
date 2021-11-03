@@ -308,6 +308,7 @@ def save_state(
     epochs,
     layers,
     num_curriculum,
+    label_type,
 ):
     save_model(model, run_path / "graph_model.pt")
 
@@ -330,6 +331,7 @@ def save_state(
             "epochs": epochs,
             "layers": layers,
             "num_curriculum": num_curriculum,
+            "label_type": label_type,
         },
         index=[0],
     )
