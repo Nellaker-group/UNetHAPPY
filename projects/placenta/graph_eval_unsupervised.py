@@ -133,9 +133,7 @@ def main(
         pos = pos[unlabelled_inds]
 
     # Print some prediction count info
-    unique, counts = np.unique(cluster_labels, return_counts=True)
-    unique_counts = dict(zip(unique, counts))
-    print(f"Predictions per label: {unique_counts}")
+    _print_prediction_stats(cluster_labels)
 
     if relabel:
         colour_permute = [7, 5, 6, 1, 2, 3, 4, 0]
@@ -173,6 +171,11 @@ def main(
         width=width,
         height=height,
     )
+
+def _print_prediction_stats(cluster_labels):
+    unique, counts = np.unique(cluster_labels, return_counts=True)
+    unique_counts = dict(zip(unique, counts))
+    print(f"Predictions per label: {unique_counts}")
 
 
 def evaluate(tissue_class, cluster_labels):

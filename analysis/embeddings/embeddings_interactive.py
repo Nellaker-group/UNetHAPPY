@@ -44,7 +44,7 @@ def main(
     )
 
     # Generate UMAP
-    reducer = umap.UMAP(random_state=42, verbose=True, min_dist=0.1, n_neighbors=15)
+    reducer = umap.UMAP(random_state=42, verbose=True, min_dist=0.0, n_neighbors=30)
     mapper = reducer.fit(embeddings)
 
     save_dir = embeddings_results_path(embeddings_file, lab_id, slide_name)
