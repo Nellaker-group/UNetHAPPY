@@ -23,6 +23,9 @@ def main(
         organ, project_dir, x_min, y_min, width, height, label_type
     )
 
+    unique, counts = np.unique(tissue_class, return_counts=True)
+    print(dict(zip(unique, counts)))
+
     save_dir = (
         project_dir
         / "visualisations"

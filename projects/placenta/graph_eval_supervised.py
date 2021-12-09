@@ -9,7 +9,9 @@ from sklearn.metrics import (
     confusion_matrix,
     cohen_kappa_score,
     roc_auc_score,
+    matthews_corrcoef
 )
+from sklearn.metrics import precision_recall_fscore_support as score
 import numpy as np
 import pandas as pd
 from torch_geometric.data import NeighborSampler
@@ -122,9 +124,10 @@ def main(
             )
             # Plot the predicted labels onto the umap of the graph embeddings
             plot_tissue_umap(organ, fitted_umap, plot_name, save_path, predicted_labels)
-            plot_tissue_umap(
-                organ, fitted_umap, f"gt_{plot_name}", save_path, tissue_class
-            )
+            if run_id == 16:
+                plot_tissue_umap(
+                    organ, fitted_umap, f"gt_{plot_name}", save_path, tissue_class
+                )
 
     # Print some prediction count info
     _print_prediction_stats(predicted_labels)
@@ -160,15 +163,30 @@ def evaluate(
     f1_macro = f1_score(tissue_class, predicted_labels, average="macro")
     top_3_accuracy = top_k_accuracy_score(tissue_class, out, k=3)
     cohen_kappa = cohen_kappa_score(tissue_class, predicted_labels)
+    mcc = matthews_corrcoef(tissue_class, predicted_labels)
     roc_auc = roc_auc_score(
         tissue_class, softmax(out, axis=-1), average="macro", multi_class="ovr"
     )
+    weighted_roc_auc = roc_auc_score(
+        tissue_class, softmax(out, axis=-1), average="weighted", multi_class="ovr"
+    )
+
+    all_scores = score(tissue_class, predicted_labels)
+
     print("-----------------------")
     print(f"Accuracy: {accuracy:.3f}")
     print(f"Top 3 accuracy: {top_3_accuracy:.3f}")
     print(f"F1 macro score: {f1_macro:.3f}")
     print(f"Cohen's Kappa score: {cohen_kappa:.3f}")
+    print(f"MCC score: {mcc:.3f}")
     print(f"ROC AUC macro: {roc_auc:.3f}")
+    print(f"Weighted ROC AUC macro: {weighted_roc_auc:.3f}")
+    print("-----------------------")
+    print([tissue.label for tissue in organ.tissues][-9:])
+    print(f'precision: {all_scores[0].round(3)}')
+    print(f'recall: {all_scores[1].round(3)}')
+    print(f'fscore: {all_scores[2].round(3)}')
+    print(f'support: {all_scores[3].round(3)}')
     print("-----------------------")
 
     if label_type == "full":
@@ -200,9 +218,7 @@ def _remove_unlabelled(tissue_class, predicted_labels, pos, out):
     tissue_class = tissue_class[labelled_inds]
     pos = pos[labelled_inds]
     out = out[labelled_inds]
-    # Remove the 0th prediction prob if there were any 0 valued predictions
-    if np.any(predicted_labels == 0):
-        out = np.delete(out, 0, axis=1)
+    out = np.delete(out, 0, axis=1)
     predicted_labels = predicted_labels[labelled_inds]
     return labelled_inds, tissue_class, predicted_labels, pos, out
 
