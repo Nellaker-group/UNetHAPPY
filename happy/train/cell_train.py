@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import accuracy_score
 from torch.optim.lr_scheduler import StepLR
 
@@ -71,13 +72,22 @@ def setup_model(
     return model, image_size
 
 
-def setup_training_params(model, learning_rate):
+def setup_training_params(model, learning_rate, train_dataloader, weighted_loss=True):
+    if weighted_loss:
+        data = train_dataloader.dataset.all_annotations.class_name.map(
+            train_dataloader.dataset.classes
+        ).to_numpy()
+        class_weights = compute_class_weight(
+            "balanced", classes=np.unique(data), y=data
+        )
+        criterion = nn.CrossEntropyLoss(weight=torch.Tensor(class_weights))
+    else:
+        criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=learning_rate,
         amsgrad=True,
     )
-    criterion = nn.CrossEntropyLoss()
     scheduler = StepLR(optimizer, step_size=8, gamma=0.1)
     return optimizer, criterion, scheduler
 

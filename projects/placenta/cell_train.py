@@ -25,7 +25,8 @@ def main(
     learning_rate: float = 1e-5,
     init_from_coco: bool = False,
     frozen: bool = True,
-    oversampled: bool = True,
+    oversampled: bool = False,
+    weighted_loss: bool = True,
     vis: bool = True,
 ):
     """For training a cell classification model
@@ -98,7 +99,7 @@ def main(
 
     # Setup training parameters
     optimizer, criterion, scheduler = cell_train.setup_training_params(
-        model, hp.learning_rate
+        model, hp.learning_rate, dataloaders['train'], weighted_loss
     )
 
     # Save each run by it's timestamp

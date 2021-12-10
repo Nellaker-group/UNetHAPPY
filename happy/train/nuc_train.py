@@ -126,7 +126,7 @@ def validate_model(
         avg_precs[dataset_name] = nuc_ap
 
     # Save the best combined validation mAP model
-    if prev_best_ap != 0 and avg_precs["val_all"] > prev_best_ap:
+    if avg_precs["val_all"] > prev_best_ap:
         name = f"model_mAP_{avg_precs['val_all']}.pt"
         model_weights_path = run_path / name
         torch.save(model.state_dict(), model_weights_path)
