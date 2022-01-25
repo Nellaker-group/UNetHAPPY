@@ -215,3 +215,4 @@ analysis_scripts/embeddings/*.html
 happy/db/migrate.py
 **/readme_resources
 *.html
+labelbox/*.json
