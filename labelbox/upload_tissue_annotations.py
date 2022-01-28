@@ -54,48 +54,40 @@ def main(
 
     final_data = []
     for annotation in data:
-        if (
-            annotation["image_name"] == "1361_x97001_y60843_w645_h689.png"
-            or annotation["image_name"] == "1360_x116845_y33510_w500_h798.png"
-            or annotation["image_name"] == "135_x66702_y13566_w1514_h1532.png"
-        ):
+        datarow = dataset.data_row_for_external_id(annotation["image_name"])
+        labelbox_image_uid = datarow.uid
+        datarow_data = {"id": labelbox_image_uid}
+        local_polygon_coords = []
 
-            datarow = dataset.data_row_for_external_id(annotation["image_name"])
-            labelbox_image_uid = datarow.uid
-            datarow_data = {"id": labelbox_image_uid}
-            local_polygon_coords = []
+        image_name = annotation["image_name"]
+        name_parts = image_name.split(".")[0].split("_")
+        xmin = int(name_parts[1].split("x")[1])
+        ymin = int(name_parts[2].split("y")[1])
+        # width = int(name_parts[3].split("y")[1]) - xmin
+        # height = int(name_parts[4].split("y")[1]) - ymin
+        # TODO: this downscale factor needs to come from QuPath (can't do it here)
+        # downscale_factor = 4 if width >= 1250 or height >= 1250 else 1.5
+        downscale_factor = 1.5
 
-            image_name = annotation["image_name"]
-            name_parts = image_name.split(".")[0].split("_")
-            xmin = int(name_parts[1].split("x")[1])
-            ymin = int(name_parts[2].split("y")[1])
-            # width = int(name_parts[3].split("y")[1]) - xmin
-            # height = int(name_parts[4].split("y")[1]) - ymin
-            # TODO: this downscale factor needs to come from QuPath (can't do it here)
-            # downscale_factor = 4 if width >= 1250 or height >= 1250 else 1.5
-            downscale_factor = 1.5
+        coordinates = annotation["coordinates"]
+        for point in coordinates:
+            local_x, local_y = global_coord_to_local(
+                xmin, ymin, point["x"], point["y"]
+            )
+            local_x = round(local_x / downscale_factor, 3)
+            local_y = round(local_y / downscale_factor, 3)
+            local_polygon_coords.append({"x": local_x, "y": local_y})
 
-            coordinates = annotation["coordinates"]
-            for point in coordinates:
-                local_x, local_y = global_coord_to_local(
-                    xmin, ymin, point["x"], point["y"]
-                )
-                local_x = round(local_x / downscale_factor, 3)
-                local_y = round(local_y / downscale_factor, 3)
-                local_polygon_coords.append({"x": local_x, "y": local_y})
-
-            final_dict = {
-                "uuid": str(uuid.uuid4()),
-                "schemaId": schema_lookup[tissue_type_map[annotation["tissue_type"]]],
-                "dataRow": datarow_data,
-                "polygon": local_polygon_coords,
-            }
-            final_data.append(final_dict)
-
-    print(final_data)
+        final_dict = {
+            "uuid": str(uuid.uuid4()),
+            "schemaId": schema_lookup[tissue_type_map[annotation["tissue_type"]]],
+            "dataRow": datarow_data,
+            "polygon": local_polygon_coords,
+        }
+        final_data.append(final_dict)
 
     upload_job = project.upload_annotations(
-        name="first_three_in_queue", annotations=final_data
+        name="import_all_my_annotations", annotations=final_data
     )
     upload_job.wait_until_done()
     print("State", upload_job.state)
