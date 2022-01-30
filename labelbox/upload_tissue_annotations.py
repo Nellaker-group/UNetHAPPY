@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import uuid
 
+import pandas as pd
 import typer
 from labelbox import Client, Project, Dataset
 from labelbox.schema.ontology import OntologyBuilder
@@ -63,19 +64,20 @@ def main(
         name_parts = image_name.split(".")[0].split("_")
         xmin = int(name_parts[1].split("x")[1])
         ymin = int(name_parts[2].split("y")[1])
-        # width = int(name_parts[3].split("y")[1]) - xmin
-        # height = int(name_parts[4].split("y")[1]) - ymin
-        # TODO: this downscale factor needs to come from QuPath (can't do it here)
-        # downscale_factor = 4 if width >= 1250 or height >= 1250 else 1.5
-        downscale_factor = 1.5
-
         coordinates = annotation["coordinates"]
+
+        try:
+            downsample_factor = annotation["downscale_factor"]
+        except KeyError:
+            downsample_factor = calc_downscale_factor(coordinates)
+
         for point in coordinates:
-            local_x, local_y = global_coord_to_local(
-                xmin, ymin, point["x"], point["y"]
-            )
-            local_x = round(local_x / downscale_factor, 3)
-            local_y = round(local_y / downscale_factor, 3)
+            local_x, local_y = global_coord_to_local(xmin, ymin, point["x"], point["y"])
+            if downsample_factor == 1:
+                local_x -= 50
+                local_y -= 50
+            local_x = round(local_x / downsample_factor, 3)
+            local_y = round(local_y / downsample_factor, 3)
             local_polygon_coords.append({"x": local_x, "y": local_y})
 
         final_dict = {
@@ -91,6 +93,23 @@ def main(
     )
     upload_job.wait_until_done()
     print("State", upload_job.state)
+
+
+def calc_downscale_factor(coordinates):
+    coordinates = pd.DataFrame(coordinates)
+    xmin = coordinates["x"].min()
+    xmax = coordinates["x"].max()
+    ymin = coordinates["y"].min()
+    ymax = coordinates["y"].max()
+    width = xmax - xmin
+    height = ymax - ymin
+    if width >= 5000:
+        return 4
+    elif width <= 200:
+        return 1
+    elif height <= 200:
+        return 1
+    return 1.5
 
 
 def global_coord_to_local(xmin, ymin, x, y):
