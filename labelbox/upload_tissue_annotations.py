@@ -4,6 +4,7 @@ import uuid
 
 import pandas as pd
 import typer
+from tqdm import tqdm
 from labelbox import Client, Project, Dataset
 from labelbox.schema.ontology import OntologyBuilder
 
@@ -54,7 +55,7 @@ def main(
     }
 
     final_data = []
-    for annotation in data:
+    for annotation in tqdm(data):
         datarow = dataset.data_row_for_external_id(annotation["image_name"])
         labelbox_image_uid = datarow.uid
         datarow_data = {"id": labelbox_image_uid}
@@ -69,7 +70,7 @@ def main(
         try:
             downsample_factor = annotation["downscale_factor"]
         except KeyError:
-            downsample_factor = calc_downscale_factor(coordinates)
+            downsample_factor = calc_downsample_factor(coordinates)
 
         for point in coordinates:
             local_x, local_y = global_coord_to_local(xmin, ymin, point["x"], point["y"])
@@ -89,13 +90,13 @@ def main(
         final_data.append(final_dict)
 
     upload_job = project.upload_annotations(
-        name="import_all_my_annotations", annotations=final_data
+        name="import_all_annotations_with_downsampling", annotations=final_data
     )
     upload_job.wait_until_done()
     print("State", upload_job.state)
 
 
-def calc_downscale_factor(coordinates):
+def calc_downsample_factor(coordinates):
     coordinates = pd.DataFrame(coordinates)
     xmin = coordinates["x"].min()
     xmax = coordinates["x"].max()
