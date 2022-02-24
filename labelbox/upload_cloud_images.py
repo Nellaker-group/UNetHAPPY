@@ -1,20 +1,31 @@
 import json
 
+import typer
 from labelbox import Client, Dataset
 from google.cloud import storage
 
 
-def main():
+def main(
+    bucket_name: str = typer.Option(...),
+    dir_name: str = typer.Option(...),
+    dataset_name: str = typer.Option(...),
+):
+    """Links images in a google cloud container to a LabelBox dataset. Adds
+    the specified text attachment to the image.
+
+    Args:
+        bucket_name: Name of the container in google cloud
+        dir_name: Path to directory containing the images you want to link
+        dataset_name: Name of an existing or new dataset in LabelBox
+    """
     storage_client = storage.Client()
-    blobs = storage_client.list_blobs("labelboxplacentaimages")
-    dir_name = "slide_139_estonia/"
-    blob_uri = f"gs://labelboxplacentaimages/{dir_name}"
+    blob_uri = f"gs://{bucket_name}/{dir_name}"
+    blobs = storage_client.list_blobs(bucket_name, prefix=dir_name)
 
     with open("config.json") as f:
         api_key = json.load(f)["LabelBoxAPIKey"]
 
     lb = Client(api_key)
-    dataset_name = "placenta_tissues_chorioamnionitis"
     datasets = lb.get_datasets(where=Dataset.name == dataset_name)
     try:
         dataset = next(datasets)
@@ -31,10 +42,10 @@ def main():
             upload_dict = {
                 "external_id": image_name,
                 "row_data": f"{blob_uri}{image_name}",
-                "attachment": [
+                "attachments": [
                     {
                         "type": "TEXT",
-                        "value": "20+4 weeks placenta with acute chorioamnionitis.",
+                        "value": "Term placenta with no complications",
                     }
                 ],
             }
@@ -46,14 +57,8 @@ def main():
     task1.wait_till_done()
     print(f"Linking {task1.status}!")
 
-    # print("Adding text attachment to all LabelBox images")
-    # for item in dataset.data_rows():
-    #     item.create_attachment(
-    #         attachment_type="TEXT",
-    #         attachment_value="20+4 weeks placenta with acute chorioamnionitis.",
-    #     )
     print("Done!")
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)
