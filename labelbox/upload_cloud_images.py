@@ -9,14 +9,17 @@ def main(
     bucket_name: str = typer.Option(...),
     dir_name: str = typer.Option(...),
     dataset_name: str = typer.Option(...),
+    include_polygon_layer: bool = True,
 ):
     """Links images in a google cloud container to a LabelBox dataset. Adds
-    the specified text attachment to the image.
+    the specified text attachment to the image and an image layer with polygon drawing
+    if specified.
 
     Args:
         bucket_name: Name of the container in google cloud
         dir_name: Path to directory containing the images you want to link
         dataset_name: Name of an existing or new dataset in LabelBox
+        include_polygon_layer: Include an image layer with drawn polygon
     """
     storage_client = storage.Client()
     blob_uri = f"gs://{bucket_name}/{dir_name}"
@@ -49,6 +52,14 @@ def main(
                     }
                 ],
             }
+            if include_polygon_layer:
+                polygon_dir_name = dir_name[:-1]
+                polygon_image_path = (
+                    f"gs://{bucket_name}/{polygon_dir_name}-polygon/{image_name}"
+                )
+                upload_dict["attachments"].append(
+                    {"type": "IMAGE_OVERLAY", "value": polygon_image_path}
+                )
             uploads.append(upload_dict)
     print("Image data obtained!")
 
