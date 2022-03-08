@@ -24,6 +24,7 @@ def main(
     init_from_coco: bool = False,
     frozen: bool = True,
     vis: bool = True,
+    get_cuda_device_num: bool = False,
 ):
     """For training a nuclei detection model
 
@@ -48,8 +49,9 @@ def main(
         init_from_coco: whether to use coco pretrained weights
         frozen: whether to freeze most of the layers. True for only fine-tuning
         vis: whether to send stats to visdom for visualisation
+        get_cuda_device_num: if you want the code to choose a gpu
     """
-    device = get_device()
+    device = get_device(get_cuda_device_num)
 
     # TODO: reimplement loading hps from file later (with database)
     hp = Hyperparameters(

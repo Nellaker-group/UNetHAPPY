@@ -24,6 +24,7 @@ def main(
     cell_saving: bool = True,
     run_nuclei_pipeline: bool = True,
     run_cell_pipeline: bool = True,
+    get_cuda_device_num: bool = False,
 ):
     """Runs inference over a WSI for nuclei detection, cell classification, or both.
 
@@ -49,8 +50,9 @@ def main(
         cell_saving: True if you want to save cell predictions to database
         run_nuclei_pipeline: True if you want to perform nuclei detection
         run_cell_pipeline: True if you want to perform cell classification
+        get_cuda_device_num: if you want the code to choose a gpu
     """
-    device = get_device()
+    device = get_device(get_cuda_device_num)
 
     # Create database connection
     db.init()

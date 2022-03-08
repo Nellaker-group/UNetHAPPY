@@ -28,6 +28,7 @@ def main(
     oversampled: bool = False,
     weighted_loss: bool = True,
     vis: bool = True,
+    get_cuda_device_num: bool = False,
 ):
     """For training a cell classification model
 
@@ -54,8 +55,9 @@ def main(
         frozen: whether to freeze most of the layers. True for only fine-tuning
         oversampled: whether to use the oversampled training csv
         vis: whether to send stats to visdom for visualisation
+        get_cuda_device_num: if you want the code to choose a gpu
     """
-    device = get_device()
+    device = get_device(get_cuda_device_num)
 
     # TODO: reimplement loading hps from file later (with database)
     hp = Hyperparameters(
