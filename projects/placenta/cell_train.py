@@ -23,6 +23,7 @@ def main(
     batch: int = 400,
     val_batch: int = 200,
     learning_rate: float = 1e-5,
+    decay_gamma: float = 0.1,
     init_from_coco: bool = False,
     frozen: bool = True,
     oversampled: bool = False,
@@ -51,6 +52,7 @@ def main(
         batch: batch size of the training set
         val_batch: batch size of the validation sets
         learning_rate: learning rate which decreases every 8 epochs
+        decay_gamma: amount to decay learning rate by. Set to 0 for no decay.
         init_from_coco: whether to use imagenet pretrained weights
         frozen: whether to freeze most of the layers. True for only fine-tuning
         oversampled: whether to use the oversampled training csv
@@ -101,7 +103,12 @@ def main(
 
     # Setup training parameters
     optimizer, criterion, scheduler = cell_train.setup_training_params(
-        model, hp.learning_rate, dataloaders['train'], device, weighted_loss
+        model,
+        hp.learning_rate,
+        dataloaders["train"],
+        device,
+        weighted_loss,
+        decay_gamma,
     )
 
     # Save each run by it's timestamp

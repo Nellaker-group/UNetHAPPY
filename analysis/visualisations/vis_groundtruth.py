@@ -2,6 +2,7 @@ from enum import Enum
 from pathlib import Path
 
 import cv2
+import numpy as np
 import pandas as pd
 import typer
 
@@ -49,6 +50,9 @@ def main(
         x2 = image_annotations["x2"][i]
         y2 = image_annotations["y2"][i]
         label_name = image_annotations["class"][i]
+
+        if np.isnan(x1) or np.isnan(x2) or np.isnan(y1) or np.isnan(y2):
+            continue
 
         if shape.value == "point":
             draw_centre(img, x1, y1, x2, y2, label_name, organ, cell=False)

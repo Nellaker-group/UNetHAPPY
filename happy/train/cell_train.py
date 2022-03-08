@@ -73,7 +73,7 @@ def setup_model(
 
 
 def setup_training_params(
-    model, learning_rate, train_dataloader, device, weighted_loss=True
+    model, learning_rate, train_dataloader, device, weighted_loss=True, decay_gamma=0.1
 ):
     if weighted_loss:
         data = train_dataloader.dataset.all_annotations.class_name.map(
@@ -92,7 +92,7 @@ def setup_training_params(
         lr=learning_rate,
         amsgrad=True,
     )
-    scheduler = StepLR(optimizer, step_size=8, gamma=0.1)
+    scheduler = StepLR(optimizer, step_size=8, gamma=decay_gamma)
     return optimizer, criterion, scheduler
 
 
