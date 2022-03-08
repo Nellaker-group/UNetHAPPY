@@ -49,16 +49,12 @@ def main(
 
     print("Combined Datasets")
     for annot_file in grouped_dfs:
+        grouped_dfs[annot_file].sort_values('cell_class', inplace=True)
         print(f"Split file: {annot_file}")
         print(grouped_dfs[annot_file])
 
-        # This is horrible but for the random cell order it makes the colours match..
         cell_colours = [cell.colour for cell in organ.cells]
-        cell_colours[9], cell_colours[5] = cell_colours[5], cell_colours[9]
-        cell_colours[9], cell_colours[6] = cell_colours[6], cell_colours[9]
-        cell_colours[9], cell_colours[7] = cell_colours[7], cell_colours[9]
-        cell_colours[8], cell_colours[7] = cell_colours[7], cell_colours[8]
-        custom_palette = sns.set_palette(sns.color_palette(cell_colours))
+        custom_palette = sns.set_palette(sns.color_palette(_colour_bars(cell_colours)))
 
         plot = sns.barplot(
             x=grouped_dfs[annot_file]["cell_class"],
@@ -68,6 +64,18 @@ def main(
         plot.figure.savefig(f"histograms/{annot_file.split('.csv')[0]}_histogram.png")
         plot.figure.clf()
 
+
+# This is horrible but for the alphabetical cell order it makes the colours match..
+def _colour_bars(cell_colours):
+    cell_colours[1], cell_colours[9] = cell_colours[9], cell_colours[1]
+    cell_colours[2], cell_colours[9] = cell_colours[9], cell_colours[2]
+    cell_colours[3], cell_colours[9] = cell_colours[9], cell_colours[3]
+    cell_colours[4], cell_colours[5] = cell_colours[5], cell_colours[4]
+    cell_colours[5], cell_colours[8] = cell_colours[8], cell_colours[5]
+    cell_colours[6], cell_colours[9] = cell_colours[9], cell_colours[6]
+    cell_colours[7], cell_colours[9] = cell_colours[9], cell_colours[7]
+    cell_colours[7], cell_colours[8] = cell_colours[8], cell_colours[7]
+    return cell_colours
 
 if __name__ == "__main__":
     typer.run(main)

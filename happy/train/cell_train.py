@@ -72,7 +72,9 @@ def setup_model(
     return model, image_size
 
 
-def setup_training_params(model, learning_rate, train_dataloader, weighted_loss=True):
+def setup_training_params(
+    model, learning_rate, train_dataloader, device, weighted_loss=True
+):
     if weighted_loss:
         data = train_dataloader.dataset.all_annotations.class_name.map(
             train_dataloader.dataset.classes
@@ -80,7 +82,9 @@ def setup_training_params(model, learning_rate, train_dataloader, weighted_loss=
         class_weights = compute_class_weight(
             "balanced", classes=np.unique(data), y=data
         )
-        criterion = nn.CrossEntropyLoss(weight=torch.Tensor(class_weights))
+        class_weights = torch.FloatTensor(class_weights)
+        class_weights = class_weights.to(device)
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
     else:
         criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(

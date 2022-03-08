@@ -99,7 +99,7 @@ def main(
 
     # Setup training parameters
     optimizer, criterion, scheduler = cell_train.setup_training_params(
-        model, hp.learning_rate, dataloaders['train'], weighted_loss
+        model, hp.learning_rate, dataloaders['train'], device, weighted_loss
     )
 
     # Save each run by it's timestamp
