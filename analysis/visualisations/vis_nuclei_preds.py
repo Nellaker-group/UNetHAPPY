@@ -32,8 +32,8 @@ def main(
     pre_trained: str = typer.Option(...),
     shape: ShapeArg = ShapeArg.point,
     dataset_name: str = typer.Option(...),
-    score_threshold: float = 0.2,
-    max_detections: int = 150,
+    score_threshold: float = 0.4,
+    max_detections: int = 500,
     num_images: int = 10,
 ):
     """Visualises network predictions as boxes or points for one dataset

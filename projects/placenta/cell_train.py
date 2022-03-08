@@ -52,7 +52,7 @@ def main(
         batch: batch size of the training set
         val_batch: batch size of the validation sets
         learning_rate: learning rate which decreases every 8 epochs
-        decay_gamma: amount to decay learning rate by. Set to 0 for no decay.
+        decay_gamma: amount to decay learning rate by. Set to 1 for no decay.
         init_from_coco: whether to use imagenet pretrained weights
         frozen: whether to freeze most of the layers. True for only fine-tuning
         oversampled: whether to use the oversampled training csv

@@ -8,8 +8,8 @@ def evaluate_ap(
     model,
     device,
     iou_threshold=0.4,
-    score_threshold=0.3,
-    max_detections=150,
+    score_threshold=0.4,
+    max_detections=500,
 ):
     """Evaluate a given dataset using a given retinanet.
     # Arguments
