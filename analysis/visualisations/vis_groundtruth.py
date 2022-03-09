@@ -65,6 +65,7 @@ def main(
         project_dir
         / "visualisations"
         / f"{image_path.split('/')[-3]}"
+        / "groundtruth"
         / f"{image_path.split('/')[-2]}_gt"
     )
     save_dir.mkdir(parents=True, exist_ok=True)

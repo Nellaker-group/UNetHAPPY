@@ -106,7 +106,11 @@ def main(
             img = untransform_image(data["img"][0])
 
             save_dir = (
-                project_dir / "visualisations" / "nuclei" / f"{dataset_name}_pred"
+                project_dir
+                / "visualisations"
+                / "nuclei"
+                / "pred"
+                / f"{dataset_name}_pred"
             )
             save_dir.mkdir(parents=True, exist_ok=True)
             save_path = save_dir / f"val_{idx}.png"
