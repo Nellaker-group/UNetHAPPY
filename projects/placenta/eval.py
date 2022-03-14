@@ -20,6 +20,7 @@ def main(
     cell_num_workers: int = 16,
     score_threshold: float = 0.3,
     max_detections: int = 150,
+    nuc_batch_size: int = 2,
     cell_batch_size: int = 800,
     cell_saving: bool = True,
     run_nuclei_pipeline: bool = True,
@@ -46,6 +47,7 @@ def main(
         cell_num_workers: number of workers for parallel processing of cell inference
         score_threshold: nuclei network confidence cutoff for saving predictions
         max_detections: max nuclei detections for saving predictions
+        nuc_batch_size: batch size for nuclei inference
         cell_batch_size: batch size for cell inference
         cell_saving: True if you want to save cell predictions to database
         run_nuclei_pipeline: True if you want to perform nuclei detection
@@ -66,6 +68,7 @@ def main(
             slide_id,
             run_id,
             nuc_num_workers,
+            nuc_batch_size,
             score_threshold,
             max_detections,
             device,
@@ -92,13 +95,20 @@ def main(
 
 
 def nuclei_eval_pipeline(
-    model_id, slide_id, run_id, num_workers, score_threshold, max_detections, device
+    model_id,
+    slide_id,
+    run_id,
+    num_workers,
+    batch_size,
+    score_threshold,
+    max_detections,
+    device,
 ):
     # Load model weights and push to device
     model = nuclei_eval.setup_model(model_id, device)
     # Load dataset and dataloader
     dataloader, pred_saver = nuclei_eval.setup_data(
-        slide_id, run_id, model_id, overlap=200, num_workers=num_workers
+        slide_id, run_id, model_id, batch_size, overlap=200, num_workers=num_workers
     )
     # Predict nuclei
     nuclei_eval.run_nuclei_eval(

@@ -1,3 +1,4 @@
+from typing import Optional
 from pathlib import Path
 
 import typer
@@ -17,7 +18,7 @@ def main(
     num_epochs: int = typer.Option(...),
     batch_size: int = typer.Option(...),
     init_lr: float = typer.Option(...),
-    lr_step: int = None,
+    lr_step: Optional[int] = None,
     model_architecture: str = typer.Option(...),
 ):
     """Add a trained model to the database
