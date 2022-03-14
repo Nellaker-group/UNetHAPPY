@@ -53,3 +53,16 @@ def _labels_and_colours(img, label_name, label_coords, hex_colour):
     rgb_colour = ImageColor.getrgb(hex_colour)
     bgr_colour = (rgb_colour[2], rgb_colour[1], rgb_colour[0])
     return bgr_colour
+
+
+def group_annotations_by_image(df):
+    df = df.groupby("image_path", sort=False, as_index=False).agg(
+        {
+            "x1": lambda x: x.tolist(),
+            "y1": lambda x: x.tolist(),
+            "x2": lambda x: x.tolist(),
+            "y2": lambda x: x.tolist(),
+            "class_name": lambda x: x.tolist(),
+        }
+    )
+    return df
