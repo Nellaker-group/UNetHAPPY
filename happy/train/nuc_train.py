@@ -15,7 +15,7 @@ def setup_model(init_from_coco, device, frozen=True, pre_trained_path=None):
         num_classes=1, device=device, pretrained=init_from_coco, resnet_depth=101
     )
     if not init_from_coco:
-        state_dict = torch.load(pre_trained_path)
+        state_dict = torch.load(pre_trained_path, map_location=device)
         model = load_weights(state_dict, model)
 
     for child in model.children():

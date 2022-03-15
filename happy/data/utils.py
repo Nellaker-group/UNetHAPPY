@@ -20,12 +20,14 @@ def annot_to_regular_boxes(annot_path, save_path, box_width, box_height):
     df.to_csv(save_path, header=False, index=False)
 
 
-def draw_centre(img, x1, y1, x2, y2, label_name, organ, cell=True):
+def draw_centre(img, x1, y1, x2, y2, label_name, organ, cell=True, colour=None):
     x = int((x2 + x1) / 2)
     y = int((y2 + y1) / 2)
 
     if not cell:
-        cv2.circle(img, (x, y), 5, (255, 182, 109), 3)
+        if not colour:
+            colour = (255, 182, 109)
+        cv2.circle(img, (x, y), 5, colour, 3)
     else:
         hex_colour = organ.cell_by_label(label_name).colour
         label_coords = (int(x) - 15, int(y) - 10)
