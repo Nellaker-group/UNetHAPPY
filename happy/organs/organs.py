@@ -57,6 +57,7 @@ PLACENTA = Organ(
         Cell("WBC", "White Blood Cell", "#2f3ec7", "#2f3ec7", 7),
         Cell("MES", "Mesenchymal Cell", "#ff00ff", "#ff00ff", 8),
         Cell("EVT", "Extra Villus Trophoblast", "#b8b0f1", "#b8b0f1", 9),
+        Cell("KNT", "Syncytial Knots", "#00ffff", "#00ffff", 10),
     ],
     [
         Tissue("Unlabelled", "Unlabelled", "Pathologic", "Unlabelled", 0, 0, 0),

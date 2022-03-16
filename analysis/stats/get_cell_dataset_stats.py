@@ -70,11 +70,11 @@ def _colour_bars(cell_colours):
     cell_colours[1], cell_colours[9] = cell_colours[9], cell_colours[1]
     cell_colours[2], cell_colours[9] = cell_colours[9], cell_colours[2]
     cell_colours[3], cell_colours[9] = cell_colours[9], cell_colours[3]
-    cell_colours[4], cell_colours[5] = cell_colours[5], cell_colours[4]
-    cell_colours[5], cell_colours[8] = cell_colours[8], cell_colours[5]
-    cell_colours[6], cell_colours[9] = cell_colours[9], cell_colours[6]
+    cell_colours[4], cell_colours[10] = cell_colours[10], cell_colours[4]
+    cell_colours[6], cell_colours[8] = cell_colours[8], cell_colours[6]
     cell_colours[7], cell_colours[9] = cell_colours[9], cell_colours[7]
-    cell_colours[7], cell_colours[8] = cell_colours[8], cell_colours[7]
+    cell_colours[8], cell_colours[10] = cell_colours[10], cell_colours[8]
+    cell_colours[9], cell_colours[10] = cell_colours[10], cell_colours[9]
     return cell_colours
 
 if __name__ == "__main__":
