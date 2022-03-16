@@ -7,37 +7,23 @@ from happy.utils.utils import get_project_dir
 from happy.organs.organs import get_organ
 
 
-# TODO: this will have to be tweaked for the Towards extra folders
 def main(
     project_name: str = typer.Option(...),
     organ_name: str = typer.Option(...),
     dataset_name: str = typer.Option(...),
     move_files: bool = False,
 ):
+    """ Checks that all images in all cell type folder have a matching row in the
+    annotation csvs. If an image does not, and move_files is True, then the image
+    will be moved to a corresponding folder under a new /removed folder.
+    """
     project_dir = get_project_dir(project_name)
     cell_annot_dir = project_dir / "annotations" / "cell_class" / dataset_name
     cell_image_dir = project_dir / "datasets" / "cell_class" / dataset_name
 
     organ = get_organ(organ_name)
     all_cell_types = [cell.label for cell in organ.cells]
-
     split_types = ["train_cell.csv", "val_cell.csv", "test_cell.csv"]
-
-    # Check that all values in the csvs are in the correct folders
-    for split_type in split_types:
-        print(f"{dataset_name} {split_type}:")
-        df = pd.read_csv(cell_annot_dir / split_type, names=["path", "cell"])
-        missing_images = []
-        for index, image in df.iterrows():
-            if not os.path.exists(project_dir / image["path"]):
-                missing_images.append(image["path"])
-        if len(missing_images) == 0:
-            print("No missing images from csv file")
-        else:
-            print(missing_images)
-            if move_files:
-                pass
-                # TODO: Find the missing images and move them to the correct folder
 
     # Check that there aren't missed images in the folders
     all_dfs = pd.concat(
