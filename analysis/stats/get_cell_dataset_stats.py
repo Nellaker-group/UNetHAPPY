@@ -27,6 +27,8 @@ def main(
         annot_files = [
             f for f in os.listdir(dataset_path) if os.path.isfile(dataset_path / f)
         ]
+        if '.DS_Store' in annot_files:
+            annot_files.remove('.DS_Store')
         for annot_file in annot_files:
             print(f"Split file: {annot_file}")
             df = pd.read_csv(dataset_path / annot_file, names=["path", "cell_class"])

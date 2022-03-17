@@ -211,7 +211,7 @@ def validate_model(
         "val_all_accuracy"
     ]
 
-    if prev_best_accuracy != 0 and val_accuracy > prev_best_accuracy:
+    if val_accuracy > prev_best_accuracy:
         name = f"cell_model_accuracy_{round(val_accuracy, 4)}.pt"
         torch.save(model.state_dict(), run_path / name)
         print("Best model saved")
