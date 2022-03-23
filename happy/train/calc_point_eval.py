@@ -27,20 +27,26 @@ def evaluate_points_over_dataset(
         )
         predicted_points = convert_boxes_to_points(filtered_preds)
 
+        gt_predictions = data["annot"].numpy()[0][:, :4]
+        gt_predictions /= scale[0]
+        ground_truth_points = convert_boxes_to_points(gt_predictions)
+
         # For batches with all empty images
         if data["annot"][0][0][-1].numpy() == -1:
             num_false_positive += len(predicted_points)
-        else:
-            gt_predictions = data["annot"].numpy()[0][:, :4]
-            gt_predictions /= scale[0]
-            ground_truth_points = convert_boxes_to_points(gt_predictions)
+            continue
 
-            true_positive, false_positive, false_negative = evaluate_points_in_image(
-                ground_truth_points, predicted_points, valid_distance
-            )
-            num_true_positive += true_positive
-            num_false_positive += false_positive
-            num_false_negative += false_negative
+        # If there are no predicted points in the image
+        if len(predicted_points) == 0:
+            num_false_negative += len(ground_truth_points)
+            continue
+
+        true_positive, false_positive, false_negative = evaluate_points_in_image(
+            ground_truth_points, predicted_points, valid_distance
+        )
+        num_true_positive += true_positive
+        num_false_positive += false_positive
+        num_false_negative += false_negative
 
     # If all images in the dataset are empty
     if num_true_positive == 0 and num_false_negative == 0:
