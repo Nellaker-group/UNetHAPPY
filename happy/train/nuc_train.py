@@ -52,7 +52,7 @@ def setup_training_params(model, learning_rate, decay_gamma=0.1):
 
 
 def train(epochs, model, dataloaders, optimizer, logger, scheduler, run_path, device):
-    prev_best_ap = 0
+    prev_best_f1 = 0
     batch_count = 0
     for epoch_num in range(epochs):
         model.train()
@@ -81,8 +81,8 @@ def train(epochs, model, dataloaders, optimizer, logger, scheduler, run_path, de
 
         # Calculate and plot AP for all validation sets
         print("Evaluating dataset")
-        prev_best_ap = validate_model(
-            logger, epoch_num, prev_best_ap, model, run_path, dataloaders, device
+        prev_best_f1 = validate_model(
+            logger, epoch_num, prev_best_f1, model, run_path, dataloaders, device
         )
 
 
@@ -114,7 +114,7 @@ def single_batch(phase, optimizer, model, data, logger, batch_count, device):
 
 
 def validate_model(
-    logger, epoch_num, prev_best_ap, model, run_path, dataloaders, device
+    logger, epoch_num, prev_best_f1, model, run_path, dataloaders, device
 ):
     val_dataloaders = dataloaders.copy()
     val_dataloaders.pop("train")
@@ -122,11 +122,7 @@ def validate_model(
     max_detections = 500
     score_threshold = 0.4
 
-    avg_precs = {}
-    mean_precision = {}
-    mean_recall = {}
     mean_f1 = {}
-    num_empty_predictions = {}
     for dataset_name in val_dataloaders:
         if dataset_name != "empty":
             dataset = val_dataloaders[dataset_name].dataset
@@ -139,7 +135,6 @@ def validate_model(
             )
             nuc_ap = round(ap[0][0], 4)
             logger.log_ap(dataset_name, epoch_num, nuc_ap)
-            avg_precs[dataset_name] = nuc_ap
 
         precision, recall, f1, num_empty = evaluate_points_over_dataset(
             dataloaders[dataset_name],
@@ -149,10 +144,7 @@ def validate_model(
             max_detections,
             30,
         )
-        mean_precision[dataset_name] = precision
-        mean_recall[dataset_name] = recall
         mean_f1[dataset_name] = f1
-        num_empty_predictions[dataset_name] = num_empty
         if dataset_name == "empty":
             logger.log_empty(dataset_name, epoch_num, num_empty)
         else:
@@ -160,16 +152,16 @@ def validate_model(
             logger.log_recall(dataset_name, epoch_num, recall)
             logger.log_f1(dataset_name, epoch_num, f1)
 
-    # Save the best combined validation mAP model
-    if avg_precs["val_all"] > prev_best_ap:
-        name = f"model_mAP_{avg_precs['val_all']}.pt"
+    # Save the best combined validation F1 scoring model
+    if mean_f1["val_all"] > prev_best_f1:
+        name = f"model_f1_{mean_f1['val_all']}.pt"
         model_weights_path = run_path / name
         torch.save(model.state_dict(), model_weights_path)
         print("Best model saved")
 
-        return avg_precs["val_all"]
+        return mean_f1["val_all"]
     else:
-        return prev_best_ap
+        return prev_best_f1
 
 
 def save_state(logger, model, hp, run_path):

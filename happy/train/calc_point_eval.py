@@ -20,7 +20,7 @@ def evaluate_points_over_dataset(
         scores, _, boxes = model(data["img"].to(device).float(), device)
         scores = scores.cpu().numpy()
         boxes = boxes.cpu().numpy()
-        boxes /= scale
+        boxes /= scale[0]
 
         filtered_preds = PredictionSaver.filter_by_score(
             max_detections, score_threshold, scores, boxes
