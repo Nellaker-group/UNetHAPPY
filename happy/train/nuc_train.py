@@ -3,7 +3,6 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 
-from happy.train.calc_avg_precision import evaluate_ap
 from happy.train.calc_point_eval import evaluate_points_over_dataset
 from happy.models import retinanet
 from happy.utils.utils import load_weights
@@ -121,22 +120,10 @@ def validate_model(
     val_dataloaders.pop("train")
 
     max_detections = 500
-    score_threshold = 0.4
+    score_threshold = 0.5
 
     mean_f1 = {}
     for dataset_name in val_dataloaders:
-        # if dataset_name != "empty":
-        #     dataset = val_dataloaders[dataset_name].dataset
-        #     ap = evaluate_ap(
-        #         dataset,
-        #         model,
-        #         device,
-        #         score_threshold=score_threshold,
-        #         max_detections=max_detections,
-        #     )
-        #     nuc_ap = round(ap[0][0], 4)
-        #     logger.log_ap(dataset_name, epoch_num, nuc_ap)
-
         precision, recall, f1, num_empty = evaluate_points_over_dataset(
             dataloaders[dataset_name],
             model,
