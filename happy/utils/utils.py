@@ -22,7 +22,7 @@ def set_gpu_device():
     return device_id
 
 
-def get_device(get_cuda_device_num=True):
+def get_device(get_cuda_device_num=False):
     if torch.cuda.is_available():
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.enabled = True

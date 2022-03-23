@@ -1,0 +1,99 @@
+from pathlib import Path
+from collections import namedtuple
+from typing import List
+import os
+
+import typer
+import torch
+from tqdm import tqdm
+from sklearn.metrics import (
+    accuracy_score,
+    top_k_accuracy_score,
+    cohen_kappa_score,
+    matthews_corrcoef,
+)
+
+from happy.utils.utils import get_device
+from happy.organs.organs import get_organ
+from happy.train.cell_train import setup_data, setup_model
+
+
+def main(
+    project_name: str = typer.Option(...),
+    organ_name: str = typer.Option(...),
+    annot_dir: str = typer.Option(...),
+    pre_trained: str = typer.Option(...),
+    dataset_names: List[str] = typer.Option([]),
+):
+    """Evaluates model performance across validation datasets
+
+    Args:
+        project_name: name of the project dir to save visualisations to
+        organ_name: name of organ for getting the cells
+        annot_dir: relative path to annotations
+        pre_trained: relative path to pretrained model
+        dataset_names: the datasets who's validation set to evaluate over
+    """
+    device = get_device()
+
+    project_dir = (
+        Path(__file__).absolute().parent.parent.parent / "projects" / project_name
+    )
+    os.chdir(str(project_dir))
+
+    HPs = namedtuple("HPs", "dataset_names batch")
+    hp = HPs(dataset_names, 100)
+    organ = get_organ(organ_name)
+    cell_ids = [cell.id for cell in organ.cells]
+
+    model, image_size = setup_model(
+        "resnet-50", False, len(organ.cells), pre_trained, False, device
+    )
+    model.eval()
+
+    multiple_val_sets = True if len(dataset_names) > 1 else False
+    dataloaders = setup_data(
+        organ, project_dir / annot_dir, hp, image_size, 3, multiple_val_sets, 100, False
+    )
+    dataloaders.pop("train")
+
+    print("Running inference across datasets")
+    predictions = {}
+    ground_truth = {}
+    outs = {}
+    with torch.no_grad():
+        for dataset_name in dataloaders:
+            predictions[dataset_name] = []
+            ground_truth[dataset_name] = []
+            outs[dataset_name] = []
+
+            for data in tqdm(dataloaders[dataset_name]):
+                ground_truths = data["annot"].tolist()
+
+                out = model(data["img"].to(device).float())
+                prediction = torch.max(out, 1)[1].cpu().tolist()
+                out = out.cpu().detach().numpy()
+
+                ground_truth[dataset_name].extend(ground_truths)
+                predictions[dataset_name].extend(prediction)
+                outs[dataset_name].extend(out)
+
+    print("Evaluating datasets")
+    for dataset_name in dataloaders:
+        print(f"{dataset_name}:")
+        accuracy = accuracy_score(ground_truth[dataset_name], predictions[dataset_name])
+        cohen_kappa = cohen_kappa_score(
+            ground_truth[dataset_name], predictions[dataset_name]
+        )
+        mcc = matthews_corrcoef(ground_truth[dataset_name], predictions[dataset_name])
+        top_2_accuracy = top_k_accuracy_score(
+            ground_truth[dataset_name], outs[dataset_name], k=2, labels=cell_ids
+        )
+        print(f"Accuracy: {accuracy:.3f}")
+        print(f"Top 2 accuracy: {top_2_accuracy:.3f}")
+        print(f"Cohen's Kappa: {cohen_kappa:.3f}")
+        print(f"MCC: {mcc:.3f}")
+
+
+if __name__ == "__main__":
+    typer.run(main)

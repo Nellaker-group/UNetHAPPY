@@ -334,7 +334,7 @@ def _save_pngs(
     cell_classes=None,
 ):
     slide_name = slide.slide_name
-    slide_number = slide_name.split("-")[0]
+    slide_number = slide_name.split("-")[0].split(".svs")[0]
     rescale_ratio = target_pixel_size / slide.pixel_size
 
     slide_path = str(Path(slide.lab.slides_dir) / slide_name)

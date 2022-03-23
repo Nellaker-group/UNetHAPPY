@@ -7,7 +7,7 @@ import numpy as np
 from sklearn.metrics import confusion_matrix
 
 
-def get_confusion_matrix(organ, pred, truth):
+def get_cell_confusion_matrix(organ, pred, truth):
     cell_labels = [cell.label for cell in organ.cells]
     cell_ids = {cell.id for cell in organ.cells}
 

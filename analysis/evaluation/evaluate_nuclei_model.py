@@ -26,7 +26,7 @@ def main(
     max_detections: int = 500,
     valid_point_range: int = 30,
 ):
-    """Visualises network predictions as boxes or points for one dataset
+    """Evaluates model performance across validation datasets
 
     Args:
         project_name: name of the project dir to save visualisations to

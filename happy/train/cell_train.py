@@ -6,7 +6,7 @@ from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import accuracy_score
 from torch.optim.lr_scheduler import StepLR
 
-from happy.train.utils import get_confusion_matrix
+from happy.train.utils import get_cell_confusion_matrix
 from happy.models.model_builder import build_cell_classifer
 from happy.data.setup_data import setup_cell_datasets
 from happy.data.setup_dataloader import setup_dataloaders
@@ -234,7 +234,7 @@ def validation_confusion_matrices(organ, logger, pred, truth, datasets, run_path
     # Save confusion matrix plots for all validation sets
     datasets.remove("train")
     for dataset in datasets:
-        cm = get_confusion_matrix(organ, pred[dataset], truth[dataset])
+        cm = get_cell_confusion_matrix(organ, pred[dataset], truth[dataset])
         logger.log_confusion_matrix(cm, dataset, run_path)
 
 
