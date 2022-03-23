@@ -88,7 +88,9 @@ def main(
     )
 
     # Setup recording of stats per batch and epoch
-    logger = Logger(list(dataloaders.keys()), ["loss", "AP"], hp.vis)
+    logger = Logger(
+        list(dataloaders.keys()), ["loss", "AP", "Precision", "Recall", "F1"], hp.vis
+    )
 
     # Save each run by it's timestamp
     run_path = utils.setup_run(project_dir, exp_name, "nuclei")

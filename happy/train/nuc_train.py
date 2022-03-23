@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 
 from happy.train.calc_avg_precision import evaluate_ap
+from happy.train.calc_point_eval import evaluate_points_over_dataset
 from happy.models import retinanet
 from happy.utils.utils import load_weights
 from happy.data.setup_data import setup_nuclei_datasets
@@ -117,13 +118,47 @@ def validate_model(
 ):
     val_dataloaders = dataloaders.copy()
     val_dataloaders.pop("train")
+
+    max_detections = 500
+    score_threshold = 0.4
+
     avg_precs = {}
+    mean_precision = {}
+    mean_recall = {}
+    mean_f1 = {}
+    num_empty_predictions = {}
     for dataset_name in val_dataloaders:
-        dataset = val_dataloaders[dataset_name].dataset
-        ap = evaluate_ap(dataset, model, device)
-        nuc_ap = round(ap[0][0], 4)
-        logger.log_ap(dataset_name, epoch_num, nuc_ap)
-        avg_precs[dataset_name] = nuc_ap
+        if dataset_name != "empty":
+            dataset = val_dataloaders[dataset_name].dataset
+            ap = evaluate_ap(
+                dataset,
+                model,
+                device,
+                score_threshold=score_threshold,
+                max_detections=max_detections,
+            )
+            nuc_ap = round(ap[0][0], 4)
+            logger.log_ap(dataset_name, epoch_num, nuc_ap)
+            avg_precs[dataset_name] = nuc_ap
+
+        precision, recall, f1, num_empty = evaluate_points_over_dataset(
+            dataloaders[dataset_name],
+            model,
+            device,
+            score_threshold,
+            max_detections,
+            30,
+        )
+        mean_precision[dataset_name] = precision
+        mean_recall[dataset_name] = recall
+        mean_f1[dataset_name] = f1
+        num_empty_predictions[dataset_name] = num_empty
+        if dataset_name == "empty":
+            logger.log_empty(dataset_name, epoch_num, num_empty)
+        else:
+            logger.log_precision(dataset_name, epoch_num, precision)
+            logger.log_recall(dataset_name, epoch_num, recall)
+            logger.log_f1(dataset_name, epoch_num, f1)
 
     # Save the best combined validation mAP model
     if avg_precs["val_all"] > prev_best_ap:
