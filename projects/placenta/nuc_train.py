@@ -89,7 +89,7 @@ def main(
 
     # Setup recording of stats per batch and epoch
     logger = Logger(
-        list(dataloaders.keys()), ["loss", "AP", "Precision", "Recall", "F1"], hp.vis
+        list(dataloaders.keys()), ["loss", "Precision", "Recall", "F1"], hp.vis
     )
 
     # Save each run by it's timestamp

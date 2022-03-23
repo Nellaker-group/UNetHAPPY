@@ -65,14 +65,15 @@ def train(epochs, model, dataloaders, optimizer, logger, scheduler, run_path, de
                     phase, optimizer, model, data, logger, batch_count, device
                 )
                 # update epoch metrics
-                logger.loss_hist.append(total_loss)
                 loss[phase].append(total_loss)
-                print(
-                    f"Epoch: {epoch_num} | Phase: {phase} | Iter: {i} | "
-                    f"Class loss: {class_loss:1.5f} | "
-                    f"Regression loss: {regression_loss:1.5f} | "
-                    f"Running loss: {np.mean(logger.loss_hist):1.5f}"
-                )
+                if phase == "train":
+                    logger.loss_hist.append(total_loss)
+                    print(
+                        f"Epoch: {epoch_num} | Phase: {phase} | Iter: {i} | "
+                        f"Class loss: {class_loss:1.5f} | "
+                        f"Regression loss: {regression_loss:1.5f} | "
+                        f"Running loss: {np.mean(logger.loss_hist):1.5f}"
+                    )
 
             # Plot losses at each epoch for training and all validation sets
             logger.log_loss(phase, epoch_num, np.mean(loss[phase]))
@@ -124,17 +125,17 @@ def validate_model(
 
     mean_f1 = {}
     for dataset_name in val_dataloaders:
-        if dataset_name != "empty":
-            dataset = val_dataloaders[dataset_name].dataset
-            ap = evaluate_ap(
-                dataset,
-                model,
-                device,
-                score_threshold=score_threshold,
-                max_detections=max_detections,
-            )
-            nuc_ap = round(ap[0][0], 4)
-            logger.log_ap(dataset_name, epoch_num, nuc_ap)
+        # if dataset_name != "empty":
+        #     dataset = val_dataloaders[dataset_name].dataset
+        #     ap = evaluate_ap(
+        #         dataset,
+        #         model,
+        #         device,
+        #         score_threshold=score_threshold,
+        #         max_detections=max_detections,
+        #     )
+        #     nuc_ap = round(ap[0][0], 4)
+        #     logger.log_ap(dataset_name, epoch_num, nuc_ap)
 
         precision, recall, f1, num_empty = evaluate_points_over_dataset(
             dataloaders[dataset_name],

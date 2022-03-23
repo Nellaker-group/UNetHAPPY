@@ -138,15 +138,16 @@ def train(
                     device,
                 )
                 # update epoch metrics
-                logger.loss_hist.append(batch_loss)
                 loss[phase].append(batch_loss)
                 predictions[phase].extend(batch_preds)
                 ground_truth[phase].extend(batch_truth)
-                print(
-                    f"Epoch: {epoch_num} | Phase: {phase} | Iteration: {i} | "
-                    f"Classification loss: {batch_loss:1.5f} | "
-                    f"Running loss: {np.mean(logger.loss_hist):1.5f}"
-                )
+                if phase == "train":
+                    logger.loss_hist.append(batch_loss)
+                    print(
+                        f"Epoch: {epoch_num} | Phase: {phase} | Iteration: {i} | "
+                        f"Classification loss: {batch_loss:1.5f} | "
+                        f"Running loss: {np.mean(logger.loss_hist):1.5f}"
+                    )
 
             # Plot losses at each epoch for training and all validation sets
             log_epoch_metrics(logger, epoch_num, phase, loss, predictions, ground_truth)
