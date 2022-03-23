@@ -4,16 +4,9 @@ from typing import List
 import os
 
 import typer
-import torch
-import numpy as np
-from tqdm import tqdm
 
 from happy.utils.utils import get_device
-from happy.microscopefile.prediction_saver import PredictionSaver
-from happy.train.calc_point_eval import (
-    convert_boxes_to_points,
-    evaluate_points_in_image,
-)
+from happy.train.calc_point_eval import evaluate_points_over_dataset
 from happy.train.nuc_train import setup_data, setup_model
 
 
@@ -24,7 +17,7 @@ def main(
     dataset_names: List[str] = typer.Option([]),
     score_threshold: float = 0.4,
     max_detections: int = 500,
-    valid_point_range: int = 30,
+    valid_distance: int = 30,
 ):
     """Evaluates model performance across validation datasets
 
@@ -35,7 +28,7 @@ def main(
         dataset_names: the datasets who's validation set to evaluate over
         score_threshold: the confidence threshold below which to discard predictions
         max_detections: number of maximum detections to save, ordered by score
-        valid_point_range: distance to gt in pixels for which a prediction is valid
+        valid_distance: distance to gt in pixels for which a prediction is valid
     """
     device = get_device()
 
@@ -56,40 +49,30 @@ def main(
     mean_precision = {}
     mean_recall = {}
     mean_f1 = {}
-    with torch.no_grad():
-        for dataset_name in dataloaders:
-            all_precision = []
-            all_recall = []
-            all_f1 = []
-            for data in tqdm(dataloaders[dataset_name]):
-                scale = data["scale"]
-
-                scores, _, boxes = model(data["img"].to(device).float(), device)
-                scores = scores.cpu().numpy()
-                boxes = boxes.cpu().numpy()
-                boxes /= scale
-
-                filtered_preds = PredictionSaver.filter_by_score(
-                    max_detections, score_threshold, scores, boxes
-                )
-                gt_predictions = data["annot"].numpy()[0][:, :4]
-                gt_predictions /= scale[0]
-
-                ground_truth_points = convert_boxes_to_points(gt_predictions)
-                predicted_points = convert_boxes_to_points(filtered_preds)
-                precision, recall, f1 = evaluate_points_in_image(
-                    ground_truth_points, predicted_points, valid_point_range
-                )
-                all_precision.append(precision)
-                all_recall.append(recall)
-                all_f1.append(f1)
-            mean_precision[dataset_name] = np.mean(np.array(all_precision)).round(4)
-            mean_recall[dataset_name] = np.mean(np.array(all_recall)).round(4)
-            mean_f1[dataset_name] = np.mean(np.array(all_f1)).round(4)
+    num_empty_predictions = {}
+    for dataset_name in dataloaders:
+        precision, recall, f1, num_empty = evaluate_points_over_dataset(
+            dataloaders[dataset_name],
+            model,
+            device,
+            score_threshold,
+            max_detections,
+            valid_distance,
+        )
+        mean_precision[dataset_name] = precision
+        mean_recall[dataset_name] = recall
+        mean_f1[dataset_name] = f1
+        num_empty_predictions[dataset_name] = num_empty
 
     print(f"Precision: {mean_precision}")
     print(f"Recall: {mean_recall}")
     print(f"F1: {mean_f1}")
+
+    try:
+        print(
+            f"Number of Predictions in empty images: {num_empty_predictions['empty']}")
+    except KeyError:
+        pass
 
 if __name__ == "__main__":
     typer.run(main)
