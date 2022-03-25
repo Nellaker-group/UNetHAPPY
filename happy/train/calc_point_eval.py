@@ -52,9 +52,19 @@ def evaluate_points_over_dataset(
     if num_true_positive == 0 and num_false_negative == 0:
         return np.nan, np.nan, np.nan, num_false_positive
 
-    precision = round(num_true_positive / (num_true_positive + num_false_positive), 3)
-    recall = round(num_true_positive / (num_true_positive + num_false_negative), 3)
-    f1 = round(2 * ((precision * recall) / (precision + recall)), 3)
+    if num_true_positive + num_false_positive == 0:
+        precision = 0
+    else:
+        precision = round(num_true_positive / (num_true_positive + num_false_positive),
+                          3)
+    if num_true_positive + num_false_negative == 0:
+        recall = 0
+    else:
+        recall = round(num_true_positive / (num_true_positive + num_false_negative), 3)
+    if precision + recall == 0:
+        f1 = 0
+    else:
+        f1 = round(2 * ((precision * recall) / (precision + recall)), 3)
     return precision, recall, f1, num_false_positive
 
 

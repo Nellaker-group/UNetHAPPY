@@ -46,7 +46,7 @@ def setup_training_params(model, learning_rate, decay_gamma=0.1):
         lr=learning_rate,
         amsgrad=True,
     )
-    scheduler = StepLR(optimizer, step_size=8, gamma=decay_gamma)
+    scheduler = StepLR(optimizer, step_size=20, gamma=decay_gamma)
     return optimizer, scheduler
 
 
