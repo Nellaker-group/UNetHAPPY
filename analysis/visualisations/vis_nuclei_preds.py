@@ -23,7 +23,6 @@ class ShapeArg(str, Enum):
 
 def main(
     project_name: str = typer.Option(...),
-    organ_name: str = typer.Option(...),
     annot_dir: str = typer.Option(...),
     pre_trained: str = typer.Option(...),
     shape: ShapeArg = ShapeArg.point,
@@ -37,7 +36,6 @@ def main(
 
     Args:
         project_name: name of the project dir to save visualisations to
-        organ_name: name of organ
         annot_dir: relative path to annotations
         pre_trained: relative path to pretrained model
         shape: one of 'box' or 'point' for visualising the prediction
@@ -48,8 +46,6 @@ def main(
         plot_groundtruth: whether to plot ground truth points as well
     """
     device = get_device()
-
-    organ = get_organ(organ_name)
 
     project_dir = (
         Path(__file__).absolute().parent.parent.parent / "projects" / project_name
@@ -106,10 +102,10 @@ def main(
 
                     if shape.value == "point":
                         draw_centre(
-                            img, x1, y1, x2, y2, label, organ, False, (0, 255, 255)
+                            img, x1, y1, x2, y2, label, None, False, (0, 255, 255)
                         )
                     elif shape.value == "box":
-                        draw_box(img, x1, y1, x2, y2, label, organ, cell=False)
+                        draw_box(img, x1, y1, x2, y2, label, None, cell=False)
                     else:
                         raise ValueError(f"No such draw shape {shape.value}")
 
@@ -126,9 +122,9 @@ def main(
                     label = "nucleus"
 
                     if shape.value == "point":
-                        draw_centre(img, x1, y1, x2, y2, label, organ, cell=False)
+                        draw_centre(img, x1, y1, x2, y2, label, None, cell=False)
                     elif shape.value == "box":
-                        draw_box(img, x1, y1, x2, y2, label, organ, cell=False)
+                        draw_box(img, x1, y1, x2, y2, label, None, cell=False)
                     else:
                         raise ValueError(f"No such draw shape {shape.value}")
 

@@ -1,13 +1,7 @@
-from __future__ import division, print_function
-
 import random
 
 import albumentations as al
 import numpy as np
-import skimage
-import skimage.color
-import skimage.transform
-from PIL import Image
 
 from happy.data.transforms.utils.colorconv_he import he2rgb, rgb2he
 
@@ -39,7 +33,6 @@ class AlbAugmenter(object):
             }
         else:
             alb_format = {"image": sample["img"], "category_id": sample["annot"]}
-        alb_format["image"] = alb_format["image"]  # *255.0
 
         if self.bboxes:
             alb_aug = al.Compose(
@@ -54,7 +47,6 @@ class AlbAugmenter(object):
         else:
             alb_aug = al.Compose(self.list_of_albumentations)
         alb_format = alb_aug(**alb_format)
-        alb_format["image"] = alb_format["image"]  # /255.0
         if self.bboxes:
             sample = {
                 "img": alb_format["image"],
@@ -146,79 +138,18 @@ class Stain_Augment_stylealb(al.ImageOnlyTransform):
         self.variance = variance
 
     def apply(self, img, variance=0.1, **params):
-        debug = False
-        debug_dir = "./debug_dir/"
-        if debug:
-            dump_img = img.astype("uint8")
-            dump_img = Image.fromarray(dump_img.astype("uint8"))
-            dump_img.save(debug_dir + "1_incoming_rgb01_img.jpg")
-            print(
-                "0",
-                np.amin(img, axis=(0, 1)),
-                np.amax(img, axis=(0, 1)),
-                skimage.dtype_limits(img),
-                img[0, 0],
-            )
-
         img = rgb2he(img * 255.0)  # mod for this augmentation, undone at last step
 
-        if debug:
-            dump_img = img * 255
-            dump_img = Image.fromarray(dump_img.astype("uint8"))
-            dump_img.save(debug_dir + "3_hed_img.jpg")
-            print(
-                "2 hed",
-                np.amin(img, axis=(0, 1)),
-                np.amax(img, axis=(0, 1)),
-                skimage.dtype_limits(img),
-                img[0, 0],
-            )
-
+        # tweak Heamatoxylin
         img[:, :, [0]] = (
             np.random.uniform(low=-variance, high=variance) + img[:, :, [0]]
-        )  # tweak Heamatoxylin
+        )
+        # tweak Eosin
         img[:, :, [1]] = (
             np.random.uniform(low=-variance, high=variance) + img[:, :, [1]]
-        )  # tweak Eosin
-
-
-        if debug:
-            dump_img = img * 255
-            dump_img = Image.fromarray(dump_img.astype("uint8"))
-            dump_img.save(debug_dir + "4_aug_hed_img.jpg")
-            print(
-                "3 aug",
-                np.amin(img, axis=(0, 1)),
-                np.amax(img, axis=(0, 1)),
-                skimage.dtype_limits(img),
-                img[0, 0],
-            )
-
-            dump_img = img * 255
-            dump_img = Image.fromarray(dump_img.astype("uint8"))
-            dump_img.save(debug_dir + "4_clip_aug_hed_img.jpg")
-            print(
-                "4 clip",
-                np.amin(img, axis=(0, 1)),
-                np.amax(img, axis=(0, 1)),
-                skimage.dtype_limits(img),
-                img[0, 0],
-            )
+        )
 
         img = he2rgb(img)
-
-        if debug:
-            dump_img = img
-            dump_img = Image.fromarray(dump_img.astype("uint8"))
-            print(
-                "5 rgb",
-                np.amin(img, axis=(0, 1)),
-                np.amax(img, axis=(0, 1)),
-                skimage.dtype_limits(img),
-                img[0, 0],
-            )
-            dump_img.save(debug_dir + "5_aug_rgb_img.jpg")
-
         return img / 255.0
 
     def get_params(self):
