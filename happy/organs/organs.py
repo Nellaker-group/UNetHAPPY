@@ -9,6 +9,7 @@ class Cell:
     colour: str
     alt_colour: str
     id: int
+    alt_id: int
 
     def __str__(self):
         return f"{self.label}"
@@ -18,11 +19,8 @@ class Cell:
 class Tissue:
     label: str
     name: str
-    tissue_type: str
-    alt_label: str
+    colour: str
     id: int
-    alt_id: int
-    tissue_id: int
 
     def __str__(self):
         return f"{self.label}"
@@ -47,29 +45,32 @@ class Organ:
 
 PLACENTA = Organ(
     [
-        Cell("CYT", "Cytotrophoblasts", "#24ff24", "#0d8519", 0),
-        Cell("FIB", "Fibroblast", "#920000", "#7b03fc", 1),
-        Cell("HOF", "Hofbauer", "#ffff6d", "#979903", 2),
-        Cell("SYN", "Syncytiotrophoblast", "#6db6ff", "#0f0cad", 3),
-        Cell("VEN", "Vascular Endothelial", "#ff9600", "#734c0e", 4),
-        Cell("MAT", "Maternal Decidua", "#008080", "#008080", 5),
-        Cell("VMY", "Vascular Myocyte", "#cc6633", "#cc6633", 6),
-        Cell("WBC", "White Blood Cell", "#2f3ec7", "#2f3ec7", 7),
-        Cell("MES", "Mesenchymal Cell", "#ff00ff", "#ff00ff", 8),
-        Cell("EVT", "Extra Villus Trophoblast", "#b8b0f1", "#b8b0f1", 9),
-        Cell("KNT", "Syncytial Knots", "#00ffff", "#00ffff", 10),
+        Cell("CYT", "Cytotrophoblasts", "#24ff24", "#0d8519", 0, 0),
+        Cell("FIB", "Fibroblast", "#920000", "#7b03fc", 1, 1),
+        Cell("HOF", "Hofbauer", "#ffff6d", "#979903", 2, 3),
+        Cell("SYN", "Syncytiotrophoblast", "#6db6ff", "#0f0cad", 3, 0),
+        Cell("VEN", "Vascular Endothelial", "#ff9600", "#734c0e", 4, 2),
+        Cell("MAT", "Maternal Decidua", "#008080", "#008080", 5, 4),
+        Cell("VMY", "Vascular Myocyte", "#cc6633", "#cc6633", 6, 1),
+        Cell("WBC", "White Blood Cell", "#2f3ec7", "#2f3ec7", 7, 5),
+        Cell("MES", "Mesenchymal Cell", "#ff00ff", "#ff00ff", 8, 1),
+        Cell("EVT", "Extra Villus Trophoblast", "#b8b0f1", "#b8b0f1", 9, 0),
+        Cell("KNT", "Syncytial Knots", "#00ffff", "#00ffff", 10, 0),
     ],
     [
-        Tissue("Unlabelled", "Unlabelled", "Pathologic", "Unlabelled", 0, 0, 0),
-        Tissue("MVilli", "Mesenchymal Villi", "Foetal", "SmallVilli", 1, 1, 1),
-        Tissue("TVilli", "Terminal Villi", "Foetal", "SmallVilli", 2, 1, 1),
-        Tissue("IVilli", "Intermediary Villi", "Foetal", "MediumVilli", 3, 2, 1),
-        Tissue("AVilli", "Anchoring Villi", "Foetal", "StemVilli", 4, 3, 1),
-        Tissue("SVilli", "Villi Stem", "Foetal", "StemVilli", 5, 3, 1),
-        Tissue("Chorion", "Chorion", "Foetal", "StemVilli", 6, 3, 1),
-        Tissue("Maternal", "Maternal Decidua", "Maternal", "Maternal", 7, 4, 2),
-        Tissue("Necrose", "Necrosed Tissue", "Pathologic", "Necrose", 8, 5, 3),
-        Tissue("Infection", "Infected Tissue", "Pathologic", "Infection", 9, 6, 3),
+        Tissue("Unlabelled", "Unlabelled", "#000000", 0),
+        Tissue("Sprout", "Villus Sprout", "#ff00ff", 1),
+        Tissue("MVilli", "Mesenchymal Villi", "#ff0000", 2),
+        Tissue("TVilli", "Terminal Villi", "#ff7800", 3),
+        Tissue("ImIVilli", "Immature Intermediary Villi", "#a53419", 4),
+        Tissue("MIVilli", "Mature Intermediary Villi", "#ffb366", 5),
+        Tissue("AVilli", "Anchoring Villi", "#ffe699", 6),
+        Tissue("SVilli", "Stem Villi", "#deff00", 7),
+        Tissue("Chorion", "Chorion", "#669966", 8),
+        Tissue("Maternal", "Basal Plate/Septum", "#53bc8d", 9),
+        Tissue("Inflam", "Inflammatory Response", "#4d3399", 10),
+        Tissue("Fibrin", "Fibrous Region", "#6680e6", 11),
+        Tissue("Avascular", "Avascular Villi", "#6d0c67", 12),
     ],
 )
 LIVER = Organ([], [])

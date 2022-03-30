@@ -53,7 +53,14 @@ def main(
 
     multiple_val_sets = True if len(dataset_names) > 1 else False
     dataloaders = setup_data(
-        organ, project_dir / annot_dir, hp, image_size, 3, multiple_val_sets, 100, False
+        organ,
+        project_dir / annot_dir,
+        hp,
+        image_size,
+        3,
+        multiple_val_sets,
+        hp.batch,
+        False,
     )
     dataloaders.pop("train")
 
@@ -93,6 +100,18 @@ def main(
         print(f"Top 2 accuracy: {top_2_accuracy:.3f}")
         print(f"Cohen's Kappa: {cohen_kappa:.3f}")
         print(f"MCC: {mcc:.3f}")
+
+        alt_ground_truth = _convert_to_alt_label(organ, ground_truth[dataset_name])
+        alt_predictions = _convert_to_alt_label(organ, predictions[dataset_name])
+        alt_label_accuracy = accuracy_score(alt_ground_truth, alt_predictions)
+        print(f"Alt Cell Label Accuracy: {alt_label_accuracy:.3f}")
+
+
+def _convert_to_alt_label(organ, labels):
+    ids = [cell.id for cell in organ.cells]
+    alt_ids = [cell.alt_id for cell in organ.cells]
+    alt_id_mapping = dict(zip(ids, alt_ids))
+    return [alt_id_mapping[label] for label in labels]
 
 
 if __name__ == "__main__":
