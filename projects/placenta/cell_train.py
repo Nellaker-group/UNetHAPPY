@@ -24,6 +24,7 @@ def main(
     val_batch: int = 600,
     learning_rate: float = 1e-4,
     decay_gamma: float = 1,
+    step_size: int = 20,
     init_from_coco: bool = False,
     frozen: bool = True,
     oversampled: bool = False,
@@ -53,6 +54,7 @@ def main(
         val_batch: batch size of the validation sets
         learning_rate: learning rate which decreases every 8 epochs
         decay_gamma: amount to decay learning rate by. Set to 1 for no decay.
+        step_size: epoch at which to apply learning rate decay.
         init_from_coco: whether to use imagenet pretrained weights
         frozen: whether to freeze most of the layers. True for only fine-tuning
         oversampled: whether to use the oversampled training csv
@@ -109,6 +111,7 @@ def main(
         device,
         weighted_loss,
         decay_gamma,
+        step_size,
     )
 
     # Save each run by it's timestamp

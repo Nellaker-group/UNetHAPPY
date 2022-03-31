@@ -22,6 +22,7 @@ def main(
     val_batch: int = 16,
     learning_rate: float = 1e-4,
     decay_gamma: float = 1,
+    step_size: int = 20,
     init_from_coco: bool = False,
     frozen: bool = True,
     vis: bool = True,
@@ -48,6 +49,7 @@ def main(
         val_batch: batch size of the validation sets
         learning_rate: learning rate which decreases every 8 epochs
         decay_gamma: amount to decay learning rate by. Set to 1 for no decay.
+        step_size: epoch at which to apply learning rate decay.
         init_from_coco: whether to use coco pretrained weights
         frozen: whether to freeze most of the layers. True for only fine-tuning
         vis: whether to send stats to visdom for visualisation
@@ -84,7 +86,7 @@ def main(
 
     # Setup training parameters
     optimizer, scheduler = nuc_train.setup_training_params(
-        model, hp.learning_rate, decay_gamma
+        model, hp.learning_rate, decay_gamma, step_size
     )
 
     # Setup recording of stats per batch and epoch

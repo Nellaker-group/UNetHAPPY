@@ -40,13 +40,13 @@ def setup_data(annotations_path, hp, multiple_val_sets, num_workers, val_batch):
     return dataloaders
 
 
-def setup_training_params(model, learning_rate, decay_gamma=0.1):
+def setup_training_params(model, learning_rate, decay_gamma=0.5, step_size=20):
     optimizer = optim.Adam(
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=learning_rate,
         amsgrad=True,
     )
-    scheduler = StepLR(optimizer, step_size=20, gamma=decay_gamma)
+    scheduler = StepLR(optimizer, step_size=step_size, gamma=decay_gamma)
     return optimizer, scheduler
 
 
