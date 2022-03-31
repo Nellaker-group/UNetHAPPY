@@ -217,3 +217,4 @@ happy/db/migrate.py
 *.html
 labelbox/*.json
 analysis/stats/histograms
+analysis/evaluation/plots

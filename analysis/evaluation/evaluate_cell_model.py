@@ -5,12 +5,18 @@ import os
 
 import typer
 import torch
+import numpy as np
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import label_binarize
+from scipy.special import softmax
 from sklearn.metrics import (
     accuracy_score,
     top_k_accuracy_score,
     cohen_kappa_score,
     matthews_corrcoef,
+    precision_recall_curve,
+    average_precision_score,
 )
 
 from happy.utils.utils import get_device
@@ -106,6 +112,10 @@ def main(
         alt_label_accuracy = accuracy_score(alt_ground_truth, alt_predictions)
         print(f"Alt Cell Label Accuracy: {alt_label_accuracy:.3f}")
 
+        _plot_pr_curves(
+            organ, dataset_name, ground_truth[dataset_name], outs[dataset_name]
+        )
+
 
 def _convert_to_alt_label(organ, labels):
     ids = [cell.id for cell in organ.cells]
@@ -113,6 +123,55 @@ def _convert_to_alt_label(organ, labels):
     alt_id_mapping = dict(zip(ids, alt_ids))
     return [alt_id_mapping[label] for label in labels]
 
+
+def _plot_pr_curves(organ, dataset_name, ground_truth, scores):
+    cell_mapping = {cell.id: cell.label for cell in organ.cells}
+    cell_classes = np.unique(list(cell_mapping.keys()))
+
+    ground_truth = label_binarize(ground_truth, classes=cell_classes)
+    scores = np.array(scores)
+    scores = softmax(scores, axis=1)
+
+    # Compute Precision-Recall and plot curve
+    precision = dict()
+    recall = dict()
+    average_precision = dict()
+    for i in cell_classes:
+        precision[i], recall[i], _ = precision_recall_curve(
+            ground_truth[:, i], scores[:, i]
+        )
+        average_precision[i] = average_precision_score(ground_truth[:, i], scores[:, i])
+
+    # Compute micro-average ROC curve and ROC area
+    precision["micro"], recall["micro"], _ = precision_recall_curve(
+        ground_truth.ravel(), scores.ravel()
+    )
+    average_precision["micro"] = average_precision_score(
+        ground_truth, scores, average="micro"
+    )
+
+    # Plot Precision-Recall curve for each class
+    plt.clf()
+    plt.plot(
+        recall["micro"],
+        precision["micro"],
+        label=f"mavg ({average_precision['micro']:0.2f})",
+    )
+    for i in cell_classes:
+        plt.plot(
+            recall[i],
+            precision[i],
+            label=f"{cell_mapping[i]} ({average_precision[i]:0.2f})",
+        )
+
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.title(f"Precision-Recall curves for {dataset_name} cells")
+    plt.legend(loc="lower right")
+    plt.savefig(f"../../analysis/evaluation/plots/{dataset_name}_pr_curves.png")
+    plt.clf()
 
 if __name__ == "__main__":
     typer.run(main)
