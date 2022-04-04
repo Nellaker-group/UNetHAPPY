@@ -12,18 +12,20 @@ import happy.db.eval_runs_interface as db
 def main(
     project_name: str = typer.Option(...),
     organ_name: str = typer.Option(...),
-    nuc_model_id: int = 1,
-    cell_model_id: int = 2,
+    nuc_model_id: Optional[int] = None,
+    cell_model_id: Optional[int] = None,
     run_id: Optional[int] = None,
     slide_id: Optional[int] = None,
     nuc_num_workers: int = 20,
     cell_num_workers: int = 16,
-    score_threshold: float = 0.3,
-    max_detections: int = 150,
+    score_threshold: float = 0.4,
+    max_detections: int = 500,
+    nuc_batch_size: int = 16,
     cell_batch_size: int = 800,
     cell_saving: bool = True,
     run_nuclei_pipeline: bool = True,
     run_cell_pipeline: bool = True,
+    get_cuda_device_num: bool = False,
 ):
     """Runs inference over a WSI for nuclei detection, cell classification, or both.
 
@@ -45,12 +47,14 @@ def main(
         cell_num_workers: number of workers for parallel processing of cell inference
         score_threshold: nuclei network confidence cutoff for saving predictions
         max_detections: max nuclei detections for saving predictions
+        nuc_batch_size: batch size for nuclei inference
         cell_batch_size: batch size for cell inference
         cell_saving: True if you want to save cell predictions to database
         run_nuclei_pipeline: True if you want to perform nuclei detection
         run_cell_pipeline: True if you want to perform cell classification
+        get_cuda_device_num: if you want the code to choose a gpu
     """
-    device = get_device()
+    device = get_device(get_cuda_device_num)
 
     # Create database connection
     db.init()
@@ -64,6 +68,7 @@ def main(
             slide_id,
             run_id,
             nuc_num_workers,
+            nuc_batch_size,
             score_threshold,
             max_detections,
             device,
@@ -90,13 +95,20 @@ def main(
 
 
 def nuclei_eval_pipeline(
-    model_id, slide_id, run_id, num_workers, score_threshold, max_detections, device
+    model_id,
+    slide_id,
+    run_id,
+    num_workers,
+    batch_size,
+    score_threshold,
+    max_detections,
+    device,
 ):
     # Load model weights and push to device
     model = nuclei_eval.setup_model(model_id, device)
     # Load dataset and dataloader
     dataloader, pred_saver = nuclei_eval.setup_data(
-        slide_id, run_id, model_id, overlap=200, num_workers=num_workers
+        slide_id, run_id, model_id, batch_size, overlap=200, num_workers=num_workers
     )
     # Predict nuclei
     nuclei_eval.run_nuclei_eval(

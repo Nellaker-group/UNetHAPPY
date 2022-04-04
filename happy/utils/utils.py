@@ -22,15 +22,16 @@ def set_gpu_device():
     return device_id
 
 
-def get_device():
+def get_device(get_cuda_device_num=False):
     if torch.cuda.is_available():
-        device_id = set_gpu_device()
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.enabled = True
-        device = f"cuda:{device_id}"
+        if get_cuda_device_num:
+            return f"cuda:{set_gpu_device()}"
+        else:
+            return "cuda"
     else:
-        device = "cpu"
-    return device
+        return "cpu"
 
 
 def get_project_dir(project_name):

@@ -35,7 +35,7 @@ def setup_model(model_id, device):
 
 
 # Load dataset and dataloader
-def setup_data(slide_id, run_id, model_id, overlap, num_workers):
+def setup_data(slide_id, run_id, model_id, batch_size, overlap, num_workers):
     ms_file = get_msfile(
         slide_id=slide_id, run_id=run_id, nuc_model_id=model_id, overlap=overlap
     )
@@ -51,7 +51,7 @@ def setup_data(slide_id, run_id, model_id, overlap, num_workers):
         curr_data_set,
         num_workers=num_workers,
         collate_fn=collater,
-        batch_size=2,
+        batch_size=batch_size,
     )
     print("dataloader ready")
     return dataloader, pred_saver

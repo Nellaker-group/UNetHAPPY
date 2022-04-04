@@ -168,8 +168,7 @@ plotting might be added in the future.
 
 You can also visualise your training annotations ground truth nuclei locations using 
 `analysis/visualisations/vis_ground_truth.py` or run your nuclei detector over 
-images in your validation sets using `analysis/visualisations/vis_nuclei_preds.py`. 
-The latter of these is WIP while the Datasets class is being refactored.
+images in your validation sets using `analysis/visualisations/vis_nuclei_preds.py`.
 
 
 ### Training
@@ -205,4 +204,5 @@ should be saved to your project directory.
 
 * As model training isn't integrated with the database yet, models, and the
   training runs that created them, will need to be added to the dataset manually
-  before using them for WSI evaluation.
+  before using them for WSI evaluation. There is a script
+  `/happy/db/add_model.py` to help with this.

@@ -16,14 +16,17 @@ def main(
     dataset_names: List[str] = typer.Option([]),
     model_name: str = "retinanet",
     pre_trained: Optional[str] = None,
-    num_workers: int = 5,
-    epochs: int = 5,
-    batch: int = 3,
-    val_batch: int = 3,
-    learning_rate: float = 1e-5,
+    num_workers: int = 20,
+    epochs: int = 20,
+    batch: int = 16,
+    val_batch: int = 16,
+    learning_rate: float = 1e-4,
+    decay_gamma: float = 1,
+    step_size: int = 20,
     init_from_coco: bool = False,
     frozen: bool = True,
     vis: bool = True,
+    get_cuda_device_num: bool = False,
 ):
     """For training a nuclei detection model
 
@@ -45,11 +48,14 @@ def main(
         batch: batch size of the training set
         val_batch: batch size of the validation sets
         learning_rate: learning rate which decreases every 8 epochs
+        decay_gamma: amount to decay learning rate by. Set to 1 for no decay.
+        step_size: epoch at which to apply learning rate decay.
         init_from_coco: whether to use coco pretrained weights
         frozen: whether to freeze most of the layers. True for only fine-tuning
         vis: whether to send stats to visdom for visualisation
+        get_cuda_device_num: if you want the code to choose a gpu
     """
-    device = get_device()
+    device = get_device(get_cuda_device_num)
 
     # TODO: reimplement loading hps from file later (with database)
     hp = Hyperparameters(
@@ -79,10 +85,14 @@ def main(
     )
 
     # Setup training parameters
-    optimizer, scheduler = nuc_train.setup_training_params(model, hp.learning_rate)
+    optimizer, scheduler = nuc_train.setup_training_params(
+        model, hp.learning_rate, decay_gamma, step_size
+    )
 
     # Setup recording of stats per batch and epoch
-    logger = Logger(list(dataloaders.keys()), ["loss", "AP"], hp.vis)
+    logger = Logger(
+        list(dataloaders.keys()), ["loss", "Precision", "Recall", "F1"], hp.vis
+    )
 
     # Save each run by it's timestamp
     run_path = utils.setup_run(project_dir, exp_name, "nuclei")

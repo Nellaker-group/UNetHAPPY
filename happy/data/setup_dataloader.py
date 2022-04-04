@@ -33,7 +33,7 @@ def setup_dataloaders(nuclei, datasets, num_workers, train_batch_size, val_batch
 
 
 def get_dataloader(split, dataset, collater, num_workers, nuclei, batch_size):
-    if split == "train" and nuclei == False:
+    if split == "train" and not nuclei:
         sampler = BatchSampler(
             WeightedRandomSampler(
                 dataset.class_sampling_weights, len(dataset), replacement=True

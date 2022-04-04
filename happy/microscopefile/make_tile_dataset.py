@@ -48,7 +48,7 @@ def main(
         target_pixel_size: pixel size the original model was trained on for rescaling
         tile_width: width of tiles the model expects
         tile_height: height of tiles the model expects
-        split: proportion of training data split, rest goes equally into val and test
+        split: proportion of val and test splits, rest goes into training (e.g. 0.3)
     """
     db.init()
 
@@ -334,7 +334,7 @@ def _save_pngs(
     cell_classes=None,
 ):
     slide_name = slide.slide_name
-    slide_number = slide_name.split("-")[0]
+    slide_number = slide_name.split("-")[0].split(".svs")[0]
     rescale_ratio = target_pixel_size / slide.pixel_size
 
     slide_path = str(Path(slide.lab.slides_dir) / slide_name)

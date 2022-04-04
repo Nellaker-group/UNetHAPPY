@@ -2,10 +2,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import accuracy_score
 from torch.optim.lr_scheduler import StepLR
 
-from happy.train.utils import get_confusion_matrix
+from happy.train.utils import get_cell_confusion_matrix
 from happy.models.model_builder import build_cell_classifer
 from happy.data.setup_data import setup_cell_datasets
 from happy.data.setup_dataloader import setup_dataloaders
@@ -71,14 +72,33 @@ def setup_model(
     return model, image_size
 
 
-def setup_training_params(model, learning_rate):
+def setup_training_params(
+    model,
+    learning_rate,
+    train_dataloader,
+    device,
+    weighted_loss=True,
+    decay_gamma=0.5,
+    step_size=20,
+):
+    if weighted_loss:
+        data = train_dataloader.dataset.all_annotations.class_name.map(
+            train_dataloader.dataset.classes
+        ).to_numpy()
+        class_weights = compute_class_weight(
+            "balanced", classes=np.unique(data), y=data
+        )
+        class_weights = torch.FloatTensor(class_weights)
+        class_weights = class_weights.to(device)
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
+    else:
+        criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=learning_rate,
         amsgrad=True,
     )
-    criterion = nn.CrossEntropyLoss()
-    scheduler = StepLR(optimizer, step_size=8, gamma=0.1)
+    scheduler = StepLR(optimizer, step_size=step_size, gamma=decay_gamma)
     return optimizer, criterion, scheduler
 
 
@@ -124,15 +144,16 @@ def train(
                     device,
                 )
                 # update epoch metrics
-                logger.loss_hist.append(batch_loss)
                 loss[phase].append(batch_loss)
                 predictions[phase].extend(batch_preds)
                 ground_truth[phase].extend(batch_truth)
-                print(
-                    f"Epoch: {epoch_num} | Phase: {phase} | Iteration: {i} | "
-                    f"Classification loss: {batch_loss:1.5f} | "
-                    f"Running loss: {np.mean(logger.loss_hist):1.5f}"
-                )
+                if phase == "train":
+                    logger.loss_hist.append(batch_loss)
+                    print(
+                        f"Epoch: {epoch_num} | Phase: {phase} | Iteration: {i} | "
+                        f"Classification loss: {batch_loss:1.5f} | "
+                        f"Running loss: {np.mean(logger.loss_hist):1.5f}"
+                    )
 
             # Plot losses at each epoch for training and all validation sets
             log_epoch_metrics(logger, epoch_num, phase, loss, predictions, ground_truth)
@@ -197,7 +218,7 @@ def validate_model(
         "val_all_accuracy"
     ]
 
-    if prev_best_accuracy != 0 and val_accuracy > prev_best_accuracy:
+    if val_accuracy > prev_best_accuracy:
         name = f"cell_model_accuracy_{round(val_accuracy, 4)}.pt"
         torch.save(model.state_dict(), run_path / name)
         print("Best model saved")
@@ -220,7 +241,7 @@ def validation_confusion_matrices(organ, logger, pred, truth, datasets, run_path
     # Save confusion matrix plots for all validation sets
     datasets.remove("train")
     for dataset in datasets:
-        cm = get_confusion_matrix(organ, pred[dataset], truth[dataset])
+        cm = get_cell_confusion_matrix(organ, pred[dataset], truth[dataset])
         logger.log_confusion_matrix(cm, dataset, run_path)
 
 
