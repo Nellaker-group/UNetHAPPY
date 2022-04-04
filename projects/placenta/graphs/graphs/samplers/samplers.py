@@ -1,6 +1,6 @@
 import torch
 from torch_cluster import random_walk
-from torch_geometric.data import NeighborSampler
+from torch_geometric.loader import NeighborSampler
 
 
 class PosNegNeighborSampler(NeighborSampler):

@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.data import NeighborSampler, ClusterData, ClusterLoader
+from torch_geometric.loader import NeighborSampler, ClusterData, ClusterLoader
 from torch_geometric.nn import DeepGraphInfomax
 import pandas as pd
 import matplotlib.pyplot as plt
