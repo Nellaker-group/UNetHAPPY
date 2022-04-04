@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 from torch_cluster import knn_graph, radius_graph
 from torch_geometric.data import Data
@@ -15,11 +17,17 @@ from happy.hdf5.utils import (
 
 
 def get_groundtruth_patch(
-    organ, project_dir, x_min, y_min, width, height, label_type="full"
+    organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type="full"
 ):
-    ground_truth_df = pd.read_csv(
-        project_dir / "results" / "tissue_annots" / "139_tissue_points.tsv", sep="\t"
-    )
+    if not tissue_label_tsv:
+        print("No tissue label tsv supplied")
+        return None, None, None
+    tissue_label_path = project_dir / "results" / "tissue_annots" / tissue_label_tsv
+    if not os.path.exists(str(tissue_label_path)):
+        print("No tissue label tsv found")
+        return None, None, None
+
+    ground_truth_df = pd.read_csv(tissue_label_path, sep="\t")
     xs = ground_truth_df["px"].to_numpy()
     ys = ground_truth_df["py"].to_numpy()
     tissue_classes = ground_truth_df["class"].to_numpy()
@@ -32,7 +40,6 @@ def get_groundtruth_patch(
                 for tissue_name in tissue_classes
             ]
         )
-
         return xs[sort_args], ys[sort_args], tissue_ids[sort_args]
 
     mask = np.logical_and(
@@ -52,6 +59,7 @@ def get_groundtruth_patch(
     sort_args = np.lexsort((patch_ys, patch_xs))
 
     return patch_xs[sort_args], patch_ys[sort_args], patch_tissue_ids[sort_args]
+
 
 def _get_id_by_tissue_name(organ, tissue_name, id_type):
     if id_type == "full":

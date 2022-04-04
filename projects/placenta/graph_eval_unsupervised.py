@@ -52,6 +52,7 @@ def main(
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
     label_type: str = "full",
+    tissue_label_tsv: str = "139_tissue_points.tsv",
     relabel: bool = False,
     relabel_by_centroid: bool = False,
 ):
@@ -72,7 +73,7 @@ def main(
 
     # Get ground truth manually annotated data
     _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, label_type
+        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
     )
 
     # Setup trained model

@@ -1,14 +1,13 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.loader import NeighborSampler, ClusterData, ClusterLoader
+from torch_geometric.loader import NeighborSampler
 from torch_geometric.nn import DeepGraphInfomax
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-from happy.models.graphsage import SAGE, SupervisedSAGE, SupervisedDiffPool
-from happy.models.clustergcn import ClusterGCN
+from happy.models.graphsage import SAGE
 from happy.models.infomax import Encoder, corruption, summary_fn
 from projects.placenta.graphs.graphs.samplers.samplers import (
     PosNegNeighborSampler,
@@ -60,13 +59,6 @@ def setup_dataloader(
             num_workers=12,
             return_e_id=False,
         )
-    elif model_type == "sup_clustergcn":
-        cluster_data = ClusterData(
-            data, num_parts=int(data.x.size()[0] / num_neighbors), recursive=False
-        )
-        return ClusterLoader(
-            cluster_data, batch_size=batch_size, shuffle=True, num_workers=12
-        )
     elif model_type == "infomax" or model_type.split("_")[0] == "sup":
         return NeighborSampler(
             data.edge_index,
@@ -78,32 +70,11 @@ def setup_dataloader(
         )
 
 
-def setup_model(model_type, data, device, layers, pretrained=None, num_classes=None):
+def setup_model(model_type, data, device, layers, pretrained=None):
     if pretrained:
         return torch.load(pretrained / "graph_model.pt", map_location=device)
     if model_type == "graphsage":
         model = SAGE(data.num_node_features, hidden_channels=64, num_layers=layers)
-    elif model_type == "sup_graphsage":
-        model = SupervisedSAGE(
-            data.num_node_features,
-            hidden_channels=64,
-            out_channels=num_classes,
-            num_layers=layers,
-        )
-    elif model_type == "sup_diffpool":
-        model = SupervisedDiffPool(
-            data.num_node_features,
-            hidden_channels=64,
-            out_channels=num_classes,
-            num_sage_layers=layers,
-        )
-    elif model_type == "sup_clustergcn":
-        model = ClusterGCN(
-            data.num_node_features,
-            hidden_channels=128,
-            out_channels=num_classes,
-            num_layers=layers,
-        )
     elif model_type == "infomax":
         model = DeepGraphInfomax(
             hidden_channels=512,
@@ -115,12 +86,6 @@ def setup_model(model_type, data, device, layers, pretrained=None, num_classes=N
         return ValueError(f"No such model type implemented: {model_type}")
     model = model.to(device)
     return model
-
-
-def send_to_device(data, tissue_class, device):
-    x, edge_index = data.x.to(device), data.edge_index.to(device)
-    tissue_class = torch.Tensor(tissue_class).type(torch.LongTensor).to(device)
-    return x, edge_index, tissue_class
 
 
 def train(
@@ -143,65 +108,35 @@ def train(
     total_examples = 0
     total_correct = 0
 
-    if isinstance(train_loader, ClusterLoader):
-        assert model_type == "sup_clustergcn"
-        for batch in train_loader:
-            batch = batch.to(device)
-            optimiser.zero_grad()
-            out = model(batch.x, batch.edge_index)
-            loss = F.nll_loss(out, batch.y)
-            loss.backward()
-            optimiser.step()
+    for batch_i, (batch_size, n_id, adjs) in enumerate(train_loader):
+        # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
+        adjs = [adj.to(device) for adj in adjs]
+        optimiser.zero_grad()
 
-            total_loss += loss.item() * out.size(0)
-            total_correct += int(out.argmax(dim=-1).eq(batch.y).sum().item())
-            total_examples += out.size(0)
-    else:
-        for batch_i, (batch_size, n_id, adjs) in enumerate(train_loader):
-            # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
-            adjs = [adj.to(device) for adj in adjs]
-            optimiser.zero_grad()
+        if model_type == "graphsage":
+            out = model(x[n_id], adjs)
+            loss = _graphsage_batch(
+                batch,
+                out,
+                batch_i,
+                device,
+                n_id,
+                num_neg,
+                simple_curriculum,
+                tissue_class,
+            )
+            total_loss += float(loss) * batch
+            total_examples += batch
+        elif model_type == "infomax":
+            pos_z, neg_z, summary = model(x[n_id], adjs)
+            loss = model.loss(pos_z, neg_z, summary)
+            total_loss += float(loss) * pos_z.size(0)
+            total_examples += pos_z.size(0)
+        else:
+            raise ValueError(f"No such model type implemented: {model_type}")
 
-            if model_type == "graphsage":
-                out = model(x[n_id], adjs)
-                loss = _graphsage_batch(
-                    batch,
-                    out,
-                    batch_i,
-                    device,
-                    n_id,
-                    num_neg,
-                    simple_curriculum,
-                    tissue_class,
-                )
-                total_loss += float(loss) * batch
-                total_examples += batch
-            elif model_type == "infomax":
-                pos_z, neg_z, summary = model(x[n_id], adjs)
-                loss = model.loss(pos_z, neg_z, summary)
-                total_loss += float(loss) * pos_z.size(0)
-                total_examples += pos_z.size(0)
-            elif model_type == "sup_graphsage":
-                out = model(x[n_id], adjs)
-                loss = F.nll_loss(out, tissue_class[n_id[:batch_size]])
-                total_loss += float(loss)
-                total_correct += int(
-                    out.argmax(dim=-1).eq(tissue_class[n_id[:batch_size]]).sum()
-                )
-                total_examples += out.size(0)
-            elif model_type == "sup_diffpool":
-                out = model(x, adjs)
-                loss = F.nll_loss(out, tissue_class[n_id[:batch_size]])
-                total_loss += float(loss)
-                total_correct += int(
-                    out.argmax(dim=-1).eq(tissue_class[n_id[:batch_size]]).sum()
-                )
-                total_examples += out.size(0)
-            else:
-                raise ValueError(f"No such model type implemented: {model_type}")
-
-            loss.backward()
-            optimiser.step()
+        loss.backward()
+        optimiser.step()
     return total_loss / total_examples, total_correct / total_examples
 
 
@@ -308,9 +243,8 @@ def save_state(
     epochs,
     layers,
     num_curriculum,
-    label_type,
 ):
-    save_model(model, run_path / "graph_model.pt")
+    torch.save(model, run_path / "graph_model.pt")
 
     params_df = pd.DataFrame(
         {
@@ -331,17 +265,12 @@ def save_state(
             "epochs": epochs,
             "layers": layers,
             "num_curriculum": num_curriculum,
-            "label_type": label_type,
         },
         index=[0],
     )
     params_df.to_csv(run_path / "params.csv", index=False)
 
     logger.to_csv(run_path / "graph_train_stats.csv")
-
-
-def save_model(model, save_path):
-    torch.save(model, save_path)
 
 
 def _summary_lambda(z, *args, **kwargs):

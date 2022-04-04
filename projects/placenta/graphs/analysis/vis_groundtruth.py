@@ -15,12 +15,13 @@ def main(
     width: int = -1,
     height: int = -1,
     label_type: str = "full",
+    tissue_label_tsv: str = "139_tissue_points.tsv",
 ):
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
 
     xs, ys, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, label_type
+        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
     )
 
     unique, counts = np.unique(tissue_class, return_counts=True)
