@@ -103,32 +103,59 @@ def main(
         )
 
     # Train!
-    print("Training:")
-    for epoch in range(1, epochs + 1):
-        loss, accuracy = graph_unsupervised.train(
-            model_type,
-            model,
-            x,
-            optimiser,
-            batch_size,
-            train_loader,
-            device,
-            simple_curriculum,
-            tissue_class,
-        )
-        logger.log_loss("train", epoch - 1, loss)
-        if model_type.split("_")[0] == "sup":
-            logger.log_accuracy("train", epoch - 1, accuracy)
+    try:
+        print("Training:")
+        for epoch in range(1, epochs + 1):
+            loss, accuracy = graph_unsupervised.train(
+                model_type,
+                model,
+                x,
+                optimiser,
+                batch_size,
+                train_loader,
+                device,
+                simple_curriculum,
+                tissue_class,
+            )
+            logger.log_loss("train", epoch - 1, loss)
+            if model_type.split("_")[0] == "sup":
+                logger.log_accuracy("train", epoch - 1, accuracy)
 
-        if epoch % 50 == 0 and epoch != epochs:
-            save_model(model, run_path / f"{epoch}_graph_model.pt")
+            if epoch % 50 == 0 and epoch != epochs:
+                save_model(model, run_path / f"{epoch}_graph_model.pt")
 
-        if num_curriculum > 0:
-            save_dir = run_path / "neg_loss_plots"
-            save_dir.mkdir(parents=True, exist_ok=True)
-            save_path = save_dir / f"neg_losses_{epoch}.png"
-            plt.savefig(save_path)
-            plt.close()
+            if num_curriculum > 0:
+                save_dir = run_path / "neg_loss_plots"
+                save_dir.mkdir(parents=True, exist_ok=True)
+                save_path = save_dir / f"neg_losses_{epoch}.png"
+                plt.savefig(save_path)
+                plt.close()
+    except KeyboardInterrupt:
+        save_hp = input("Would you like to save the hyperparameters anyway? y/n: ")
+        if save_hp == "y":
+            # Save the fully trained model
+            graph_unsupervised.save_state(
+                run_path,
+                logger,
+                model,
+                organ_name,
+                exp_name,
+                run_id,
+                x_min,
+                y_min,
+                width,
+                height,
+                k,
+                feature,
+                top_conf,
+                graph_method,
+                batch_size,
+                num_neighbours,
+                learning_rate,
+                epochs,
+                layers,
+                num_curriculum,
+            )
 
     # Save the fully trained model
     graph_unsupervised.save_state(

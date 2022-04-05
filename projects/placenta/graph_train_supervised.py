@@ -82,23 +82,50 @@ def main(
     run_path = setup_run(project_dir, f"{model_type}/{exp_name}", "graph")
 
     # Train!
-    print("Training:")
-    for epoch in range(1, epochs + 1):
-        loss, accuracy = graph_supervised.train(
-            model_type,
-            model,
-            x,
-            optimiser,
-            train_loader,
-            device,
-            tissue_class,
-        )
-        logger.log_loss("train", epoch - 1, loss)
-        if model_type.split("_")[0] == "sup":
-            logger.log_accuracy("train", epoch - 1, accuracy)
+    try:
+        print("Training:")
+        for epoch in range(1, epochs + 1):
+            loss, accuracy = graph_supervised.train(
+                model_type,
+                model,
+                x,
+                optimiser,
+                train_loader,
+                device,
+                tissue_class,
+            )
+            logger.log_loss("train", epoch - 1, loss)
+            if model_type.split("_")[0] == "sup":
+                logger.log_accuracy("train", epoch - 1, accuracy)
 
-        if epoch % 50 == 0 and epoch != epochs:
-            save_model(model, run_path / f"{epoch}_graph_model.pt")
+            if epoch % 50 == 0 and epoch != epochs:
+                save_model(model, run_path / f"{epoch}_graph_model.pt")
+    except KeyboardInterrupt:
+        save_hp = input("Would you like to save the hyperparameters anyway? y/n: ")
+        if save_hp == "y":
+            # Save the fully trained model
+            graph_supervised.save_state(
+                run_path,
+                logger,
+                model,
+                organ_name,
+                exp_name,
+                run_id,
+                x_min,
+                y_min,
+                width,
+                height,
+                k,
+                feature,
+                top_conf,
+                graph_method,
+                batch_size,
+                num_neighbours,
+                learning_rate,
+                epochs,
+                layers,
+                label_type,
+            )
 
     # Save the fully trained model
     graph_supervised.save_state(
