@@ -92,6 +92,7 @@ def main(
         conf_str = "_top_conf" if top_conf else ""
         plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
         generate_umap(
+            model_type,
             model,
             x,
             edge_index,

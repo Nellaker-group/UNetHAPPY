@@ -8,8 +8,10 @@ import numpy as np
 from analysis.embeddings.plots import plot_cell_umap
 
 
-def generate_umap(model, x, edge_index, organ, predictions, run_path, plot_name):
-    graph_embeddings = get_graph_embeddings(model, x, edge_index)
+def generate_umap(
+    model_type, model, x, edge_index, organ, predictions, run_path, plot_name
+):
+    graph_embeddings = get_graph_embeddings(model_type, model, x, edge_index)
     fitted_umap = fit_umap(graph_embeddings)
     plot_cell_graph_umap(organ, predictions, fitted_umap, run_path, plot_name)
 
