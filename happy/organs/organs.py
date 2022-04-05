@@ -47,14 +47,14 @@ PLACENTA = Organ(
     [
         Cell("CYT", "Cytotrophoblasts", "#24ff24", "#0d8519", 0, 0),
         Cell("FIB", "Fibroblast", "#920000", "#7b03fc", 1, 1),
-        Cell("HOF", "Hofbauer", "#ffff6d", "#979903", 2, 3),
+        Cell("HOF", "Hofbauer", "#ffff6d", "#979903", 2, 1),
         Cell("SYN", "Syncytiotrophoblast", "#6db6ff", "#0f0cad", 3, 0),
         Cell("VEN", "Vascular Endothelial", "#ff9600", "#734c0e", 4, 2),
         Cell("MAT", "Maternal Decidua", "#008080", "#008080", 5, 4),
         Cell("VMY", "Vascular Myocyte", "#cc6633", "#cc6633", 6, 1),
         Cell("WBC", "White Blood Cell", "#2f3ec7", "#2f3ec7", 7, 5),
         Cell("MES", "Mesenchymal Cell", "#ff00ff", "#ff00ff", 8, 1),
-        Cell("EVT", "Extra Villus Trophoblast", "#b8b0f1", "#b8b0f1", 9, 0),
+        Cell("EVT", "Extra Villus Trophoblast", "#b8b0f1", "#b8b0f1", 9, 3),
         Cell("KNT", "Syncytial Knots", "#00ffff", "#00ffff", 10, 0),
     ],
     [

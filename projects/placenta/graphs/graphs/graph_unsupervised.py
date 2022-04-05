@@ -59,7 +59,7 @@ def setup_dataloader(
             num_workers=12,
             return_e_id=False,
         )
-    elif model_type == "infomax" or model_type.split("_")[0] == "sup":
+    elif model_type == "infomax":
         return NeighborSampler(
             data.edge_index,
             node_idx=None,
