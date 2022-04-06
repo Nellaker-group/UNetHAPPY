@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 import typer
 import torch
@@ -52,7 +53,7 @@ def main(
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
     label_type: str = "full",
-    tissue_label_tsv: str = "139_tissue_points.tsv",
+    tissue_label_tsv: Optional[str] = None,
     relabel: bool = False,
     relabel_by_centroid: bool = False,
 ):
@@ -105,6 +106,7 @@ def main(
     graph_embeddings = get_graph_embeddings(model_type, model, x, edge_index)
 
     # fit and plot umap with cell classes
+    fitted_umap = None
     if plot_umap:
         fitted_umap = fit_umap(graph_embeddings)
         plot_cell_graph_umap(
@@ -112,9 +114,8 @@ def main(
         )
 
     # Fit a clustering method on the graph embeddings
-    mapper = fitted_umap if clustering_method == "umap" else None
     cluster_labels, cluster_method = fit_clustering(
-        num_clusters, graph_embeddings, clustering_method, mapper=mapper
+        num_clusters, graph_embeddings, clustering_method, mapper=fitted_umap
     )
 
     # Plot the cluster labels onto the umap of the graph embeddings

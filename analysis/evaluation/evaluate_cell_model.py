@@ -30,6 +30,7 @@ def main(
     annot_dir: str = typer.Option(...),
     pre_trained: str = typer.Option(...),
     dataset_names: List[str] = typer.Option([]),
+    plot_pr_curves: bool = True,
 ):
     """Evaluates model performance across validation datasets
 
@@ -50,7 +51,7 @@ def main(
     HPs = namedtuple("HPs", "dataset_names batch")
     hp = HPs(dataset_names, 100)
     organ = get_organ(organ_name)
-    cell_ids = [cell.id for cell in organ.cells]
+    cell_mapping = {cell.id: cell.label for cell in organ.cells}
 
     model, image_size = setup_model(
         "resnet-50", False, len(organ.cells), pre_trained, False, device
@@ -100,7 +101,10 @@ def main(
         )
         mcc = matthews_corrcoef(ground_truth[dataset_name], predictions[dataset_name])
         top_2_accuracy = top_k_accuracy_score(
-            ground_truth[dataset_name], outs[dataset_name], k=2, labels=cell_ids
+            ground_truth[dataset_name],
+            outs[dataset_name],
+            k=2,
+            labels=list(cell_mapping.keys()),
         )
         print(f"Accuracy: {accuracy:.3f}")
         print(f"Top 2 accuracy: {top_2_accuracy:.3f}")
@@ -112,9 +116,23 @@ def main(
         alt_label_accuracy = accuracy_score(alt_ground_truth, alt_predictions)
         print(f"Alt Cell Label Accuracy: {alt_label_accuracy:.3f}")
 
-        _plot_pr_curves(
-            organ, dataset_name, ground_truth[dataset_name], outs[dataset_name]
-        )
+        print("Mean confidence across cells for ground truth cell types:")
+        print(list(cell_mapping.values()))
+        for cell_id, cell_label in cell_mapping.items():
+            cell_inds = (np.array(ground_truth[dataset_name]) == cell_id).nonzero()[0]
+            cell_scores = np.array(outs[dataset_name])[cell_inds]
+            cell_confidences = np.mean(softmax(cell_scores, axis=1), axis=0)
+            if np.all(np.isnan(cell_confidences)):
+                continue
+            print(f"{cell_label}: {np.round(cell_confidences, 3)}")
+
+        if plot_pr_curves:
+            _plot_pr_curves(
+                cell_mapping,
+                dataset_name,
+                ground_truth[dataset_name],
+                outs[dataset_name],
+            )
 
 
 def _convert_to_alt_label(organ, labels):
@@ -124,8 +142,7 @@ def _convert_to_alt_label(organ, labels):
     return [alt_id_mapping[label] for label in labels]
 
 
-def _plot_pr_curves(organ, dataset_name, ground_truth, scores):
-    cell_mapping = {cell.id: cell.label for cell in organ.cells}
+def _plot_pr_curves(cell_mapping, dataset_name, ground_truth, scores):
     cell_classes = np.unique(list(cell_mapping.keys()))
 
     ground_truth = label_binarize(ground_truth, classes=cell_classes)
@@ -172,6 +189,7 @@ def _plot_pr_curves(organ, dataset_name, ground_truth, scores):
     plt.legend(loc="lower right")
     plt.savefig(f"../../analysis/evaluation/plots/{dataset_name}_pr_curves.png")
     plt.clf()
+
 
 if __name__ == "__main__":
     typer.run(main)
