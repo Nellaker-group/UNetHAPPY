@@ -54,8 +54,6 @@ def main(
     remove_unlabelled: bool = True,
     label_type: str = "full",
     tissue_label_tsv: Optional[str] = None,
-    relabel: bool = False,
-    relabel_by_centroid: bool = False,
 ):
     device = get_device()
     project_dir = get_project_dir(project_name)
@@ -136,28 +134,6 @@ def main(
 
     # Print some prediction count info
     _print_prediction_stats(cluster_labels)
-
-    if relabel:
-        colour_permute = [7, 5, 6, 1, 2, 3, 4, 0]
-        if len(colour_permute) == num_clusters:
-            cluster_labels = np.choose(cluster_labels, colour_permute).astype(np.int64)
-        else:
-            pass
-
-    if relabel_by_centroid:
-        ids = {}
-        for i in range(num_clusters):
-            cluster_pts_indices = np.where(cluster_method.labels_ == i)[0]
-            cluster_cen = cluster_method.cluster_centers_[i]
-            min_idx = np.argmin(
-                [
-                    euclidean(graph_embeddings[idx], cluster_cen)
-                    for idx in cluster_pts_indices
-                ]
-            )
-            true_label_for_id = tissue_class[min_idx]
-            ids[i] = true_label_for_id
-            print(ids)
 
     # Evaluate against ground truth tissue annotations
     if run_id == 16:
