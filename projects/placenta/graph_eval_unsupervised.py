@@ -11,7 +11,6 @@ from sklearn.metrics.cluster import (
     homogeneity_completeness_v_measure,
 )
 import numpy as np
-from scipy.spatial.distance import euclidean
 
 from happy.utils.utils import get_device
 from happy.utils.utils import get_project_dir

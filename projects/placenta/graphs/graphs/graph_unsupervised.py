@@ -178,7 +178,7 @@ def _graphsage_batch(
             out, pos_out, neg_out = out.split(
                 [batch_size, batch_size, batch_size * num_neg], dim=0
             )
-            out_ids, _, neg_ids = n_id.split[: batch_size * 2 + batch_size * num_neg](
+            out_ids, _, neg_ids = n_id[: batch_size * 2 + batch_size * num_neg].split(
                 [batch_size, batch_size, batch_size * num_neg], dim=0
             )
             neg_out = torch.reshape(neg_out, (out.size(0), num_neg, 64))
@@ -273,42 +273,40 @@ def save_state(
     logger.to_csv(run_path / "graph_train_stats.csv")
 
 
-def _summary_lambda(z, *args, **kwargs):
-    return torch.sigmoid(z.mean(dim=0))
-
-
 def _plot_negative_losses(
     neg_similarities, negative_ids_to_plot, target_node_ids_to_plot, tissue_class
 ):
     all_neg_losses = F.logsigmoid(neg_similarities)
     all_neg_losses = all_neg_losses.detach().cpu().numpy()
-
-    target_classes = tissue_class[target_node_ids_to_plot.cpu().numpy()]
-    negative_classes = tissue_class[negative_ids_to_plot.cpu().numpy()]
-
     df = pd.DataFrame(all_neg_losses, index=list(range(0, len(all_neg_losses))))
 
-    normalise_colours = np.linspace(0, 255, 10, dtype=int)
+    if tissue_class is not None:
+        target_classes = tissue_class[target_node_ids_to_plot.cpu().numpy()]
+        negative_classes = tissue_class[negative_ids_to_plot.cpu().numpy()]
 
-    palette = [
-        sns.color_palette("Spectral", as_cmap=True)(normalise_colours[target_class])
-        for target_class in target_classes
-    ]
+        normalise_colours = np.linspace(0, 255, 10, dtype=int)
+        palette = [
+            sns.color_palette("Spectral", as_cmap=True)(normalise_colours[target_class])
+            for target_class in target_classes
+        ]
+    else:
+        palette = None
 
     ax = sns.lineplot(data=df.T, markers=True, palette=palette)
     ax.set(xlabel="Ranked negative nodes", ylabel="Negative Node Loss")
-    plt.legend(title="Anchor", labels=target_classes)
 
-    for i in range(len(df)):
-        for x in range(len(df.T)):
-            y = df.T[i][x]
-            plt.text(
-                x=x,
-                y=y,
-                s=negative_classes[i][x],
-                color=sns.color_palette("Spectral", as_cmap=True)(
-                    normalise_colours[negative_classes[i][x]]
-                ),
-                fontsize="large",
-                fontweight="bold",
-            )
+    if tissue_class is not None:
+        plt.legend(title="Anchor", labels=target_classes)
+        for i in range(len(df)):
+            for x in range(len(df.T)):
+                y = df.T[i][x]
+                plt.text(
+                    x=x,
+                    y=y,
+                    s=negative_classes[i][x],
+                    color=sns.color_palette("Spectral", as_cmap=True)(
+                        normalise_colours[negative_classes[i][x]]
+                    ),
+                    fontsize="large",
+                    fontweight="bold",
+                )
