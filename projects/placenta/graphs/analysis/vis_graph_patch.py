@@ -252,12 +252,14 @@ def visualize_points(
     edge_index=None,
     edge_weight=None,
     colours=None,
+    point_size=None,
 ):
     if colours is None:
         colours_dict = {cell.id: cell.colour for cell in organ.cells}
         colours = [colours_dict[label] for label in labels]
 
-    point_size = 1 if len(pos) >= 10000 else 2
+    if point_size is None:
+        point_size = 1 if len(pos) >= 10000 else 2
 
     figsize = _calc_figsize(pos, width, height)
 
@@ -269,11 +271,12 @@ def visualize_points(
             src = pos[src].tolist()
             dst = pos[dst].tolist()
             line_collection.append((src, dst))
-        lc = LineCollection(
-            line_collection,
-            linewidths=0.5,
-            colors=[str(weight) for weight in edge_weight.t()[0].tolist()],
+        line_colour = (
+            [str(weight) for weight in edge_weight.t()[0].tolist()]
+            if edge_weight is not None
+            else "grey"
         )
+        lc = LineCollection(line_collection, linewidths=0.5, colors=line_colour)
         ax = plt.gca()
         ax.add_collection(lc)
         ax.autoscale()
@@ -289,7 +292,7 @@ def visualize_points(
     plt.gca().invert_yaxis()
     plt.axis("off")
     fig.tight_layout()
-    plt.savefig(save_path, bbox_inches='tight', pad_inches=0.0)
+    plt.savefig(save_path, bbox_inches="tight", pad_inches=0.0)
 
 
 def _calc_figsize(pos, width, height):
