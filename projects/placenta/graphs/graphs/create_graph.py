@@ -94,10 +94,10 @@ def get_raw_data(project_name, run_id, x_min, y_min, width, height, top_conf=Fal
     return predictions, embeddings, coords, confidence
 
 
-def setup_graph(coords, k, feature, graph_method, norm_edges=True):
+def setup_graph(coords, k, feature, graph_method, norm_edges=True, loop=True):
     data = Data(x=torch.Tensor(feature), pos=torch.Tensor(coords.astype("int32")))
     if graph_method == "k":
-        graph = make_k_graph(data, k, norm_edges)
+        graph = make_k_graph(data, k, norm_edges, loop)
     elif graph_method == "delaunay":
         graph = make_delaunay_graph(data, norm_edges)
     else:
@@ -107,9 +107,9 @@ def setup_graph(coords, k, feature, graph_method, norm_edges=True):
     return graph
 
 
-def make_k_graph(data, k, norm_edges=True):
+def make_k_graph(data, k, norm_edges=True, loop=True):
     print(f"Generating graph for k={k}")
-    data.edge_index = knn_graph(data.pos, k=k + 1, loop=True)
+    data.edge_index = knn_graph(data.pos, k=k + 1, loop=loop)
     get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
     data = get_edge_distance_weights(data)
     print(f"Graph made with {len(data.edge_index[0])} edges!")
