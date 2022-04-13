@@ -111,13 +111,6 @@ def main(
 def vis_for_range_k(
     k_start, k_end, data, plot_name, save_dir, organ, width, height, plot_edges=True
 ):
-    if not plot_edges:
-        edge_index = None
-        edge_weight = None
-    else:
-        edge_index = data.edge_index
-        edge_weight = data.edge_attr
-
     # Specify save graph vis location
     save_path = save_dir / "max_radius"
     save_path.mkdir(parents=True, exist_ok=True)
@@ -125,6 +118,12 @@ def vis_for_range_k(
     # Generate vis for different values of k
     for k in range(k_start, k_end):
         data = make_k_graph(data, k)
+        if not plot_edges:
+            edge_index = None
+            edge_weight = None
+        else:
+            edge_index = data.edge_index
+            edge_weight = data.edge_attr
 
         plot_name = f"k{k}_{plot_name}.png"
         print(f"Plotting...")
@@ -262,7 +261,6 @@ def visualize_points(
         point_size = 1 if len(pos) >= 10000 else 2
 
     figsize = _calc_figsize(pos, width, height)
-
     fig = plt.figure(figsize=figsize, dpi=150)
 
     if edge_index is not None:
