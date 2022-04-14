@@ -14,6 +14,7 @@ pytest==6.2.4
 python-bioformats==4.0.4
 scikit-image==0.16.2
 scikit-learn==1.0
+scikit-learn-extra-0.2.0
 scipy==1.6.2
 seaborn==0.11.1
 tqdm==4.61.0

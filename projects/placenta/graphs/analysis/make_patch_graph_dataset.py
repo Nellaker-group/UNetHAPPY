@@ -36,6 +36,7 @@ def main(
     min_cells_in_tile: int = 10,
     num_tiles: int = 10,
     plot_subgraphs: bool = False,
+    plot_counts: bool = False,
 ):
     organ = get_organ(organ_name)
     cell_mapping = {cell.id: cell.label for cell in organ.cells}
@@ -106,15 +107,18 @@ def main(
     # Quantify cell types within tile subgraphs
     plt.figure(figsize=(8, 8))
     for i, tile_graph in enumerate(tqdm(tile_graphs, desc="Cell types in tiles")):
-        _plot_cell_counts(tile_graph, cell_mapping, custom_palette, i)
+        if plot_counts:
+            _plot_cell_counts(tile_graph, cell_mapping, custom_palette, i)
+    plt.close("all")
 
     # Quantify cell connections within tile subgraphs
     all_conns = list(combinations(cell_mapping.keys(), 2))
     all_conns.extend([(_, _) for _ in cell_mapping.keys()])
     all_conns = set(all_conns)
-    plt.figure(figsize=(12, 8))
+    plt.figure(figsize=(8, 8))
     for i, tile_graph in enumerate(tqdm(tile_graphs, desc="Cell connections in tiles")):
-        _plot_cell_connections(tile_graph, all_conns, cell_mapping, cell_colours, i)
+        if plot_counts:
+            _plot_cell_connections(tile_graph, all_conns, cell_mapping, cell_colours, i)
     plt.close("all")
 
 
@@ -173,25 +177,34 @@ def _plot_cell_connections(tile_graph, all_conns, cell_mapping, cell_colours, i)
     grouped_conns.sort_values("source", inplace=True, ignore_index=True)
     grouped_conns["source"] = grouped_conns["source"].map(cell_mapping)
     grouped_conns["target"] = grouped_conns["target"].map(cell_mapping)
-    grouped_conns["cell_connections"] = (
-        grouped_conns["source"] + "-" + grouped_conns["target"]
-    )
     # plot cell type counts
-    ax = sns.barplot(
-        x=grouped_conns["cell_connections"],
-        y=grouped_conns["counts"],
+    heatmap_df = pd.pivot_table(
+        grouped_conns, index="source", columns="target", values="counts", fill_value=0
+    ).T
+    for cell_label in list(cell_mapping.values()):
+        if (heatmap_df.loc[cell_label] != 0).sum() > 1 and (
+            heatmap_df[cell_label] != 0
+        ).sum() == 1:
+            heatmap_df[cell_label] = heatmap_df.loc[cell_label]
+
+    heatmap_mask = np.triu(
+        np.ones((heatmap_df.shape[0] + 1, heatmap_df.shape[0] + 1), dtype=bool)
+    )[:, :-1][1:, :]
+    ax = sns.heatmap(
+        heatmap_df,
+        mask=heatmap_mask,
+        annot=True,
+        cmap="Blues",
+        fmt="g",
+        cbar=False,
     )
-    ax.set_xticklabels(
-        ax.get_xticklabels(),
-        rotation=45,
-        horizontalalignment="right",
-        fontweight="light",
-        fontsize=7,
-    )
-    colours = list(grouped_conns["source"].map(cell_colours))
+    colours = list(heatmap_df.index.map(cell_colours))
     for xtick, colour in zip(ax.get_xticklabels(), colours):
         xtick.set_color(colour)
-
+    for ytick, colour in zip(ax.get_yticklabels(), colours):
+        ytick.set_color(colour)
+    ax.set_ylabel("")
+    ax.set_xlabel("")
     plt.savefig(f"plots/cell_connections/tile_{i}.png")
     plt.clf()
 
