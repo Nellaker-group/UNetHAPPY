@@ -36,6 +36,7 @@ def main(
     tile_height: int = 2500,
     min_cells_in_tile: int = 10,
     num_tiles: int = 10,
+    num_clusters: int = 6,
     plot_subgraphs: bool = False,
     plot_counts: bool = False,
     run_over_cell_counts: bool = False,
@@ -93,7 +94,7 @@ def main(
             if plot_counts:
                 _plot_cell_counts(cell_counts_df, organ, i)
         plt.close("all")
-        model = KMedoids(metric="euclidean", n_clusters=6)
+        model = KMedoids(metric="euclidean", n_clusters=num_clusters)
         model.fit(cell_counts)
         counts_predictions = model.predict(cell_counts)
         print("")
@@ -110,7 +111,7 @@ def main(
             if plot_counts:
                 _plot_cell_connections(cell_connections_df, organ, i)
         plt.close("all")
-        model = KMedoids(metric="euclidean", n_clusters=6)
+        model = KMedoids(metric="euclidean", n_clusters=num_clusters)
         model.fit(cell_conns)
         conns_predictions = model.predict(cell_conns)
         print("")
