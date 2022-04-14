@@ -4,19 +4,18 @@ import typer
 import torch
 import numpy as np
 import pandas as pd
-from torch_geometric.utils.isolated import (
-    contains_isolated_nodes,
-    remove_isolated_nodes,
-)
-from torch_geometric.utils.subgraph import subgraph
-from torch_geometric.data import Data
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from projects.placenta.graphs.graphs.create_graph import get_raw_data, setup_graph
+from projects.placenta.graphs.graphs.create_graph import (
+    get_raw_data,
+    setup_graph,
+    get_list_of_subgraphs,
+)
 from projects.placenta.graphs.graphs.enums import MethodArg
 from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
+from projects.placenta.graphs.graphs.utils import remove_far_nodes, get_tile_coordinates
 from happy.organs.organs import get_organ
 
 
@@ -51,45 +50,24 @@ def main(
     data = setup_graph(
         coords, k, predictions, graph_method.value, norm_edges=False, loop=False
     )
-
     # Remove edges and isolated nodes from graph when edges are too long
-    data = _remove_far_nodes(data, edge_max_length=25000)
-    xs = data["pos"][:, 0]
-    ys = data["pos"][:, 1]
+    data = remove_far_nodes(data, edge_max_length=25000)
 
     # Make list of tile x,y coordinates with width and height
-    xy_list = _get_tile_coordinates(xs, ys, tile_width, tile_height)
+    xy_list = get_tile_coordinates(
+        data["pos"][:, 0], data["pos"][:, 1], tile_width, tile_height
+    )
 
-    # Create list of tiles which hold their node indicies from the graph
-    tiles = []
-    for i, tile_coords in enumerate(tqdm(xy_list, desc="Extract nodes within tiles")):
-        node_inds = _get_nodes_within_tiles(
-            tile_coords, tile_width, tile_height, xs, ys
-        )
-        # Only save tiles which contain at least one node
-        if len(node_inds) > 0:
-            tiles.append(
-                {
-                    "min_x": tile_coords[0],
-                    "min_y": tile_coords[1],
-                    "node_inds": node_inds,
-                    "num_nodes": len(node_inds),
-                }
-            )
-    tiles = pd.DataFrame(tiles)
-
-    # Plot histogram of number of nodes per tile
-    _plot_nodes_per_tile(tiles, binwidth=25)
-
-    # Remove tiles with number of cell points below a min threshold
-    nodeless_tiles = tiles[tiles.num_nodes < min_cells_in_tile]
-    print(f"Removing {len(nodeless_tiles)}/{len(tiles)} tiles with too few nodes")
-    tiles.drop(nodeless_tiles.index, inplace=True)
-    tiles.reset_index(drop=True, inplace=True)
-
-    # Create a dataset of subgraphs based on the tile nodes
-    tiles_node_inds = tiles["node_inds"].to_numpy()
-    tile_graphs = make_tile_graph_dataset(tiles_node_inds, data, num_tiles)
+    # Create a dataset of subgraphs based on tiles
+    tile_graphs = get_list_of_subgraphs(
+        data,
+        xy_list,
+        tile_width,
+        tile_height,
+        min_cells_in_tile,
+        max_tiles=num_tiles,
+        plot_nodes_per_tile=True,
+    )
 
     # Plot some subgraphs
     if plot_subgraphs:
@@ -120,27 +98,6 @@ def main(
         if plot_counts:
             _plot_cell_connections(tile_graph, all_conns, cell_mapping, cell_colours, i)
     plt.close("all")
-
-
-def make_tile_graph_dataset(tile_node_inds, full_graph, max_tiles):
-    tile_graphs = []
-    for i, node_inds in enumerate(tqdm(tile_node_inds, desc="Subgraphs within tiles")):
-        if i > max_tiles:
-            break
-        tile_edge_index, tile_edge_attr = subgraph(
-            node_inds,
-            full_graph["edge_index"],
-            full_graph["edge_attr"],
-            relabel_nodes=True,
-        )
-        tile_graph = Data(
-            x=full_graph["x"][node_inds],
-            edge_index=tile_edge_index,
-            edge_attr=tile_edge_attr,
-            pos=full_graph["pos"][node_inds],
-        )
-        tile_graphs.append(tile_graph)
-    return tile_graphs
 
 
 def _plot_cell_connections(tile_graph, all_conns, cell_mapping, cell_colours, i):
@@ -228,81 +185,6 @@ def _plot_cell_counts(tile_graph, cell_mapping, custom_palette, i):
     )
     plt.savefig(f"plots/cell_types/tile_{i}.png")
     plt.clf()
-
-
-def _get_nodes_within_tiles(tile_coords, tile_width, tile_height, all_xs, all_ys):
-    tile_min_x, tile_min_y = tile_coords[0], tile_coords[1]
-    tile_max_x, tile_max_y = tile_min_x + tile_width, tile_min_y + tile_height
-    mask = torch.logical_and(
-        (torch.logical_and(all_xs > tile_min_x, (all_ys > tile_min_y))),
-        (torch.logical_and(all_xs < tile_max_x, (all_ys < tile_max_y))),
-    )
-    return mask.nonzero()[:, 0].tolist()
-
-
-def _plot_nodes_per_tile(tiles, binwidth):
-    plt.figure(figsize=(8, 8))
-    sns.displot(tiles, x="num_nodes", binwidth=binwidth, color="blue")
-    plt.savefig("plots/num_nodes_per_tile.png")
-    plt.clf()
-    plt.close("all")
-
-
-def _get_tile_coordinates(all_xs, all_ys, tile_width, tile_height):
-    print(f"Tiling WSI into tiles of size {tile_width}x{tile_height}")
-    # Find min x,y and max x,y from points and calculate num of rows and cols
-    min_x, min_y = int(all_xs.min()), int(all_ys.min())
-    max_x, max_y = int(all_xs.max()), int(all_ys.max())
-    num_columns = int(np.ceil((max_x - min_x) / tile_width))
-    num_rows = int(np.ceil((max_y - min_y) / tile_height))
-    print(f"rows: {num_rows}, columns: {num_columns}")
-    # Make list of minx and miny for each tile
-    xy_list = []
-    for col in range(num_columns):
-        x = min_x + col * tile_width
-        xy_list.extend([(x, y) for y in range(min_y, max_y + min_y, tile_height)])
-    return xy_list
-
-
-# Remove points from graph with edges which are too long (sort by edge length)
-def _remove_far_nodes(data, edge_max_length=25000):
-    edge_lengths = data["edge_attr"].numpy().ravel()
-    sorted_inds_over_length = (np.sort(edge_lengths) > edge_max_length).nonzero()[0]
-    bad_edge_inds = np.argsort(data["edge_attr"].numpy().ravel())[
-        sorted_inds_over_length
-    ]
-    print(
-        f"Contains isolated nodes before edge removal? "
-        f"{contains_isolated_nodes(data['edge_index'], data.num_nodes)}"
-    )
-    data["edge_index"] = _remove_element_by_indicies(data["edge_index"], bad_edge_inds)
-    data["edge_attr"] = _remove_element_by_indicies(data["edge_attr"], bad_edge_inds)
-    print(
-        f"Contains isolated nodes after edge removal? "
-        f"{contains_isolated_nodes(data['edge_index'], data.num_nodes)}"
-    )
-    print(
-        f"Removed {len(bad_edge_inds)} edges "
-        f"from graph with edge length > {edge_max_length}"
-    )
-    data["edge_index"], data["edge_attr"], mask = remove_isolated_nodes(
-        data["edge_index"], data["edge_attr"], data.num_nodes
-    )
-    data["x"] = data["x"][mask]
-    data["pos"] = data["pos"][mask]
-    print(f"Removed {len(mask[mask == False])} isolated nodes")
-    return data
-
-
-def _remove_element_by_indicies(tensor, inds):
-    if len(tensor) > 2:
-        mask = torch.ones(tensor.size()[0], dtype=torch.bool)
-        mask[inds] = False
-        return tensor[mask]
-    else:
-        mask = torch.ones(tensor.size()[1], dtype=torch.bool)
-        mask[inds] = False
-        return tensor[:, mask]
 
 
 if __name__ == "__main__":

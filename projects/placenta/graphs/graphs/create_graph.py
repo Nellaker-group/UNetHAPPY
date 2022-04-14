@@ -3,9 +3,13 @@ import os
 import pandas as pd
 from torch_cluster import knn_graph, radius_graph
 from torch_geometric.data import Data
+from torch_geometric.utils.subgraph import subgraph
 from torch_geometric.transforms import Distance
 from scipy.spatial import Voronoi
+from tqdm import tqdm
 import matplotlib.tri as tri
+import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 import torch
 
@@ -130,30 +134,6 @@ def make_voronoi(data):
     return vor
 
 
-# TODO: the edge index and pos should be a Tensor
-def make_voronoi_graph(data):
-    print(f"Generating voronoi graph")
-    vor = Voronoi(data.pos)
-    finite_segments = []
-    edge_index = []
-    for pointidx, simplex in zip(vor.ridge_points, vor.ridge_vertices):
-        simplex = np.asarray(simplex)
-        if np.all(simplex >= 0):
-            vertices = vor.vertices[simplex]
-            if (
-                vertices[:, 0].min() >= vor.min_bound[0]
-                and vertices[:, 0].max() <= vor.max_bound[0]
-                and vertices[:, 1].min() >= vor.min_bound[1]
-                and vertices[:, 1].max() <= vor.max_bound[1]
-            ):
-                finite_segments.append(vertices)
-                edge_index.append(simplex)
-    data.pos = np.array(finite_segments).reshape(-1, 2)
-    data.edge_index = np.array(edge_index)
-    print("Graph made!")
-    return data
-
-
 def make_delaunay_triangulation(data):
     print(f"Generating delaunay triangulation")
     triang = tri.Triangulation(data.pos[:, 0], data.pos[:, 1])
@@ -169,3 +149,86 @@ def make_delaunay_graph(data, norm_edges=True):
     data = get_edge_distance_weights(data)
     print("Graph made!")
     return data
+
+
+def get_list_of_subgraphs(
+    data,
+    tile_coordinates,
+    tile_width,
+    tile_height,
+    min_cells_in_tile,
+    max_tiles=-1,
+    plot_nodes_per_tile=False
+):
+    # Create list of tiles which hold their node indicies from the graph
+    tiles = []
+    for i, tile_coords in enumerate(
+        tqdm(tile_coordinates, desc="Extract nodes within tiles")
+    ):
+        node_inds = _get_nodes_within_tiles(
+            tile_coords, tile_width, tile_height, data["pos"][:, 0], data["pos"][:, 1]
+        )
+        # Only save tiles which contain at least one node
+        if len(node_inds) > 0:
+            tiles.append(
+                {
+                    "min_x": tile_coords[0],
+                    "min_y": tile_coords[1],
+                    "node_inds": node_inds,
+                    "num_nodes": len(node_inds),
+                }
+            )
+    tiles = pd.DataFrame(tiles)
+
+    # Plot histogram of number of nodes per tile
+    if plot_nodes_per_tile:
+        _plot_nodes_per_tile(tiles, binwidth=25)
+
+    # Remove tiles with number of cell points below a min threshold
+    nodeless_tiles = tiles[tiles.num_nodes < min_cells_in_tile]
+    print(f"Removing {len(nodeless_tiles)}/{len(tiles)} tiles with too few nodes")
+    tiles.drop(nodeless_tiles.index, inplace=True)
+    tiles.reset_index(drop=True, inplace=True)
+
+    # Create a dataset of subgraphs based on the tile nodes
+    tiles_node_inds = tiles["node_inds"].to_numpy()
+    return make_tile_graph_dataset(tiles_node_inds, data, max_tiles)
+
+
+def _get_nodes_within_tiles(tile_coords, tile_width, tile_height, all_xs, all_ys):
+    tile_min_x, tile_min_y = tile_coords[0], tile_coords[1]
+    tile_max_x, tile_max_y = tile_min_x + tile_width, tile_min_y + tile_height
+    mask = torch.logical_and(
+        (torch.logical_and(all_xs > tile_min_x, (all_ys > tile_min_y))),
+        (torch.logical_and(all_xs < tile_max_x, (all_ys < tile_max_y))),
+    )
+    return mask.nonzero()[:, 0].tolist()
+
+
+def _plot_nodes_per_tile(tiles, binwidth):
+    plt.figure(figsize=(8, 8))
+    sns.displot(tiles, x="num_nodes", binwidth=binwidth, color="blue")
+    plt.savefig("plots/num_nodes_per_tile.png")
+    plt.clf()
+    plt.close("all")
+
+
+def make_tile_graph_dataset(tile_node_inds, full_graph, max_tiles):
+    tile_graphs = []
+    for i, node_inds in enumerate(tqdm(tile_node_inds, desc="Subgraphs within tiles")):
+        if i > max_tiles:
+            break
+        tile_edge_index, tile_edge_attr = subgraph(
+            node_inds,
+            full_graph["edge_index"],
+            full_graph["edge_attr"],
+            relabel_nodes=True,
+        )
+        tile_graph = Data(
+            x=full_graph["x"][node_inds],
+            edge_index=tile_edge_index,
+            edge_attr=tile_edge_attr,
+            pos=full_graph["pos"][node_inds],
+        )
+        tile_graphs.append(tile_graph)
+    return tile_graphs
