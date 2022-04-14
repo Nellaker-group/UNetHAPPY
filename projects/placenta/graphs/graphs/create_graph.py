@@ -213,9 +213,9 @@ def _plot_nodes_per_tile(tiles, binwidth):
     plt.close("all")
 
 
-def make_tile_graph_dataset(tile_node_inds, full_graph, max_tiles):
+def make_tile_graph_dataset(tile_nodes, full_graph, max_tiles):
     tile_graphs = []
-    for i, node_inds in enumerate(tqdm(tile_node_inds, desc="Subgraphs within tiles")):
+    for i, node_inds in enumerate(tqdm(tile_nodes, desc="Get subgraphs within tiles")):
         if i > max_tiles:
             break
         tile_edge_index, tile_edge_attr = subgraph(
