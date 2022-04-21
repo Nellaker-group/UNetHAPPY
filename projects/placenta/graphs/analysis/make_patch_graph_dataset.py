@@ -17,6 +17,7 @@ from projects.placenta.graphs.graphs.create_graph import (
 )
 from projects.placenta.graphs.graphs.enums import MethodArg
 from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
+from projects.placenta.graphs.analysis.vis_patch_predictions import visualize_patches
 from projects.placenta.graphs.graphs.utils import remove_far_nodes, get_tile_coordinates
 from happy.organs.organs import get_organ
 
@@ -61,7 +62,7 @@ def main(
 
     # Create a dataset of subgraphs based on tiles
     num_tiles = len(xy_list) if num_tiles == -1 else num_tiles
-    tile_graphs = get_list_of_subgraphs(
+    tile_graphs, nodeless_tiles = get_list_of_subgraphs(
         data,
         xy_list,
         tile_width,
@@ -70,6 +71,7 @@ def main(
         max_tiles=num_tiles,
         plot_nodes_per_tile=True,
     )
+    xy_list = np.delete(xy_list, nodeless_tiles, axis=0)[:num_tiles]
 
     # Plot selected subgraphs
     if plot_subgraphs:
@@ -92,13 +94,28 @@ def main(
             cell_counts_df = get_cell_counts(tile_graph, organ)
             cell_counts[i] = np.array(cell_counts_df["counts"])
             if plot_counts:
-                _plot_cell_counts(cell_counts_df, organ, i)
+                _plot_cell_counts(cell_counts_df, organ, i, "plots/cell_types/")
         plt.close("all")
-        model = KMedoids(metric="euclidean", n_clusters=num_clusters)
-        model.fit(cell_counts)
+        model = KMedoids(metric="euclidean", n_clusters=num_clusters).fit(cell_counts)
         counts_predictions = model.predict(cell_counts)
-        print("")
-        print(counts_predictions)
+        visualize_patches(
+            xy_list,
+            tile_width,
+            tile_height,
+            counts_predictions,
+            f"plots/wsi/count_patches.png",
+        )
+        plt.figure(figsize=(8, 8))
+        medoids = model.cluster_centers_
+        for i, medoid in enumerate(medoids):
+            cell_types = [cell.label for cell in organ.cells]
+            _plot_cell_counts(
+                pd.DataFrame({"cell_types": cell_types, "counts": medoid}),
+                organ,
+                i,
+                "plots/medoids/cell_types/",
+            )
+        plt.close("all")
 
     # Quantify cell connections within tile subgraphs
     if run_over_cell_conns:
@@ -111,12 +128,17 @@ def main(
             if plot_counts:
                 _plot_cell_connections(cell_connections_df, organ, i)
         plt.close("all")
-        model = KMedoids(metric="euclidean", n_clusters=num_clusters)
-        model.fit(cell_conns)
+        model = KMedoids(metric="euclidean", n_clusters=num_clusters).fit(cell_conns)
         conns_predictions = model.predict(cell_conns)
-        print("")
-        print(conns_predictions)
+        visualize_patches(
+            xy_list,
+            tile_width,
+            tile_height,
+            conns_predictions,
+            f"plots/wsi/conns_patches.png",
+        )
 
+    # Compare label permutation invariant agreement between cluster assignments
     if run_over_cell_counts and run_over_cell_conns:
         norm_mutual_info_score = normalized_mutual_info_score(
             counts_predictions, conns_predictions
@@ -147,7 +169,7 @@ def get_cell_counts(tile_graph, organ, as_proportion=True):
     return grouped_df
 
 
-def _plot_cell_counts(cell_counts_df, organ, i):
+def _plot_cell_counts(cell_counts_df, organ, i, save_dir):
     cell_colours = [cell.colour for cell in organ.cells]
     custom_palette = sns.set_palette(sns.color_palette(cell_colours))
     # plot cell type counts
@@ -156,7 +178,8 @@ def _plot_cell_counts(cell_counts_df, organ, i):
         y=cell_counts_df["counts"],
         palette=custom_palette,
     )
-    plt.savefig(f"plots/cell_types/tile_{i}.png")
+    save_path = save_dir + f"tile_{i}.png"
+    plt.savefig(save_path)
     plt.clf()
 
 

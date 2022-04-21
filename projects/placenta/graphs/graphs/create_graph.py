@@ -158,7 +158,7 @@ def get_list_of_subgraphs(
     tile_height,
     min_cells_in_tile,
     max_tiles=-1,
-    plot_nodes_per_tile=False
+    plot_nodes_per_tile=False,
 ):
     # Create list of tiles which hold their node indicies from the graph
     tiles = []
@@ -168,16 +168,15 @@ def get_list_of_subgraphs(
         node_inds = _get_nodes_within_tiles(
             tile_coords, tile_width, tile_height, data["pos"][:, 0], data["pos"][:, 1]
         )
-        # Only save tiles which contain at least one node
-        if len(node_inds) > 0:
-            tiles.append(
-                {
-                    "min_x": tile_coords[0],
-                    "min_y": tile_coords[1],
-                    "node_inds": node_inds,
-                    "num_nodes": len(node_inds),
-                }
-            )
+        tiles.append(
+            {
+                "tile_index": i,
+                "min_x": tile_coords[0],
+                "min_y": tile_coords[1],
+                "node_inds": node_inds,
+                "num_nodes": len(node_inds),
+            }
+        )
     tiles = pd.DataFrame(tiles)
 
     # Plot histogram of number of nodes per tile
@@ -192,7 +191,8 @@ def get_list_of_subgraphs(
 
     # Create a dataset of subgraphs based on the tile nodes
     tiles_node_inds = tiles["node_inds"].to_numpy()
-    return make_tile_graph_dataset(tiles_node_inds, data, max_tiles)
+    removed_tiles = list(nodeless_tiles.index)
+    return make_tile_graph_dataset(tiles_node_inds, data, max_tiles), removed_tiles
 
 
 def _get_nodes_within_tiles(tile_coords, tile_width, tile_height, all_xs, all_ys):
