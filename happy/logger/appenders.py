@@ -16,6 +16,22 @@ class _Appender(ABC):
         pass
 
     @abstractmethod
+    def log_precision(self, split_name, epoch_num, precision):
+        pass
+
+    @abstractmethod
+    def log_recall(self, split_name, epoch_num, recall):
+        pass
+
+    @abstractmethod
+    def log_f1(self, split_name, epoch_num, f1):
+        pass
+
+    @abstractmethod
+    def log_empty(self, split_name, epoch_num, num_empty):
+        pass
+
+    @abstractmethod
     def log_accuracy(self, split_name, epoch_num, accuracy):
         pass
 
@@ -34,6 +50,18 @@ class Console(_Appender):
 
     def log_ap(self, split_name, epoch_num, ap):
         print(f"{split_name} AP: {ap}")
+
+    def log_precision(self, split_name, epoch_num, precision):
+        print(f"{split_name} Precision: {precision}")
+
+    def log_recall(self, split_name, epoch_num, recall):
+        print(f"{split_name} Recall: {recall}")
+
+    def log_f1(self, split_name, epoch_num, f1):
+        print(f"{split_name} F1: {f1}")
+
+    def log_empty(self, split_name, epoch_num, num_empty):
+        print(f"Number of predictions in empty images: {num_empty}")
 
     def log_accuracy(self, split_name, epoch_num, accuracy):
         print(f"{split_name} accuracy: {accuracy}")
@@ -55,6 +83,18 @@ class File(_Appender):
 
     def log_ap(self, split_name, epoch_num, ap):
         self._add_to_train_stats(epoch_num, split_name, "AP", ap)
+
+    def log_precision(self, split_name, epoch_num, precision):
+        self._add_to_train_stats(epoch_num, split_name, "Precision", precision)
+
+    def log_recall(self, split_name, epoch_num, recall):
+        self._add_to_train_stats(epoch_num, split_name, "Recall", recall)
+
+    def log_f1(self, split_name, epoch_num, f1):
+        self._add_to_train_stats(epoch_num, split_name, "F1", f1)
+
+    def log_empty(self, split_name, epoch_num, num_empty):
+        pass
 
     def log_accuracy(self, split_name, epoch_num, accuracy):
         self._add_to_train_stats(epoch_num, split_name, "accuracy", accuracy)
@@ -98,24 +138,59 @@ class Visdom(_Appender):
         )
 
     def log_ap(self, split_name, epoch_num, ap):
-        if split_name != "empty":
-            self.plotter.plot(
-                "AP",
-                split_name,
-                "AP per Epoch",
-                "Epochs",
-                "AP",
-                epoch_num,
-                ap,
-            )
+        self.plotter.plot(
+            "AP",
+            split_name,
+            "AP per Epoch",
+            "Epochs",
+            "AP",
+            epoch_num,
+            ap,
+        )
+
+    def log_precision(self, split_name, epoch_num, precision):
+        self.plotter.plot(
+            "Precision",
+            split_name,
+            "Precision per Epoch",
+            "Epochs",
+            "Precision",
+            epoch_num,
+            precision,
+        )
+
+    def log_recall(self, split_name, epoch_num, recall):
+        self.plotter.plot(
+            "Recall",
+            split_name,
+            "Recall per Epoch",
+            "Epochs",
+            "Recall",
+            epoch_num,
+            recall,
+        )
+
+    def log_f1(self, split_name, epoch_num, f1):
+        self.plotter.plot(
+            "F1",
+            split_name,
+            "F1 per Epoch",
+            "Epochs",
+            "F1",
+            epoch_num,
+            f1,
+        )
+
+    def log_empty(self, split_name, epoch_num, num_empty):
+        pass
 
     def log_accuracy(self, split_name, epoch_num, accuracy):
         self.plotter.plot(
             "Accuracy",
             split_name,
-            "Accuracy per Epoch (%)",
+            "Accuracy per Epoch",
             "Epochs",
-            "Accuracy (%)",
+            "Accuracy",
             epoch_num,
             accuracy,
         )

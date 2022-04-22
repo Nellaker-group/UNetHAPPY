@@ -1,5 +1,6 @@
 import time
 from collections import OrderedDict
+from pathlib import Path
 
 import GPUtil
 import torch
@@ -20,15 +21,22 @@ def set_gpu_device():
     print(f"Using GPU number {device_id}")
     return device_id
 
-def get_device():
+
+def get_device(get_cuda_device_num=False):
     if torch.cuda.is_available():
-        device_id = set_gpu_device()
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.enabled = True
-        device = f"cuda:{device_id}"
+        if get_cuda_device_num:
+            return f"cuda:{set_gpu_device()}"
+        else:
+            return "cuda"
     else:
-        device = "cpu"
-    return device
+        return "cpu"
+
+
+def get_project_dir(project_name):
+    root_dir = Path(__file__).absolute().parent.parent.parent
+    return root_dir / "projects" / project_name
 
 
 def load_weights(state_dict, model):

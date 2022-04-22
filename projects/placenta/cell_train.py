@@ -6,8 +6,8 @@ import typer
 from happy.utils.hyperparameters import Hyperparameters
 from happy.utils.utils import get_device
 from happy.logger.logger import Logger
-from happy.cells.cells import get_organ
-from happy.train import cell_train
+from happy.organs.organs import get_organ
+from happy.train import cell_train, utils
 
 
 def main(
@@ -18,15 +18,19 @@ def main(
     dataset_names: List[str] = typer.Option([]),
     model_name: str = "resnet-50",
     pre_trained: Optional[str] = None,
-    num_workers: int = 12,
-    epochs: int = 5,
-    batch: int = 400,
-    val_batch: int = 200,
-    learning_rate: float = 1e-5,
+    num_workers: int = 16,
+    epochs: int = 20,
+    batch: int = 600,
+    val_batch: int = 600,
+    learning_rate: float = 1e-4,
+    decay_gamma: float = 1,
+    step_size: int = 20,
     init_from_coco: bool = False,
     frozen: bool = True,
-    oversampled: bool = True,
+    oversampled: bool = False,
+    weighted_loss: bool = False,
     vis: bool = True,
+    get_cuda_device_num: bool = False,
 ):
     """For training a cell classification model
 
@@ -49,12 +53,15 @@ def main(
         batch: batch size of the training set
         val_batch: batch size of the validation sets
         learning_rate: learning rate which decreases every 8 epochs
+        decay_gamma: amount to decay learning rate by. Set to 1 for no decay.
+        step_size: epoch at which to apply learning rate decay.
         init_from_coco: whether to use imagenet pretrained weights
         frozen: whether to freeze most of the layers. True for only fine-tuning
         oversampled: whether to use the oversampled training csv
         vis: whether to send stats to visdom for visualisation
+        get_cuda_device_num: if you want the code to choose a gpu
     """
-    device = get_device()
+    device = get_device(get_cuda_device_num)
 
     # TODO: reimplement loading hps from file later (with database)
     hp = Hyperparameters(
@@ -94,15 +101,21 @@ def main(
     )
 
     # Setup recording of stats per batch and epoch
-    logger = Logger(hp.vis, list(dataloaders.keys()), ["loss", "accuracy"])
+    logger = Logger(list(dataloaders.keys()), ["loss", "accuracy"], hp.vis)
 
     # Setup training parameters
     optimizer, criterion, scheduler = cell_train.setup_training_params(
-        model, hp.learning_rate
+        model,
+        hp.learning_rate,
+        dataloaders["train"],
+        device,
+        weighted_loss,
+        decay_gamma,
+        step_size,
     )
 
     # Save each run by it's timestamp
-    run_path = cell_train.setup_run(project_dir, exp_name)
+    run_path = utils.setup_run(project_dir, exp_name, "cell_class")
 
     # train!
     try:

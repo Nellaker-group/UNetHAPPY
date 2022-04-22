@@ -1,16 +1,15 @@
 """
-Creates a csv of "TAnnot" boxes and cell points ready for generating training data and
-annotation files.
-
-You need to manually add the path of where you want them saved in saveDIR
+Gets local coordinates of points in "TAnnot" boxes and saves them and the boxes as csvs
 """
 import static qupath.lib.gui.scripting.QPEx.*
 
-// Add your local path for saving here
-saveDir = Null
+def classNames = ["CYT", "HOF", "SYN", "FIB", "VEN"] as String[]
 
-slide_name = getCurrentServer().getPath().split("/")[-1]
-slide_number = slide_name.split("-")[0]
+def slideName = getCurrentServer().getPath().split("/")[-1]
+def slideNumber = slideName.split("-")[0]
+
+def fileName = slideNumber + "_from_groovy.csv"
+def saveDir = "/Users/claudiavanea/code/py/phd/triin_data/" + fileName
 
 // Get all manually annotated box areas
 def allBoxAnnot = getAnnotationObjects().findAll({ it.getPathClass().getName() == "TAnnot" })
@@ -26,17 +25,6 @@ def points = getAnnotationObjects().findAll({
     it.getPathClass().getName() != "TAnnot"
             && it.getPathClass().getName() != "FAnnot" && it.getPathClass().getName() != "Discuss"
 })
-def allcyt = points.find({ it.getPathClass().getName() == "CYT" })
-def allhof = points.find({ it.getPathClass().getName() == "HOF" })
-def allsyn = points.find({ it.getPathClass().getName() == "SYN" })
-def allfib = points.find({ it.getPathClass().getName() == "FIB" })
-def allven = points.find({ it.getPathClass().getName() == "VEN" })
-
-def allcytInBoxes = []
-def allhofInBoxes = []
-def allsynInBoxes = []
-def allfibInBoxes = []
-def allvenInBoxes = []
 
 def getRelativeCoords(cellClassArray, x, y, width, height) {
     // Get the global coordinates of cell classes in the box
@@ -49,43 +37,48 @@ def getRelativeCoords(cellClassArray, x, y, width, height) {
     })
 };
 
-// Loop through each annotation box and extract the relative coordinates of each cell class in the box
-for (int i = 0; i < xs.size(); i++) {
-    // Append such that the box indexes and coordinate indexes match
-    allcytInBoxes << getRelativeCoords(allcyt, xs[i], ys[i], widths[0], heights[0])
-    allhofInBoxes << getRelativeCoords(allhof, xs[i], ys[i], widths[0], heights[0])
-    allsynInBoxes << getRelativeCoords(allsyn, xs[i], ys[i], widths[0], heights[0])
-    allfibInBoxes << getRelativeCoords(allfib, xs[i], ys[i], widths[0], heights[0])
-    allvenInBoxes << getRelativeCoords(allven, xs[i], ys[i], widths[0], heights[0])
-};
+def getPointsInBoxes(classNames, points, xs, ys, widths, heights) {
+    def pointsDict = [:]
+    def pointsInBoxDict = [:]
+    for (className in classNames) {
+        pointsDict[className] = points.find({ it.getPathClass().getName() == className })
+        pointsInBoxDict[className] = []
 
-// Save these to a file with columns boxx, boxy, pointx, pointy, class
-def FILE_HEADER = 'bx,by,px,py,class'
-def fileName = slide_number + "_from_groovy.csv"
-def savePath = saveDir + fileName
+        // Loop through each annotation box and extract the relative coordinates of each cell class in the box
+        for (int i = 0; i < xs.size(); i++) {
+            // Append such that the box indexes and coordinate indexes match
+            pointsInBoxDict[className] << getRelativeCoords(pointsDict[className], xs[i], ys[i], widths[0], heights[0])
+        };
+    }
+    return pointsInBoxDict
+}
+
+def pointsInBoxes = getPointsInBoxes(classNames, points, xs, ys, widths, heights)
+
 
 def buildRows(sb, boxi, cellArray, x, y, cellName) {
     for (int pointi = 0; pointi < cellArray[boxi].size(); pointi++) {
         sb.append(String.join(',', x.toString(), y.toString(),
-                        cellArray[boxi][pointi][0].toString(),
-                        cellArray[boxi][pointi][1].toString(), cellName))
+                cellArray[boxi][pointi][0].toString(),
+                cellArray[boxi][pointi][1].toString(), cellName))
         sb.append('\n')
     }
 };
 
+// Save these to a file with columns boxx, boxy, pointx, pointy, class
+def FILE_HEADER = 'bx,by,px,py,class'
+
 // Write to csv
-try (PrintWriter writer = new PrintWriter(new File(savePath))) {
+try (PrintWriter writer = new PrintWriter(new File(saveDir))) {
     StringBuilder sb = new StringBuilder();
     sb.append(FILE_HEADER)
     sb.append('\n')
 
     // For each box, write rows for each point
-    for (int boxi = 0; boxi < xs.size(); boxi++) {
-        buildRows(sb, boxi, allcytInBoxes, xs[boxi], ys[boxi], "CYT")
-        buildRows(sb, boxi, allhofInBoxes, xs[boxi], ys[boxi], "HOF")
-        buildRows(sb, boxi, allsynInBoxes, xs[boxi], ys[boxi], "SYN")
-        buildRows(sb, boxi, allfibInBoxes, xs[boxi], ys[boxi], "FIB")
-        buildRows(sb, boxi, allvenInBoxes, xs[boxi], ys[boxi], "VEN")
+    for (className in classNames) {
+        for (int boxi = 0; boxi < xs.size(); boxi++) {
+            buildRows(sb, boxi, pointsInBoxes[(className)], xs[boxi], ys[boxi], className)
+        }
     }
 
     print(sb.toString())

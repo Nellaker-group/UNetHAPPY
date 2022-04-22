@@ -2,6 +2,7 @@ import numpy as np
 from scipy import linalg
 from skimage.util import dtype
 
+# TODO: compare implementation with https://github.com/DIAGNijmegen/pathology-he-auto-augment/blob/main/he-randaugment/custom_hed_transform.py
 
 rgb_from_he_1 = np.array([
     [0.644211, 0.716556, 0.266844],
@@ -144,7 +145,7 @@ def mod_separate_stains(rgb, conv_matrix):
     >>> ihc_hdx = separate_stains(ihc, hdx_from_rgb)
     """
     rgb = dtype.img_as_float(rgb, force_copy=True)
-    rgb += .00001  # make sure no zeros
+    rgb += .00001  # make sure no zeros # this is different
     stains = np.dot(np.reshape(-np.log(rgb), (-1, 3)), conv_matrix)
     return np.reshape(stains, rgb.shape)
 
@@ -206,5 +207,5 @@ def mod_combine_stains(stains, conv_matrix):
     stains = dtype.img_as_float(stains)
     logrgb2 = np.dot(-np.reshape(stains, (-1, 3)), conv_matrix)
     rgb2 = np.exp(logrgb2)
-    np.clip(rgb2, 0.0, 255.0, out=rgb2)
+    np.clip(rgb2, 0.0, 255.0, out=rgb2) # the clip is new
     return np.reshape(rgb2, stains.shape)

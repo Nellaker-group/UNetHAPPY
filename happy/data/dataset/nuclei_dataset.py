@@ -4,6 +4,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 from happy.utils.image_utils import load_image
+from happy.data.utils import group_annotations_by_image
 
 
 class NucleiDataset(Dataset):
@@ -30,9 +31,7 @@ class NucleiDataset(Dataset):
         self.classes = self._load_classes()
         self.ungrouped_annotations = self._load_annotations()
 
-        self.all_annotations = self._group_annotations_by_image(
-            self.ungrouped_annotations
-        )
+        self.all_annotations = group_annotations_by_image(self.ungrouped_annotations)
 
     def __len__(self):
         return len(self.all_annotations)
@@ -83,18 +82,6 @@ class NucleiDataset(Dataset):
             assert np.where(annotations["y1"] > annotations["y2"])[0].size == 0
             df_list.append(annotations)
         return pd.concat(df_list, ignore_index=True)
-
-    def _group_annotations_by_image(self, df):
-        df = df.groupby("image_path", sort=False, as_index=False).agg(
-            {
-                "x1": lambda x: x.tolist(),
-                "y1": lambda x: x.tolist(),
-                "x2": lambda x: x.tolist(),
-                "y2": lambda x: x.tolist(),
-                "class_name": lambda x: x.tolist(),
-            }
-        )
-        return df
 
     def num_classes(self):
         return max(self.classes.values()) + 1

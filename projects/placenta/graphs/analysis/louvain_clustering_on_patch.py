@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from torch_geometric.utils.convert import from_networkx
 import numpy as np
 
+from happy.utils.utils import get_project_dir
 import happy.db.eval_runs_interface as db
 
 
@@ -22,14 +23,16 @@ def main(run_id: int = -1, width: int = -1, height: int = -1, name: str = ""):
     db.init()
     eval_run = db.get_eval_run_by_id(run_id)
 
-    graph_path = (
-        Path(__file__).parent.parent
+    project_dir = get_project_dir('placenta')
+    graph_dir = (
+        project_dir
         / "datasets"
         / "graph"
         / f"lab_{eval_run.slide.lab.id}"
         / f"h{height}_w{width}"
-        / f"{name}.gml"
     )
+    graph_dir.mkdir(parents=True, exist_ok=True)
+    graph_path = graph_dir / f"{name}.gml"
 
     # Make graph data object
     print(f"Reading graph object from gml file at {graph_path}")
@@ -39,15 +42,15 @@ def main(run_id: int = -1, width: int = -1, height: int = -1, name: str = ""):
     data.LouvainCluster = [int(x.split(" ")[-1]) for x in data.LouvainCluster]
 
     print("Plotting graph...")
-    vis_cluster(data, width, height, eval_run, name)
+    vis_cluster(data, width, height, eval_run, name, project_dir)
 
 
-def vis_cluster(data, width, height, eval_run, name):
+def vis_cluster(data, width, height, eval_run, name, project_dir):
     slide_id = eval_run.slide.lab.id
     slide_name = eval_run.slide.slide_name
     save_dir = Path(f"lab_{slide_id}") / f"slide_{slide_name}"
     save_path = (
-        Path(__file__).parent.parent
+        project_dir
         / "visualisations"
         / "graphs"
         / save_dir
@@ -60,7 +63,7 @@ def vis_cluster(data, width, height, eval_run, name):
     print(f"Plotting graph with clusters...")
     save_file = f"{name.split('_')[-1]}.png"
     visualize_points(
-        f"{save_path}/{save_file}",
+        save_path / save_file,
         data.pos,
         labels=data.LouvainCluster,
         edge_index=data.edge_index,

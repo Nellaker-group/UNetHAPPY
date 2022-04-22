@@ -193,7 +193,7 @@ out/
 **/annotatedImages
 **/datasets
 **/pretrained_models
-**/visualisations
+**/placenta/visualisations
 **/results
 **/trained_models
 *.pth
@@ -211,7 +211,11 @@ analysis_scripts/sample_*
 *.db-wal
 *black.py
 **/tsvs
-analysis_scripts/embeddings/*.html
+analysis/embeddings/*.html
 happy/db/migrate.py
 **/readme_resources
 *.html
+labelbox/*.json
+analysis/stats/histograms
+analysis/evaluation/plots
+**/analysis/plots

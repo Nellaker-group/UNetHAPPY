@@ -102,13 +102,11 @@ def _augmentations(nuclei):
         al.RandomRotate90(p=0.9),
         Stain_Augment_stylealb(p=0.9, variance=0.4),
         al.Blur(blur_limit=5, p=0.8),
-        al.Rotate(limit=(0, 45), p=0.8),
     ]
     if nuclei:
         alb.insert(3, GaussNoise_Augment_stylealb(var_limit=(0.05, 0.2), p=0.85))
         alb.insert(4, GaussNoise_Augment_stylealb(var_limit=(0.01, 0.05), p=0.85))
         alb.insert(5, GaussNoise_Augment_stylealb(var_limit=(0.01, 0.05), p=0.85))
-        alb.append(al.RandomScale(scale_limit=0.05, p=0.8))
         return AlbAugmenter(list_of_albumentations=alb)
     else:
         alb.insert(3, GaussNoise_Augment_stylealb(var_limit=(0.05, 0.2), p=0.2))

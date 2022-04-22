@@ -48,7 +48,7 @@ def main(
         target_pixel_size: pixel size the original model was trained on for rescaling
         tile_width: width of tiles the model expects
         tile_height: height of tiles the model expects
-        split: proportion of training data split, rest goes equally into val and test
+        split: proportion of val and test splits, rest goes into training (e.g. 0.3)
     """
     db.init()
 
@@ -212,6 +212,7 @@ def make_nuclei_annotations(
         )
 
 
+# TODO: change this to be consistent with nuclei annotation creation. To use the coord csvs
 # Generate ground truth annotation csvs for cell classifier
 def make_cell_annotations(save_path, split=None):
     # Creates the image path for each annotation/image
@@ -254,6 +255,7 @@ def make_cell_annotations(save_path, split=None):
         )
 
 
+# TODO: change this to be consistent with nuclei annotation creation. To use the coord csvs
 # Generate ground truth annotation csvs for empty tiles
 def make_empty_annotations(save_path, split=None):
     image_names = [Path(*save_path.parts[-3:]) / f for f in listdir(save_path)]
@@ -332,7 +334,7 @@ def _save_pngs(
     cell_classes=None,
 ):
     slide_name = slide.slide_name
-    slide_number = slide_name.split("-")[0]
+    slide_number = slide_name.split("-")[0].split(".svs")[0]
     rescale_ratio = target_pixel_size / slide.pixel_size
 
     slide_path = str(Path(slide.lab.slides_dir) / slide_name)
