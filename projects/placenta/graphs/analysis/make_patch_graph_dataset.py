@@ -21,6 +21,7 @@ from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
 from projects.placenta.graphs.analysis.vis_patch_predictions import visualize_patches
 from projects.placenta.graphs.graphs.utils import remove_far_nodes, get_tile_coordinates
 from happy.organs.organs import get_organ
+from happy.utils.utils import get_project_dir
 
 
 # TODO: if you want tile_width in pixels you need to account for the pixel size
@@ -45,7 +46,9 @@ def main(
     run_over_cell_conns: bool = False,
 ):
     organ = get_organ(organ_name)
-    save_dir = Path("plots") / f"run_{run_id}"
+
+    project_dir = get_project_dir(project_name)
+    save_dir = project_dir / "results" / "patch_graph" / f"run_{run_id}"
     save_dir.mkdir(parents=True, exist_ok=True)
     # Get raw data from hdf5 across WSI
     predictions, _, coords, confidence = get_raw_data(
