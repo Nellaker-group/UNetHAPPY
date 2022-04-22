@@ -1,4 +1,5 @@
 from itertools import combinations
+from pathlib import Path
 
 import typer
 import torch
@@ -44,6 +45,8 @@ def main(
     run_over_cell_conns: bool = False,
 ):
     organ = get_organ(organ_name)
+    save_dir = Path("plots") / f"run_{run_id}"
+    save_dir.mkdir(parents=True, exist_ok=True)
     # Get raw data from hdf5 across WSI
     predictions, _, coords, confidence = get_raw_data(
         project_name, run_id, x_min, y_min, width, height
@@ -75,10 +78,13 @@ def main(
 
     # Plot selected subgraphs
     if plot_subgraphs:
+        subgraph_save_dir = save_dir / "subgraphs"
+        subgraph_save_dir.mkdir(parents=True, exist_ok=True)
         for i, tile_graph in enumerate(tqdm(tile_graphs, desc="Plotting subgraphs")):
+            save_path = subgraph_save_dir / f"tile_{i}.png"
             visualize_points(
                 organ,
-                f"plots/subgraphs/tile_{i}.png",
+                save_path,
                 tile_graph["pos"],
                 labels=tile_graph["x"][:, 0].to(torch.int).tolist(),
                 edge_index=tile_graph["edge_index"],
@@ -88,24 +94,32 @@ def main(
 
     # Quantify cell types within tile subgraphs
     if run_over_cell_counts:
+        counts_save_dir = save_dir / "cell_types"
+        counts_save_dir.mkdir(parents=True, exist_ok=True)
+        wsi_save_dir = save_dir / "wsi"
+        wsi_save_dir.mkdir(parents=True, exist_ok=True)
         cell_counts = np.empty((len(tile_graphs), len(organ.cells)))
         plt.figure(figsize=(8, 8))
         for i, tile_graph in enumerate(tqdm(tile_graphs, desc="Cell types in tiles")):
             cell_counts_df = get_cell_counts(tile_graph, organ)
             cell_counts[i] = np.array(cell_counts_df["counts"])
             if plot_counts:
-                _plot_cell_counts(cell_counts_df, organ, i, "plots/cell_types/")
+                _plot_cell_counts(cell_counts_df, organ, i, counts_save_dir)
         plt.close("all")
         model = KMedoids(metric="euclidean", n_clusters=num_clusters).fit(cell_counts)
         counts_predictions = model.predict(cell_counts)
+        # Visualise patch labels into the shape of the WSI
         visualize_patches(
             xy_list,
             tile_width,
             tile_height,
             counts_predictions,
-            f"plots/wsi/count_patches.png",
+            wsi_save_dir / "count_patches.png"
         )
         plt.figure(figsize=(8, 8))
+        # Get and save medoid histograms and subgraphs
+        medoids_save_dir = save_dir / "medoids"
+        medoids_save_dir.mkdir(parents=True, exist_ok=True)
         medoids = model.cluster_centers_
         for i, medoid in enumerate(medoids):
             cell_types = [cell.label for cell in organ.cells]
@@ -113,12 +127,31 @@ def main(
                 pd.DataFrame({"cell_types": cell_types, "counts": medoid}),
                 organ,
                 i,
-                "plots/medoids/cell_types/",
+                medoids_save_dir,
             )
         plt.close("all")
+        medoid_subgraph_save_dir = save_dir / "medoids"
+        medoid_subgraph_save_dir.mkdir(parents=True, exist_ok=True)
+        medoid_inds = model.medoid_indices_
+        medoid_subgraphs = np.array(tile_graphs, dtype=object)[medoid_inds]
+        for i, medoid_subgraph in enumerate(medoid_subgraphs):
+            save_path = medoid_subgraph_save_dir / f"subgraph_{i}.png"
+            visualize_points(
+                organ,
+                save_path,
+                medoid_subgraph[3][1],
+                labels=medoid_subgraph[0][1][:, 0].to(torch.int).tolist(),
+                edge_index=medoid_subgraph[1][1],
+                point_size=20,
+            )
+            plt.close("all")
 
     # Quantify cell connections within tile subgraphs
     if run_over_cell_conns:
+        conns_save_dir = save_dir / "cell_connections"
+        conns_save_dir.mkdir(parents=True, exist_ok=True)
+        wsi_save_dir = save_dir / "wsi"
+        wsi_save_dir.mkdir(parents=True, exist_ok=True)
         all_conns = _get_all_possible_cell_connections(organ)
         cell_conns = np.empty((len(tile_graphs), len(all_conns)))
         plt.figure(figsize=(8, 8))
@@ -126,7 +159,7 @@ def main(
             cell_connections_df = get_cell_connections(tile_graph, organ, all_conns)
             cell_conns[i] = np.array(cell_connections_df["counts"])
             if plot_counts:
-                _plot_cell_connections(cell_connections_df, organ, i)
+                _plot_cell_connections(cell_connections_df, organ, i, conns_save_dir)
         plt.close("all")
         model = KMedoids(metric="euclidean", n_clusters=num_clusters).fit(cell_conns)
         conns_predictions = model.predict(cell_conns)
@@ -135,7 +168,7 @@ def main(
             tile_width,
             tile_height,
             conns_predictions,
-            f"plots/wsi/conns_patches.png",
+            wsi_save_dir / "conns_patches.png"
         )
 
     # Compare label permutation invariant agreement between cluster assignments
@@ -178,7 +211,7 @@ def _plot_cell_counts(cell_counts_df, organ, i, save_dir):
         y=cell_counts_df["counts"],
         palette=custom_palette,
     )
-    save_path = save_dir + f"tile_{i}.png"
+    save_path = save_dir / f"tile_{i}.png"
     plt.savefig(save_path)
     plt.clf()
 
@@ -225,7 +258,7 @@ def get_cell_connections(tile_graph, organ, all_conns, as_proportion=True):
     return grouped_conns
 
 
-def _plot_cell_connections(cell_connections_df, organ, i):
+def _plot_cell_connections(cell_connections_df, organ, i, save_path):
     cell_labels = [cell.label for cell in organ.cells]
     cell_colours = {cell.label: cell.colour for cell in organ.cells}
     # make a confusion matrix style structure for the connections
@@ -261,7 +294,7 @@ def _plot_cell_connections(cell_connections_df, organ, i):
         ytick.set_color(colour)
     ax.set_ylabel("")
     ax.set_xlabel("")
-    plt.savefig(f"plots/cell_connections/tile_{i}.png")
+    plt.savefig(save_path / f"tile_{i}.png")
     plt.clf()
 
 
