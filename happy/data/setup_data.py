@@ -1,14 +1,11 @@
 import albumentations as al
 from torchvision import transforms
 
-from happy.data.transforms.agumentations import (
-    AlbAugmenter,
-    Stain_Augment_stylealb,
-    GaussNoise_Augment_stylealb,
-)
+from happy.data.transforms.agumentations import AlbAugmenter, StainAugment
 from happy.data.dataset.cell_dataset import CellDataset
 from happy.data.dataset.nuclei_dataset import NucleiDataset
 from happy.data.transforms.transforms import Normalizer, Resizer
+from happy.data.transforms.utils.color_conversion import get_rgb_matrices
 
 
 def setup_nuclei_datasets(annot_dir, dataset_names, multiple_val_sets):
@@ -98,17 +95,11 @@ def _setup_transforms(augmentations, image_size=None, nuclei=True):
 
 def _augmentations(nuclei):
     alb = [
-        al.Flip(p=0.9),
-        al.RandomRotate90(p=0.9),
-        Stain_Augment_stylealb(p=0.9, variance=0.4),
+        al.Flip(p=0.5),
+        al.RandomRotate90(p=0.5),
+        StainAugment(get_rgb_matrices(), p=0.9, variance=0.4),
+        al.CLAHE(clip_limit=3.0, tile_grid_size=(8, 8), p=0.8),
+        al.GaussNoise(var_limit=(10.0, 200.0), p=0.8),
         al.Blur(blur_limit=5, p=0.8),
     ]
-    if nuclei:
-        alb.insert(3, GaussNoise_Augment_stylealb(var_limit=(0.05, 0.2), p=0.85))
-        alb.insert(4, GaussNoise_Augment_stylealb(var_limit=(0.01, 0.05), p=0.85))
-        alb.insert(5, GaussNoise_Augment_stylealb(var_limit=(0.01, 0.05), p=0.85))
-        return AlbAugmenter(list_of_albumentations=alb)
-    else:
-        alb.insert(3, GaussNoise_Augment_stylealb(var_limit=(0.05, 0.2), p=0.2))
-        alb.insert(4, GaussNoise_Augment_stylealb(var_limit=(0.01, 0.05), p=0.2))
-        return AlbAugmenter(list_of_albumentations=alb, bboxes=False)
+    return AlbAugmenter(list_of_albumentations=alb, bboxes=nuclei)

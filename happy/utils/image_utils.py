@@ -12,8 +12,8 @@ def process_image(img):
         pass
     else:
         raise ValueError(f"Unexpected number of channels {img.shape[2]}")
-
-    return img.astype(np.float32) / 255.0
+    # returns in the image as a uin8 (to be converted to float32 later)
+    return img
 
 
 def load_image(image_path):
