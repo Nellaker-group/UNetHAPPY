@@ -95,8 +95,7 @@ def main(
                 tissue_class,
             )
             logger.log_loss("train", epoch - 1, loss)
-            if model_type.split("_")[0] == "sup":
-                logger.log_accuracy("train", epoch - 1, accuracy)
+            logger.log_accuracy("train", epoch - 1, accuracy)
 
             if epoch % 50 == 0 and epoch != epochs:
                 save_model(model, run_path / f"{epoch}_graph_model.pt")

@@ -12,7 +12,6 @@ from happy.data.transforms.transforms import untransform_image
 from happy.utils.utils import get_device
 from happy.data.utils import draw_box, draw_centre
 from happy.microscopefile.prediction_saver import PredictionSaver
-from happy.organs.organs import get_organ
 from happy.train.nuc_train import setup_data, setup_model
 
 
