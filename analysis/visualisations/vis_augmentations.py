@@ -7,14 +7,12 @@ import torch
 import numpy as np
 import pandas as pd
 import albumentations as al
+from tqdm import tqdm
 from torchvision import transforms
 
-from happy.data.transforms.agumentations import (
-    AlbAugmenter,
-    Stain_Augment_stylealb,
-    GaussNoise_Augment_stylealb,
-)
+from happy.data.transforms.agumentations import AlbAugmenter, StainAugment
 from happy.data.transforms.transforms import Normalizer, Resizer, unnormalise_image
+from happy.data.transforms.utils.color_conversion import get_rgb_matrices
 from happy.data.dataset.nuclei_dataset import NucleiDataset
 from happy.data.setup_dataloader import get_dataloader
 from happy.data.transforms.collaters import collater
@@ -37,6 +35,7 @@ def main(
         split: the dataset split to run over
         dataset_name: the dataset who's validation set to evaluate over
         num_images: the number of images to evaluate
+        plot_groundtruth: whether to overlay groundtruth points on image after aug
     """
     project_dir = (
         Path(__file__).absolute().parent.parent.parent / "projects" / project_name
@@ -55,7 +54,7 @@ def main(
     dataloader = get_dataloader(split, dataset, collater, 1, True, 1)
 
     with torch.no_grad():
-        for idx, data in enumerate(dataloader):
+        for idx, data in enumerate(tqdm(dataloader)):
             if idx >= num_images:
                 break
 
@@ -90,15 +89,14 @@ def main(
 
 def _get_transformations():
     alb = [
-        al.Flip(p=0.9),
-        al.RandomRotate90(p=0.9),
-        Stain_Augment_stylealb(p=0.9, variance=0.4),
+        al.Flip(p=0.5),
+        al.RandomRotate90(p=0.5),
+        StainAugment(get_rgb_matrices(), p=0.9, variance=0.4),
+        al.CLAHE(clip_limit=3.0, tile_grid_size=(8, 8), p=0.8),
+        al.GaussNoise(var_limit=(10.0, 200.0), p=0.8),
         al.Blur(blur_limit=5, p=0.8),
     ]
-    alb.insert(3, GaussNoise_Augment_stylealb(var_limit=(0.05, 0.2), p=0.85))
-    alb.insert(4, GaussNoise_Augment_stylealb(var_limit=(0.01, 0.05), p=0.85))
-    alb.insert(5, GaussNoise_Augment_stylealb(var_limit=(0.01, 0.05), p=0.85))
-    return AlbAugmenter(list_of_albumentations=alb)
+    return AlbAugmenter(list_of_albumentations=alb, bboxes=True)
 
 
 if __name__ == "__main__":

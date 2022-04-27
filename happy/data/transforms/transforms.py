@@ -100,6 +100,9 @@ class Normalizer(object):
 
     def __call__(self, sample):
         image = sample["img"]
+        # Normalising requires image to be float32 and returns the image as float32
+        if image.dtype == np.uint8:
+            image = (image / 255).astype(np.float32)
         sample.update({"img": _normalise_image(image, self.mean, self.std)})
         return sample
 
@@ -128,6 +131,7 @@ class UnNormalizer(object):
 def unnormalise_image(image):
     unnorm = UnNormalizer()
     img = unnorm(image).permute(1, 2, 0).numpy()
+    # Converts the image back to uin8 to work with image saving/visualisation code
     img = img * 255
     return Image.fromarray(img.astype("uint8"))
 

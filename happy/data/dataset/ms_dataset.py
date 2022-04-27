@@ -52,7 +52,7 @@ class NucleiDataset(MSDataset):
             tile_range=(iter_start, iter_end),
         ):
             if not empty_tile:
-                img = process_image(img)
+                img = process_image(img).astype(np.float32) / 255.0
             sample = {
                 "img": img,
                 "tile_index": tile_index,
@@ -82,7 +82,7 @@ class CellDataset(MSDataset):
         for img, coord in self._get_dataset_section(
             target_w=200, target_h=200, tile_range=(iter_start, iter_end)
         ):
-            img = process_image(img)
+            img = process_image(img).astype(np.float32) / 255.0
             sample = {
                 "img": img,
                 "coord": coord,
