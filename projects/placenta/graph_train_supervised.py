@@ -1,12 +1,15 @@
 from typing import Optional
-import copy
 
 import typer
 import torch
 from torch_geometric.transforms import ToUndirected, RandomNodeSplit
-from torch_geometric.loader import NeighborSampler, NeighborLoader
 
-from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
+from graphs.graphs.create_graph import (
+    get_raw_data,
+    setup_graph,
+    get_groundtruth_patch,
+    get_nodes_within_tiles,
+)
 from happy.utils.utils import get_device
 from happy.organs.organs import get_organ
 from happy.logger.logger import Logger
@@ -75,13 +78,24 @@ def main(
     # Split the graph by masks into training and validation nodes
     if val_x_min is None:
         data = RandomNodeSplit(num_val=0.3, num_test=0.0)(data)
-        print(
-            f"Graph split into {data.train_mask.sum().item()} train nodes "
-            f"and {data.val_mask.sum().item()} validation nodes"
-        )
     else:
-        # TODO: calculate the val_mask and train_mask from the val box parmas
-        pass
+        val_node_inds = get_nodes_within_tiles(
+            (val_x_min, val_y_min),
+            val_width,
+            val_height,
+            data["pos"][:, 0],
+            data["pos"][:, 1],
+        )
+        val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+        val_mask[val_node_inds] = True
+        data.val_mask = val_mask
+        train_mask = torch.ones(data.num_nodes, dtype=torch.bool)
+        train_mask[val_node_inds] = False
+        data.train_mask = train_mask
+    print(
+        f"Graph split into {data.train_mask.sum().item()} train nodes "
+        f"and {data.val_mask.sum().item()} validation nodes"
+    )
 
     # Setup the dataloader which minibatches the graph
     train_loader, val_loader = graph_supervised.setup_dataloaders(
