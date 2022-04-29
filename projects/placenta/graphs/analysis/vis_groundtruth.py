@@ -16,6 +16,7 @@ def main(
     height: int = -1,
     label_type: str = "full",
     tissue_label_tsv: str = "139_tissue_points.tsv",
+    remove_unlabelled: bool = False,
 ):
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
@@ -23,6 +24,12 @@ def main(
     xs, ys, tissue_class = get_groundtruth_patch(
         organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
     )
+
+    if remove_unlabelled:
+        labelled_inds = tissue_class.nonzero()
+        tissue_class = tissue_class[labelled_inds]
+        xs = xs[labelled_inds]
+        ys = ys[labelled_inds]
 
     unique, counts = np.unique(tissue_class, return_counts=True)
     print(dict(zip(unique, counts)))
