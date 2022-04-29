@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.loader import NeighborSampler, ClusterData, ClusterLoader
+from torch_geometric.loader import ClusterData, ClusterLoader, NeighborLoader
 import pandas as pd
 
 from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
@@ -22,10 +22,10 @@ def setup_dataloader(
             cluster_data, batch_size=batch_size, shuffle=True, num_workers=12
         )
     else:
-        return NeighborSampler(
-            data.edge_index,
-            node_idx=None,
-            sizes=[num_neighbors for _ in range(num_layers)],
+        return NeighborLoader(
+            data,
+            input_nodes=data.train_mask,
+            num_neighbors=[num_neighbors for _ in range(num_layers)],
             batch_size=batch_size,
             shuffle=True,
             num_workers=12,
@@ -65,11 +65,9 @@ def setup_model(model_type, data, device, layers, pretrained=None, num_classes=N
 def train(
     model_type,
     model,
-    x,
     optimiser,
     train_loader,
     device,
-    tissue_class,
 ):
     model.train()
 
@@ -77,46 +75,33 @@ def train(
     total_examples = 0
     total_correct = 0
 
-    if isinstance(train_loader, ClusterLoader):
-        assert model_type == "sup_clustergcn"
+    if model_type == "sup_clustergcn":
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
             out = model(batch.x, batch.edge_index)
-            loss = F.nll_loss(out, batch.y)
+            loss = F.nll_loss(out[batch.train_mask], batch.y[batch.train_mask])
             loss.backward()
             optimiser.step()
 
-            total_loss += loss.item() * out.size(0)
+            nodes = batch.train_mask.sum().item()
+            total_loss += loss.item() * nodes
             total_correct += int(out.argmax(dim=-1).eq(batch.y).sum().item())
-            total_examples += out.size(0)
+            total_examples += nodes
     else:
-        for batch_i, (batch_size, n_id, adjs) in enumerate(train_loader):
-            # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
-            adjs = [adj.to(device) for adj in adjs]
+        for batch in train_loader:
+            batch = batch.to(device)
             optimiser.zero_grad()
-
-            if model_type == "sup_graphsage":
-                out = model(x[n_id], adjs)
-                loss = F.nll_loss(out, tissue_class[n_id[:batch_size]])
-                total_loss += float(loss)
-                total_correct += int(
-                    out.argmax(dim=-1).eq(tissue_class[n_id[:batch_size]]).sum()
-                )
-                total_examples += out.size(0)
-            elif model_type == "sup_diffpool":
-                out = model(x, adjs)
-                loss = F.nll_loss(out, tissue_class[n_id[:batch_size]])
-                total_loss += float(loss)
-                total_correct += int(
-                    out.argmax(dim=-1).eq(tissue_class[n_id[:batch_size]]).sum()
-                )
-                total_examples += out.size(0)
-            else:
-                raise ValueError(f"No such model type implemented: {model_type}")
-
+            y = batch.y[: batch.batch_size]
+            out = model(batch.x, batch.edge_index)[: batch.batch_size]
+            loss = F.cross_entropy(out, y)
             loss.backward()
             optimiser.step()
+
+            total_loss += float(loss) * batch.batch_size
+            total_correct += int((out.argmax(dim=-1).eq(y)).sum())
+            total_examples += batch.batch_size
+
     return total_loss / total_examples, total_correct / total_examples
 
 

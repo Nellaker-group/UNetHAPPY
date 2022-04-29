@@ -1,10 +1,10 @@
 from typing import Optional
+import copy
 
 import typer
 import torch
-from torch_geometric.transforms import ToUndirected
-from torch_geometric.data import NeighborSampler
-from sklearn.metrics import accuracy_score
+from torch_geometric.transforms import ToUndirected, RandomNodeSplit
+from torch_geometric.loader import NeighborSampler, NeighborLoader
 
 from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
@@ -52,7 +52,9 @@ def main(
     organ = get_organ(organ_name)
 
     # Setup recording of stats per batch and epoch
-    logger = Logger(list(["train", "val"]), ["loss", "accuracy"], vis=vis, file=True)
+    logger = Logger(
+        list(["train", "train_inf", "val"]), ["loss", "accuracy"], vis=vis, file=True
+    )
 
     # Get training data from hdf5 files
     predictions, embeddings, coords, confidence = get_raw_data(
@@ -63,48 +65,35 @@ def main(
         organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
     )
     num_classes = len(organ.tissues)
-    if val_x_min is not None:
-        # Get validation data from hdf5 files
-        val_predictions, _, val_coords, _ = get_raw_data(
-            project_name, run_id, val_x_min, val_y_min, val_width, val_height, top_conf
-        )
-        _, _, val_tissue_class = get_groundtruth_patch(
-            organ,
-            project_dir,
-            x_min,
-            y_min,
-            width,
-            height,
-            tissue_label_tsv,
-            label_type,
-        )
 
     # Create the training graph from the raw data
     data = setup_graph(coords, k, feature_data, graph_method.value)
     data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
     if model_type == "sup_clustergcn":
         data = ToUndirected()(data)
-    if val_x_min is not None:
-        # Create the validation graph from the raw data
-        val_data = setup_graph(val_coords, k, "predictions", graph_method.value)
-        val_data.y = torch.Tensor(val_tissue_class).type(torch.LongTensor)
-        if model_type == "sup_clustergcn":
-            val_data = ToUndirected()(val_data)
+
+    if val_x_min is None:
+        data = RandomNodeSplit(num_val=0.3, num_test=0.0)(data)
+        print(
+            f"Graph split into {data.train_mask.sum().item()} train nodes "
+            f"and {data.val_mask.sum().item()} validation nodes"
+        )
+    else:
+        # TODO: calculate the val_mask and train_mask from the val box parmas
+        pass
 
     # Setup the dataloader which minibatches the graph
     train_loader = graph_supervised.setup_dataloader(
         model_type, data, layers, batch_size, num_neighbours
     )
-    val_loader = NeighborSampler(
-        data.edge_index,
-        node_idx=None,
-        sizes=[-1],
-        batch_size=512,
-        shuffle=False,
+    val_loader = NeighborLoader(
+        copy.copy(data), num_neighbors=[-1], shuffle=False, batch_size=512
     )
+    val_loader.data.num_nodes = data.num_nodes
+    val_loader.data.n_id = torch.arange(data.num_nodes)
 
     # Setup the training parameters
-    x, edge_index, tissue_class = send_graph_to_device(data, device, tissue_class)
+    x, _, _ = send_graph_to_device(data, device)
 
     # Setup the model
     model = graph_supervised.setup_model(
@@ -122,22 +111,25 @@ def main(
             loss, accuracy = graph_supervised.train(
                 model_type,
                 model,
-                x,
                 optimiser,
                 train_loader,
                 device,
-                tissue_class,
             )
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
 
-            # TODO: add validation inference if validation graph inputs are provided
-            if val_x_min is not None:
-                _, _, val_tissue_predictions = graph_supervised.inference(
-                    model, val_data.x, val_loader, device
-                )
-                val_accuracy = accuracy_score(val_tissue_class, val_tissue_predictions)
-                logger.log_accuracy("val", epoch - 1, val_accuracy)
+            model.eval()
+            out, _ = model.inference(data.x, val_loader, device)
+            out = out.argmax(dim=-1)
+            y = data.y.to(device)
+            train_accuracy = int(
+                (out[data.train_mask].eq(y[data.train_mask])).sum()
+            ) / int(data.train_mask.sum())
+            logger.log_accuracy("train_inf", epoch - 1, train_accuracy)
+            val_accuracy = int((out[data.val_mask].eq(y[data.val_mask])).sum()) / int(
+                data.val_mask.sum()
+            )
+            logger.log_accuracy("val", epoch - 1, val_accuracy)
 
             if epoch % 50 == 0 and epoch != epochs:
                 save_model(model, run_path / f"{epoch}_graph_model.pt")
