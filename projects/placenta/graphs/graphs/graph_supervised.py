@@ -1,13 +1,20 @@
+import copy
+
 import torch
 import torch.nn.functional as F
-from torch_geometric.loader import ClusterData, ClusterLoader, NeighborLoader
+from torch_geometric.loader import (
+    ClusterData,
+    ClusterLoader,
+    NeighborSampler,
+    NeighborLoader,
+)
 import pandas as pd
 
 from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
 from happy.models.clustergcn import ClusterGCN
 
 
-def setup_dataloader(
+def setup_dataloaders(
     model_type,
     data,
     num_layers,
@@ -18,11 +25,14 @@ def setup_dataloader(
         cluster_data = ClusterData(
             data, num_parts=int(data.x.size()[0] / num_neighbors), recursive=False
         )
-        return ClusterLoader(
+        train_loader = ClusterLoader(
             cluster_data, batch_size=batch_size, shuffle=True, num_workers=12
         )
+        val_loader = NeighborSampler(
+            data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
+        )
     else:
-        return NeighborLoader(
+        train_loader = NeighborLoader(
             data,
             input_nodes=data.train_mask,
             num_neighbors=[num_neighbors for _ in range(num_layers)],
@@ -30,6 +40,13 @@ def setup_dataloader(
             shuffle=True,
             num_workers=12,
         )
+        val_loader = NeighborLoader(
+            copy.copy(data), num_neighbors=[-1], shuffle=False, batch_size=512
+        )
+        val_loader.data.num_nodes = data.num_nodes
+        val_loader.data.n_id = torch.arange(data.num_nodes)
+
+    return train_loader, val_loader
 
 
 def setup_model(model_type, data, device, layers, pretrained=None, num_classes=None):

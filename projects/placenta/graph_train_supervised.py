@@ -66,12 +66,13 @@ def main(
     )
     num_classes = len(organ.tissues)
 
-    # Create the training graph from the raw data
+    # Create the graph from the raw data
     data = setup_graph(coords, k, feature_data, graph_method.value)
     data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
     if model_type == "sup_clustergcn":
         data = ToUndirected()(data)
 
+    # Split the graph by masks into training and validation nodes
     if val_x_min is None:
         data = RandomNodeSplit(num_val=0.3, num_test=0.0)(data)
         print(
@@ -83,14 +84,9 @@ def main(
         pass
 
     # Setup the dataloader which minibatches the graph
-    train_loader = graph_supervised.setup_dataloader(
+    train_loader, val_loader = graph_supervised.setup_dataloaders(
         model_type, data, layers, batch_size, num_neighbours
     )
-    val_loader = NeighborLoader(
-        copy.copy(data), num_neighbors=[-1], shuffle=False, batch_size=512
-    )
-    val_loader.data.num_nodes = data.num_nodes
-    val_loader.data.n_id = torch.arange(data.num_nodes)
 
     # Setup the training parameters
     x, _, _ = send_graph_to_device(data, device)
