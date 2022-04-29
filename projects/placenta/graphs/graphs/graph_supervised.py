@@ -106,6 +106,21 @@ def train(
 
 
 @torch.no_grad()
+def validate(model, data, eval_loader, device):
+    model.eval()
+    out, _ = model.inference(data.x, eval_loader, device)
+    out = out.argmax(dim=-1)
+    y = data.y.to(out.device)
+    train_accuracy = int((out[data.train_mask].eq(y[data.train_mask])).sum()) / int(
+        data.train_mask.sum()
+    )
+    val_accuracy = int((out[data.val_mask].eq(y[data.val_mask])).sum()) / int(
+        data.val_mask.sum()
+    )
+    return train_accuracy, val_accuracy
+
+
+@torch.no_grad()
 def inference(model, x, eval_loader, device):
     print("Running inference")
     model.eval()

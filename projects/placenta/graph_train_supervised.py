@@ -118,17 +118,10 @@ def main(
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
 
-            model.eval()
-            out, _ = model.inference(data.x, val_loader, device)
-            out = out.argmax(dim=-1)
-            y = data.y.to(device)
-            train_accuracy = int(
-                (out[data.train_mask].eq(y[data.train_mask])).sum()
-            ) / int(data.train_mask.sum())
-            logger.log_accuracy("train_inf", epoch - 1, train_accuracy)
-            val_accuracy = int((out[data.val_mask].eq(y[data.val_mask])).sum()) / int(
-                data.val_mask.sum()
+            train_accuracy, val_accuracy = graph_supervised.validate(
+                model, data, val_loader, device
             )
+            logger.log_accuracy("train_inf", epoch - 1, train_accuracy)
             logger.log_accuracy("val", epoch - 1, val_accuracy)
 
             if epoch % 50 == 0 and epoch != epochs:
