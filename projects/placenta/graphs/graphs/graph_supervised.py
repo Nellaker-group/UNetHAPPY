@@ -120,6 +120,17 @@ def train(
     return total_loss / total_examples, total_correct / total_examples
 
 
+@torch.no_grad()
+def inference(model, x, eval_loader, device):
+    print("Running inference")
+    model.eval()
+    out, graph_embeddings = model.inference(x, eval_loader, device)
+    predicted_labels = out.argmax(dim=-1, keepdim=True).squeeze()
+    predicted_labels = predicted_labels.cpu().numpy()
+    out = out.cpu().detach().numpy()
+    return out, graph_embeddings, predicted_labels
+
+
 def save_state(
     run_path,
     logger,

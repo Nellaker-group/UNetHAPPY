@@ -3,6 +3,8 @@ from typing import Optional
 import typer
 import torch
 from torch_geometric.transforms import ToUndirected
+from torch_geometric.data import NeighborSampler
+from sklearn.metrics import accuracy_score
 
 from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
@@ -40,15 +42,19 @@ def main(
     vis: bool = True,
     label_type: str = "full",
     tissue_label_tsv: str = "139_tissue_points.tsv",
+    val_x_min: Optional[int] = None,
+    val_y_min: Optional[int] = None,
+    val_width: Optional[int] = None,
+    val_height: Optional[int] = None,
 ):
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
     organ = get_organ(organ_name)
 
     # Setup recording of stats per batch and epoch
-    logger = Logger(list(["train"]), ["loss", "accuracy"], vis=vis, file=True)
+    logger = Logger(list(["train", "val"]), ["loss", "accuracy"], vis=vis, file=True)
 
-    # Get data from hdf5 files
+    # Get training data from hdf5 files
     predictions, embeddings, coords, confidence = get_raw_data(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
@@ -57,16 +63,44 @@ def main(
         organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
     )
     num_classes = len(organ.tissues)
+    if val_x_min is not None:
+        # Get validation data from hdf5 files
+        val_predictions, _, val_coords, _ = get_raw_data(
+            project_name, run_id, val_x_min, val_y_min, val_width, val_height, top_conf
+        )
+        _, _, val_tissue_class = get_groundtruth_patch(
+            organ,
+            project_dir,
+            x_min,
+            y_min,
+            width,
+            height,
+            tissue_label_tsv,
+            label_type,
+        )
 
-    # Create the graph from the raw data
+    # Create the training graph from the raw data
     data = setup_graph(coords, k, feature_data, graph_method.value)
     data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
     if model_type == "sup_clustergcn":
         data = ToUndirected()(data)
+    if val_x_min is not None:
+        # Create the validation graph from the raw data
+        val_data = setup_graph(val_coords, k, "predictions", graph_method.value)
+        val_data.y = torch.Tensor(val_tissue_class).type(torch.LongTensor)
+        if model_type == "sup_clustergcn":
+            val_data = ToUndirected()(val_data)
 
     # Setup the dataloader which minibatches the graph
     train_loader = graph_supervised.setup_dataloader(
         model_type, data, layers, batch_size, num_neighbours
+    )
+    val_loader = NeighborSampler(
+        data.edge_index,
+        node_idx=None,
+        sizes=[-1],
+        batch_size=512,
+        shuffle=False,
     )
 
     # Setup the training parameters
@@ -96,6 +130,14 @@ def main(
             )
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
+
+            # TODO: add validation inference if validation graph inputs are provided
+            if val_x_min is not None:
+                _, _, val_tissue_predictions = graph_supervised.inference(
+                    model, val_data.x, val_loader, device
+                )
+                val_accuracy = accuracy_score(val_tissue_class, val_tissue_predictions)
+                logger.log_accuracy("val", epoch - 1, val_accuracy)
 
             if epoch % 50 == 0 and epoch != epochs:
                 save_model(model, run_path / f"{epoch}_graph_model.pt")

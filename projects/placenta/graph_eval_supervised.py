@@ -9,15 +9,15 @@ from sklearn.metrics import (
     confusion_matrix,
     cohen_kappa_score,
     roc_auc_score,
-    matthews_corrcoef
+    matthews_corrcoef,
 )
 from sklearn.metrics import precision_recall_fscore_support as score
+from torch_geometric.loader import NeighborSampler
+from scipy.special import softmax
 import numpy as np
 import pandas as pd
-from torch_geometric.data import NeighborSampler
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.special import softmax
 
 from happy.utils.utils import get_device, get_project_dir
 from happy.train.utils import plot_confusion_matrix
@@ -28,6 +28,7 @@ from graphs.graphs.utils import get_feature
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
 from graphs.graphs.create_graph import get_groundtruth_patch
+from graphs.graphs.graph_supervised import inference
 
 np.random.seed(2)
 
@@ -105,12 +106,10 @@ def main(
     )
 
     # Run inference and get predicted labels for nodes
-    out, graph_embeddings, predicted_labels = _get_model_predictions(
-        model, x, eval_loader, device
-    )
+    out, graph_embeddings, predicted_labels = inference(model, x, eval_loader, device)
 
     # Remove unlabelled (class 0) ground truth points
-    if remove_unlabelled and run_id == 16:
+    if remove_unlabelled and tissue_label_tsv is not None:
         unlabelled_inds, tissue_class, predicted_labels, pos, out = _remove_unlabelled(
             tissue_class, predicted_labels, pos, out
         )
@@ -125,7 +124,7 @@ def main(
             )
             # Plot the predicted labels onto the umap of the graph embeddings
             plot_tissue_umap(organ, fitted_umap, plot_name, save_path, predicted_labels)
-            if run_id == 16:
+            if tissue_label_tsv is not None:
                 plot_tissue_umap(
                     organ, fitted_umap, f"gt_{plot_name}", save_path, tissue_class
                 )
@@ -134,7 +133,7 @@ def main(
     _print_prediction_stats(predicted_labels)
 
     # Evaluate against ground truth tissue annotations
-    if run_id == 16:
+    if tissue_label_tsv is not None:
         evaluate(
             tissue_class,
             predicted_labels,
@@ -184,10 +183,10 @@ def evaluate(
     print(f"Weighted ROC AUC macro: {weighted_roc_auc:.3f}")
     print("-----------------------")
     print([tissue.label for tissue in organ.tissues][-9:])
-    print(f'precision: {all_scores[0].round(3)}')
-    print(f'recall: {all_scores[1].round(3)}')
-    print(f'fscore: {all_scores[2].round(3)}')
-    print(f'support: {all_scores[3].round(3)}')
+    print(f"precision: {all_scores[0].round(3)}")
+    print(f"recall: {all_scores[1].round(3)}")
+    print(f"fscore: {all_scores[2].round(3)}")
+    print(f"support: {all_scores[3].round(3)}")
     print("-----------------------")
 
     if label_type == "full":
@@ -206,7 +205,7 @@ def evaluate(
     cm = confusion_matrix(predicted_labels, tissue_class)
     if remove_unlabelled:
         cell_labels = cell_labels[-len(cell_labels) + 1 :]
-        cm = cm[-9:, -9:] # Might have to change this for the other labels
+        cm = cm[-9:, -9:]  # Might have to change this for the other labels
     cm_df = pd.DataFrame(cm, columns=cell_labels, index=cell_labels).astype(int)
 
     plt.figure(figsize=(10, 8))
@@ -222,17 +221,6 @@ def _remove_unlabelled(tissue_class, predicted_labels, pos, out):
     out = np.delete(out, 0, axis=1)
     predicted_labels = predicted_labels[labelled_inds]
     return labelled_inds, tissue_class, predicted_labels, pos, out
-
-
-@torch.no_grad()
-def _get_model_predictions(model, x, eval_loader, device):
-    print("Running inference")
-    model.eval()
-    out, graph_embeddings = model.inference(x, eval_loader, device)
-    predicted_labels = out.argmax(dim=-1, keepdim=True).squeeze()
-    predicted_labels = predicted_labels.cpu().numpy()
-    out = out.cpu().detach().numpy()
-    return out, graph_embeddings, predicted_labels
 
 
 def _print_prediction_stats(predicted_labels):
