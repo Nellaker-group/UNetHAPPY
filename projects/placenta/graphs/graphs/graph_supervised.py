@@ -97,13 +97,15 @@ def train(
             batch = batch.to(device)
             optimiser.zero_grad()
             out = model(batch.x, batch.edge_index)
-            loss = F.nll_loss(out[batch.train_mask], batch.y[batch.train_mask])
+            train_out = out[batch.train_mask]
+            train_y = batch.y[batch.train_mask]
+            loss = F.nll_loss(train_out, train_y)
             loss.backward()
             optimiser.step()
 
             nodes = batch.train_mask.sum().item()
             total_loss += loss.item() * nodes
-            total_correct += int(out.argmax(dim=-1).eq(batch.y).sum().item())
+            total_correct += int(train_out.argmax(dim=-1).eq(train_y).sum().item())
             total_examples += nodes
     else:
         for batch in train_loader:

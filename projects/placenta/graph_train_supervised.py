@@ -77,8 +77,10 @@ def main(
 
     # Split the graph by masks into training and validation nodes
     if val_x_min is None:
+        print("No validation patched provided, splitting nodes randomly")
         data = RandomNodeSplit(num_val=0.3, num_test=0.0)(data)
     else:
+        print("Splitting graph by validation patch")
         val_node_inds = get_nodes_within_tiles(
             (val_x_min, val_y_min),
             val_width,
@@ -128,11 +130,12 @@ def main(
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
 
-            train_accuracy, val_accuracy = graph_supervised.validate(
-                model, data, val_loader, device
-            )
-            logger.log_accuracy("train_inf", epoch - 1, train_accuracy)
-            logger.log_accuracy("val", epoch - 1, val_accuracy)
+            if epoch % 10 == 0 or epoch == 1:
+                train_accuracy, val_accuracy = graph_supervised.validate(
+                    model, data, val_loader, device
+                )
+                logger.log_accuracy("train_inf", epoch - 1, train_accuracy)
+                logger.log_accuracy("val", epoch - 1, val_accuracy)
 
             if epoch % 50 == 0 and epoch != epochs:
                 save_model(model, run_path / f"{epoch}_graph_model.pt")
