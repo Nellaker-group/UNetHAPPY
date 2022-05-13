@@ -6,6 +6,7 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 from PIL import Image
+from tqdm import tqdm
 import typer
 
 from happy.microscopefile.reader import Reader
@@ -344,7 +345,7 @@ def _save_pngs(
     xs = (xs - (100 * rescale_ratio)).astype(int) if cell_classes else xs
     ys = (ys - (100 * rescale_ratio)).astype(int) if cell_classes else ys
 
-    for i in range(len(xs)):
+    for i in tqdm(range(len(xs))):
         x, y = xs[i], ys[i]
         final_save_path = save_path / cell_classes[i] if cell_classes else save_path
         final_save_path.mkdir(parents=True, exist_ok=True)
@@ -356,7 +357,6 @@ def _save_pngs(
         )
         im = Image.fromarray(output_array.astype("uint8"))
         im.save(final_save_path / f"{slide_number}_x{x}_y{y}.png")
-        print(f"generated: {slide_number}_x{x}_y{y}.png")
 
 
 def _get_image_crop(reader, x, y, width, height, target_width, target_height):

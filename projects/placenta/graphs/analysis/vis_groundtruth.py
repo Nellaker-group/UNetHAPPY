@@ -17,6 +17,7 @@ def main(
     label_type: str = "full",
     tissue_label_tsv: str = "139_tissue_points.tsv",
     remove_unlabelled: bool = False,
+    slide_name: str = "slide_139-2019-09-09 11.15.35.ndpi",
 ):
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
@@ -35,12 +36,7 @@ def main(
     print(dict(zip(unique, counts)))
 
     save_dir = (
-        project_dir
-        / "visualisations"
-        / "graphs"
-        / "lab_1"
-        / "slide_139-2019-09-09 11.15.35.ndpi"
-        / "groundtruth"
+        project_dir / "visualisations" / "graphs" / "lab_1" / slide_name / "groundtruth"
     )
     save_dir.mkdir(parents=True, exist_ok=True)
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}"
