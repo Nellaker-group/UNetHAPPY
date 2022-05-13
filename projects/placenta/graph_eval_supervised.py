@@ -171,13 +171,15 @@ def main(
 def evaluate(
     tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled, label_type
 ):
-    tissue_labels = [tissue.id for tissue in organ.tissues]
+    tissue_ids = [tissue.id for tissue in organ.tissues]
+    tissue_labels = [tissue.label for tissue in organ.tissues]
     if remove_unlabelled:
+        tissue_ids = tissue_ids[1:]
         tissue_labels = tissue_labels[1:]
 
     accuracy = accuracy_score(tissue_class, predicted_labels)
     f1_macro = f1_score(tissue_class, predicted_labels, average="macro")
-    top_3_accuracy = top_k_accuracy_score(tissue_class, out, k=3, labels=tissue_labels)
+    top_3_accuracy = top_k_accuracy_score(tissue_class, out, k=3, labels=tissue_ids)
     cohen_kappa = cohen_kappa_score(tissue_class, predicted_labels)
     mcc = matthews_corrcoef(tissue_class, predicted_labels)
     roc_auc = roc_auc_score(
@@ -185,17 +187,15 @@ def evaluate(
         softmax(out, axis=-1),
         average="macro",
         multi_class="ovo",
-        labels=tissue_labels,
+        labels=tissue_ids,
     )
     weighted_roc_auc = roc_auc_score(
         tissue_class,
         softmax(out, axis=-1),
         average="weighted",
         multi_class="ovo",
-        labels=tissue_labels,
+        labels=tissue_ids,
     )
-    # all_scores = score(tissue_class, predicted_labels)
-
     print("-----------------------")
     print(f"Accuracy: {accuracy:.3f}")
     print(f"Top 3 accuracy: {top_3_accuracy:.3f}")
@@ -205,25 +205,34 @@ def evaluate(
     print(f"ROC AUC macro: {roc_auc:.3f}")
     print(f"Weighted ROC AUC macro: {weighted_roc_auc:.3f}")
     print("-----------------------")
-    # print([tissue.label for tissue in organ.tissues])
-    # print(f"precision: {all_scores[0].round(3)}")
-    # print(f"recall: {all_scores[1].round(3)}")
-    # print(f"fscore: {all_scores[2].round(3)}")
-    # print(f"support: {all_scores[3].round(3)}")
-    # print("-----------------------")
 
-    # if label_type == "full":
-    #     cell_labels = [tissue.label for tissue in organ.tissues]
-    #
-    # cm = confusion_matrix(predicted_labels, tissue_class)
-    # if remove_unlabelled:
-    #     cell_labels = cell_labels[-len(cell_labels) + 1 :]
-    #     cm = cm[-9:, -9:]  # Might have to change this for the other labels
-    # cm_df = pd.DataFrame(cm, columns=cell_labels, index=cell_labels).astype(int)
-    #
-    # plt.figure(figsize=(10, 8))
-    # sns.set(font_scale=1.1)
-    # plot_confusion_matrix(cm_df / len(tissue_class), "9 Tissue", run_path, ".1%")
+    unique_values_in_pred = set(predicted_labels)
+    unique_values_in_truth = set(tissue_class)
+    unique_values_in_matrix = unique_values_in_pred.union(unique_values_in_truth)
+    missing_tissue_ids = list(set(tissue_ids) - unique_values_in_matrix)
+    missing_tissue_ids.sort()
+
+    if remove_unlabelled:
+        if 0 in missing_tissue_ids:
+            missing_tissue_ids.remove(0)
+
+    cm = confusion_matrix(predicted_labels, tissue_class)
+
+    unique_values, unique_counts = np.unique(tissue_class, return_counts=True)
+    cm = cm / unique_counts[:, None]
+
+    if len(missing_tissue_ids) > 0:
+        for missing_id in missing_tissue_ids:
+            column_insert = np.zeros((cm.shape[0], 1))
+            cm = np.hstack((cm[:,:missing_id], column_insert, cm[:,missing_id:]))
+            row_insert = np.zeros((1, cm.shape[1]))
+            cm = np.insert(cm, missing_id, row_insert, 0)
+
+    cm_df = pd.DataFrame(cm, columns=tissue_labels, index=tissue_labels).astype(float)
+
+    plt.figure(figsize=(10, 8))
+    sns.set(font_scale=1.1)
+    plot_confusion_matrix(cm_df, "All Tissues", run_path, ".2f")
 
 
 def _remove_unlabelled(tissue_class, predicted_labels, pos, out):
