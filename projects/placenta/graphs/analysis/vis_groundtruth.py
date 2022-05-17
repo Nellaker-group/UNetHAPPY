@@ -42,11 +42,13 @@ def main(
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}"
     save_path = save_dir / plot_name
 
+    colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
+    colours = [colours_dict[label] for label in tissue_class]
     visualize_points(
         organ,
         save_path,
         np.stack((xs, ys), axis=1),
-        colours=tissue_class,
+        colours=colours,
         width=width,
         height=height,
     )

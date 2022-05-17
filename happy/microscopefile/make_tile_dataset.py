@@ -100,8 +100,10 @@ def make_nuclei_images(
 ):
     for i, slide in enumerate(slides):
         coords = pd.read_csv(paths_to_coords[i])
-        xs = coords.bx.unique()
-        ys = coords.by.unique()
+        unique_box_coords = coords.drop_duplicates(subset=['bx', 'by'])
+
+        xs = np.array(unique_box_coords.bx)
+        ys = np.array(unique_box_coords.by)
         _save_pngs(
             save_path, slide, (xs, ys), target_pixel_size, target_width, target_height
         )
