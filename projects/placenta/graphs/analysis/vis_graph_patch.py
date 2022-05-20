@@ -34,6 +34,7 @@ class MethodArg(str, Enum):
 
 def main(
     run_id: int = typer.Option(...),
+    project_name: str = "placenta",
     organ_name: str = "placenta",
     method: MethodArg = MethodArg.all,
     x_min: int = 0,
@@ -60,11 +61,10 @@ def main(
     db.init()
 
     organ = get_organ(organ_name)
-
-    project_dir = get_project_dir(organ_name)
+    project_dir = get_project_dir(project_name)
 
     # Get path to embeddings hdf5 files
-    embeddings_path = get_embeddings_file(organ_name, run_id)
+    embeddings_path = get_embeddings_file(project_name, run_id)
     print(f"Getting data from: {embeddings_path}")
 
     # Get hdf5 datasets contained in specified box/patch of WSI

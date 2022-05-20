@@ -1,13 +1,20 @@
+import copy
+
 import torch
 import torch.nn.functional as F
-from torch_geometric.loader import NeighborSampler, ClusterData, ClusterLoader
+from torch_geometric.loader import (
+    ClusterData,
+    ClusterLoader,
+    NeighborSampler,
+    NeighborLoader,
+)
 import pandas as pd
 
 from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
 from happy.models.clustergcn import ClusterGCN
 
 
-def setup_dataloader(
+def setup_dataloaders(
     model_type,
     data,
     num_layers,
@@ -18,18 +25,28 @@ def setup_dataloader(
         cluster_data = ClusterData(
             data, num_parts=int(data.x.size()[0] / num_neighbors), recursive=False
         )
-        return ClusterLoader(
+        train_loader = ClusterLoader(
             cluster_data, batch_size=batch_size, shuffle=True, num_workers=12
         )
+        val_loader = NeighborSampler(
+            data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
+        )
     else:
-        return NeighborSampler(
-            data.edge_index,
-            node_idx=None,
-            sizes=[num_neighbors for _ in range(num_layers)],
+        train_loader = NeighborLoader(
+            data,
+            input_nodes=data.train_mask,
+            num_neighbors=[num_neighbors for _ in range(num_layers)],
             batch_size=batch_size,
             shuffle=True,
             num_workers=12,
         )
+        val_loader = NeighborLoader(
+            copy.copy(data), num_neighbors=[-1], shuffle=False, batch_size=512
+        )
+        val_loader.data.num_nodes = data.num_nodes
+        val_loader.data.n_id = torch.arange(data.num_nodes)
+
+    return train_loader, val_loader
 
 
 def setup_model(model_type, data, device, layers, pretrained=None, num_classes=None):
@@ -65,11 +82,9 @@ def setup_model(model_type, data, device, layers, pretrained=None, num_classes=N
 def train(
     model_type,
     model,
-    x,
     optimiser,
     train_loader,
     device,
-    tissue_class,
 ):
     model.train()
 
@@ -77,47 +92,62 @@ def train(
     total_examples = 0
     total_correct = 0
 
-    if isinstance(train_loader, ClusterLoader):
-        assert model_type == "sup_clustergcn"
+    if model_type == "sup_clustergcn":
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
             out = model(batch.x, batch.edge_index)
-            loss = F.nll_loss(out, batch.y)
+            train_out = out[batch.train_mask]
+            train_y = batch.y[batch.train_mask]
+            loss = F.nll_loss(train_out, train_y)
             loss.backward()
             optimiser.step()
 
-            total_loss += loss.item() * out.size(0)
-            total_correct += int(out.argmax(dim=-1).eq(batch.y).sum().item())
-            total_examples += out.size(0)
+            nodes = batch.train_mask.sum().item()
+            total_loss += loss.item() * nodes
+            total_correct += int(train_out.argmax(dim=-1).eq(train_y).sum().item())
+            total_examples += nodes
     else:
-        for batch_i, (batch_size, n_id, adjs) in enumerate(train_loader):
-            # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
-            adjs = [adj.to(device) for adj in adjs]
+        for batch in train_loader:
+            batch = batch.to(device)
             optimiser.zero_grad()
-
-            if model_type == "sup_graphsage":
-                out = model(x[n_id], adjs)
-                loss = F.nll_loss(out, tissue_class[n_id[:batch_size]])
-                total_loss += float(loss)
-                total_correct += int(
-                    out.argmax(dim=-1).eq(tissue_class[n_id[:batch_size]]).sum()
-                )
-                total_examples += out.size(0)
-            elif model_type == "sup_diffpool":
-                out = model(x, adjs)
-                loss = F.nll_loss(out, tissue_class[n_id[:batch_size]])
-                total_loss += float(loss)
-                total_correct += int(
-                    out.argmax(dim=-1).eq(tissue_class[n_id[:batch_size]]).sum()
-                )
-                total_examples += out.size(0)
-            else:
-                raise ValueError(f"No such model type implemented: {model_type}")
-
+            y = batch.y[: batch.batch_size]
+            out = model(batch.x, batch.edge_index)[: batch.batch_size]
+            loss = F.cross_entropy(out, y)
             loss.backward()
             optimiser.step()
+
+            total_loss += float(loss) * batch.batch_size
+            total_correct += int((out.argmax(dim=-1).eq(y)).sum())
+            total_examples += batch.batch_size
+
     return total_loss / total_examples, total_correct / total_examples
+
+
+@torch.no_grad()
+def validate(model, data, eval_loader, device):
+    model.eval()
+    out, _ = model.inference(data.x, eval_loader, device)
+    out = out.argmax(dim=-1)
+    y = data.y.to(out.device)
+    train_accuracy = int((out[data.train_mask].eq(y[data.train_mask])).sum()) / int(
+        data.train_mask.sum()
+    )
+    val_accuracy = int((out[data.val_mask].eq(y[data.val_mask])).sum()) / int(
+        data.val_mask.sum()
+    )
+    return train_accuracy, val_accuracy
+
+
+@torch.no_grad()
+def inference(model, x, eval_loader, device):
+    print("Running inference")
+    model.eval()
+    out, graph_embeddings = model.inference(x, eval_loader, device)
+    predicted_labels = out.argmax(dim=-1, keepdim=True).squeeze()
+    predicted_labels = predicted_labels.cpu().numpy()
+    out = out.cpu().detach().numpy()
+    return out, graph_embeddings, predicted_labels
 
 
 def save_state(

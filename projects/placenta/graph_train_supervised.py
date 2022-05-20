@@ -2,9 +2,14 @@ from typing import Optional
 
 import typer
 import torch
-from torch_geometric.transforms import ToUndirected
+from torch_geometric.transforms import ToUndirected, RandomNodeSplit
 
-from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
+from graphs.graphs.create_graph import (
+    get_raw_data,
+    setup_graph,
+    get_groundtruth_patch,
+    get_nodes_within_tiles,
+)
 from happy.utils.utils import get_device
 from happy.organs.organs import get_organ
 from happy.logger.logger import Logger
@@ -40,15 +45,21 @@ def main(
     vis: bool = True,
     label_type: str = "full",
     tissue_label_tsv: str = "139_tissue_points.tsv",
+    val_x_min: Optional[int] = None,
+    val_y_min: Optional[int] = None,
+    val_width: Optional[int] = None,
+    val_height: Optional[int] = None,
 ):
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
     organ = get_organ(organ_name)
 
     # Setup recording of stats per batch and epoch
-    logger = Logger(list(["train"]), ["loss", "accuracy"], vis=vis, file=True)
+    logger = Logger(
+        list(["train", "train_inf", "val"]), ["loss", "accuracy"], vis=vis, file=True
+    )
 
-    # Get data from hdf5 files
+    # Get training data from hdf5 files
     predictions, embeddings, coords, confidence = get_raw_data(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
@@ -64,13 +75,37 @@ def main(
     if model_type == "sup_clustergcn":
         data = ToUndirected()(data)
 
+    # Split the graph by masks into training and validation nodes
+    if val_x_min is None:
+        print("No validation patched provided, splitting nodes randomly")
+        data = RandomNodeSplit(num_val=0.3, num_test=0.0)(data)
+    else:
+        print("Splitting graph by validation patch")
+        val_node_inds = get_nodes_within_tiles(
+            (val_x_min, val_y_min),
+            val_width,
+            val_height,
+            data["pos"][:, 0],
+            data["pos"][:, 1],
+        )
+        val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+        val_mask[val_node_inds] = True
+        data.val_mask = val_mask
+        train_mask = torch.ones(data.num_nodes, dtype=torch.bool)
+        train_mask[val_node_inds] = False
+        data.train_mask = train_mask
+    print(
+        f"Graph split into {data.train_mask.sum().item()} train nodes "
+        f"and {data.val_mask.sum().item()} validation nodes"
+    )
+
     # Setup the dataloader which minibatches the graph
-    train_loader = graph_supervised.setup_dataloader(
+    train_loader, val_loader = graph_supervised.setup_dataloaders(
         model_type, data, layers, batch_size, num_neighbours
     )
 
     # Setup the training parameters
-    x, edge_index, tissue_class = send_graph_to_device(data, device, tissue_class)
+    x, _, _ = send_graph_to_device(data, device)
 
     # Setup the model
     model = graph_supervised.setup_model(
@@ -88,14 +123,19 @@ def main(
             loss, accuracy = graph_supervised.train(
                 model_type,
                 model,
-                x,
                 optimiser,
                 train_loader,
                 device,
-                tissue_class,
             )
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
+
+            if epoch % 10 == 0 or epoch == 1:
+                train_accuracy, val_accuracy = graph_supervised.validate(
+                    model, data, val_loader, device
+                )
+                logger.log_accuracy("train_inf", epoch - 1, train_accuracy)
+                logger.log_accuracy("val", epoch - 1, val_accuracy)
 
             if epoch % 50 == 0 and epoch != epochs:
                 save_model(model, run_path / f"{epoch}_graph_model.pt")

@@ -1,7 +1,7 @@
 from torch.utils.data.sampler import BatchSampler, WeightedRandomSampler
 from torch.utils.data import DataLoader
 
-from happy.data.samplers.samplers import AspectRatioBasedSampler
+from happy.data.samplers.samplers import GroupSampler
 from happy.data.transforms.collaters import cell_collater, collater
 
 
@@ -42,8 +42,9 @@ def get_dataloader(split, dataset, collater, num_workers, nuclei, batch_size):
             drop_last=False,
         )
     else:
-        sampler = AspectRatioBasedSampler(
-            dataset, batch_size=batch_size, drop_last=False
+        shuffle = True if split == "train" else False
+        sampler = GroupSampler(
+            dataset, batch_size=batch_size, drop_last=False, shuffle=shuffle
         )
     return DataLoader(
         dataset, num_workers=num_workers, collate_fn=collater, batch_sampler=sampler

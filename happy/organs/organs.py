@@ -73,10 +73,27 @@ PLACENTA = Organ(
         Tissue("Avascular", "Avascular Villi", "#6d0c67", 12),
     ],
 )
+PLACENTA_CORD = Organ(
+    [
+        Cell("EPI", "Epithelial Cell", "#ff0000", "#ff0000", 0, 0),
+        Cell("FIB", "Fibroblast", "#920000", "#7b03fc", 1, 1),
+        Cell("MAC", "Macrophage", "#ffff6d", "#979903", 2, 2),
+        Cell("VEN", "Vascular Endothelial", "#ff9600", "#734c0e", 3, 3),
+        Cell("VMY", "Vascular Myocyte", "#cc6633", "#cc6633", 4, 4),
+        Cell("WBC", "White Blood Cell", "#2f3ec7", "#2f3ec7", 5, 5),
+        Cell("MES", "Mesenchymal Cell", "#ff00ff", "#ff00ff", 6, 6),
+    ],
+    [],
+)
 LIVER = Organ([], [])
 ADIPOCYTE = Organ([], [])
 
 
 def get_organ(organ_name):
-    organ_dicts = {"placenta": PLACENTA, "liver": LIVER, "adipocyte": ADIPOCYTE}
+    organ_dicts = {
+        "placenta": PLACENTA,
+        "placenta_cord": PLACENTA_CORD,
+        "liver": LIVER,
+        "adipocyte": ADIPOCYTE,
+    }
     return organ_dicts[organ_name]

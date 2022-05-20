@@ -30,6 +30,7 @@ def main(
     annot_dir: str = typer.Option(...),
     pre_trained: str = typer.Option(...),
     dataset_names: List[str] = typer.Option([]),
+    print_mean_confidence: bool = False,
     plot_pr_curves: bool = True,
 ):
     """Evaluates model performance across validation datasets
@@ -40,6 +41,8 @@ def main(
         annot_dir: relative path to annotations
         pre_trained: relative path to pretrained model
         dataset_names: the datasets who's validation set to evaluate over
+        print_mean_confidence: whether to print confidence confusion matrix
+        plot_pr_curves: whether to plot the pr curves
     """
     device = get_device()
 
@@ -116,15 +119,16 @@ def main(
         alt_label_accuracy = accuracy_score(alt_ground_truth, alt_predictions)
         print(f"Alt Cell Label Accuracy: {alt_label_accuracy:.3f}")
 
-        print("Mean confidence across cells for ground truth cell types:")
-        print(list(cell_mapping.values()))
-        for cell_id, cell_label in cell_mapping.items():
-            cell_inds = (np.array(ground_truth[dataset_name]) == cell_id).nonzero()[0]
-            cell_scores = np.array(outs[dataset_name])[cell_inds]
-            cell_confidences = np.mean(softmax(cell_scores, axis=1), axis=0)
-            if np.all(np.isnan(cell_confidences)):
-                continue
-            print(f"{cell_label}: {np.round(cell_confidences, 3)}")
+        if print_mean_confidence:
+            print("Mean confidence across cells for ground truth cell types:")
+            print(list(cell_mapping.values()))
+            for cell_id, cell_label in cell_mapping.items():
+                cell_inds = (np.array(ground_truth[dataset_name]) == cell_id).nonzero()[0]
+                cell_scores = np.array(outs[dataset_name])[cell_inds]
+                cell_confidences = np.mean(softmax(cell_scores, axis=1), axis=0)
+                if np.all(np.isnan(cell_confidences)):
+                    continue
+                print(f"{cell_label}: {np.round(cell_confidences, 3)}")
 
         if plot_pr_curves:
             _plot_pr_curves(

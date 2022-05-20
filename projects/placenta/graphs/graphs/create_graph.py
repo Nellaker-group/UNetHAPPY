@@ -165,7 +165,7 @@ def get_list_of_subgraphs(
     for i, tile_coords in enumerate(
         tqdm(tile_coordinates, desc="Extract nodes within tiles")
     ):
-        node_inds = _get_nodes_within_tiles(
+        node_inds = get_nodes_within_tiles(
             tile_coords, tile_width, tile_height, data["pos"][:, 0], data["pos"][:, 1]
         )
         tiles.append(
@@ -195,7 +195,7 @@ def get_list_of_subgraphs(
     return make_tile_graph_dataset(tiles_node_inds, data, max_tiles), removed_tiles
 
 
-def _get_nodes_within_tiles(tile_coords, tile_width, tile_height, all_xs, all_ys):
+def get_nodes_within_tiles(tile_coords, tile_width, tile_height, all_xs, all_ys):
     tile_min_x, tile_min_y = tile_coords[0], tile_coords[1]
     tile_max_x, tile_max_y = tile_min_x + tile_width, tile_min_y + tile_height
     mask = torch.logical_and(

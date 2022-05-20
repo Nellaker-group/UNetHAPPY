@@ -38,7 +38,7 @@ def main(
     os.chdir(str(project_dir))
 
     HPs = namedtuple("HPs", "dataset_names batch")
-    hp = HPs(dataset_names, 1)
+    hp = HPs(dataset_names, 3)
 
     multiple_val_sets = True if len(dataset_names) > 1 else False
     dataloaders = setup_data(project_dir / annot_dir, hp, multiple_val_sets, 3, 1)
