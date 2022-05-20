@@ -151,7 +151,6 @@ def main(
             organ,
             save_path,
             remove_unlabelled,
-            label_type,
         )
 
     # Visualise cluster labels on graph patch
@@ -169,7 +168,7 @@ def main(
 
 
 def evaluate(
-    tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled, label_type
+    tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled
 ):
     tissue_ids = [tissue.id for tissue in organ.tissues]
     tissue_labels = [tissue.label for tissue in organ.tissues]
@@ -216,23 +215,39 @@ def evaluate(
         if 0 in missing_tissue_ids:
             missing_tissue_ids.remove(0)
 
-    cm = confusion_matrix(predicted_labels, tissue_class)
-
-    unique_values, unique_counts = np.unique(tissue_class, return_counts=True)
-    cm = cm / unique_counts[:, None]
+    cm = confusion_matrix(tissue_class, predicted_labels)
 
     if len(missing_tissue_ids) > 0:
         for missing_id in missing_tissue_ids:
             column_insert = np.zeros((cm.shape[0], 1))
-            cm = np.hstack((cm[:,:missing_id], column_insert, cm[:,missing_id:]))
+            cm = np.hstack((cm[:, :missing_id], column_insert, cm[:, missing_id:]))
             row_insert = np.zeros((1, cm.shape[1]))
             cm = np.insert(cm, missing_id, row_insert, 0)
 
-    cm_df = pd.DataFrame(cm, columns=tissue_labels, index=tissue_labels).astype(float)
+
+    cm_df = pd.DataFrame(cm, columns=tissue_labels, index=tissue_labels).astype(int)
+    unique_counts = cm.sum(axis=1)
+    cm_df_props = (
+        pd.DataFrame(
+            cm / unique_counts[:, None], columns=tissue_labels, index=tissue_labels
+        )
+        .fillna(0)
+        .astype(float)
+    )
+
+    empty_rows = (cm_df.T != 0).any()
+    cm_df = cm_df[empty_rows]
+    cm_df_props = cm_df_props[empty_rows]
+    empty_row_names = empty_rows[empty_rows == False].index.tolist()
+    cm_df = cm_df.drop(columns=empty_row_names)
+    cm_df_props = cm_df_props.drop(columns=empty_row_names)
 
     plt.figure(figsize=(10, 8))
     sns.set(font_scale=1.1)
-    plot_confusion_matrix(cm_df, "All Tissues", run_path, ".2f")
+    plot_confusion_matrix(cm_df, "All Tissues", run_path, "d")
+    plt.figure(figsize=(10, 8))
+    sns.set(font_scale=1.1)
+    plot_confusion_matrix(cm_df_props, "All Tissues Proportion", run_path, ".2f")
 
 
 def _remove_unlabelled(tissue_class, predicted_labels, pos, out):

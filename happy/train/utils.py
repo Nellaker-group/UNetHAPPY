@@ -17,7 +17,7 @@ def get_cell_confusion_matrix(organ, pred, truth):
     missing_cell_ids = list(cell_ids - unique_values_in_matrix)
     missing_cell_ids.sort()
 
-    cm = confusion_matrix(pred, truth)
+    cm = confusion_matrix(truth, pred)
 
     if len(missing_cell_ids) > 0:
         for missing_id in missing_cell_ids:
