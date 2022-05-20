@@ -3,15 +3,17 @@ import random
 from torch.utils.data.sampler import Sampler
 
 
-class AspectRatioBasedSampler(Sampler):
-    def __init__(self, dataset, batch_size, drop_last):
+class GroupSampler(Sampler):
+    def __init__(self, dataset, batch_size, drop_last, shuffle):
         self.dataset = dataset
         self.batch_size = batch_size
         self.drop_last = drop_last
+        self.shuffle = shuffle
         self.groups = self.group_images()
 
     def __iter__(self):
-        random.shuffle(self.groups)
+        if self.shuffle:
+            random.shuffle(self.groups)
         for group in self.groups:
             yield group
 
@@ -24,17 +26,24 @@ class AspectRatioBasedSampler(Sampler):
     def group_images(self):
         # determine the order of the images
         order = list(range(len(self.dataset)))
-        order.sort(key=lambda x: self.dataset.image_aspect_ratio(x))
-        # NOTE: All aspect ratios are the same so shuffle the batches instead
-        if min(
-            [self.dataset.image_aspect_ratio(x) for x in range(len(self.dataset))]
-        ) == max(
-            [self.dataset.image_aspect_ratio(x) for x in range(len(self.dataset))]
-        ):
+
+        if self.shuffle:
             random.shuffle(order)
 
         # divide into groups, one group = one batch
-        return [
-            [order[x % len(order)] for x in range(i, i + self.batch_size)]
-            for i in range(0, len(order), self.batch_size)
-        ]
+        # TODO: make the final group only contain the last elements (smaller group)
+        groups = []
+        for i in range(0, len(order), self.batch_size):
+            group = []
+            for x in range(i, i+self.batch_size):
+                try:
+                    group.append(order[x])
+                except IndexError:
+                    break
+            groups.append(group)
+
+        # TODO: if the last group is smaller than the others and drop last, then remove it
+        if self.drop_last and len(groups[-1]) != len(groups[0]):
+            groups.pop(-1)
+
+        return groups
