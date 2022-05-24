@@ -49,6 +49,7 @@ def main(
     val_y_min: Optional[int] = None,
     val_width: Optional[int] = None,
     val_height: Optional[int] = None,
+    mask_unlabelled: bool = True,
 ):
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
@@ -75,8 +76,20 @@ def main(
     if model_type == "sup_clustergcn":
         data = ToUndirected()(data)
 
+    # Mask unlabelled data and produce the initial training mask
+    if mask_unlabelled:
+        unlabelled_inds = (tissue_class == 0).nonzero()[0]
+        unlabelled_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+        unlabelled_mask[unlabelled_inds] = True
+        data.unlabelled_mask = unlabelled_mask
+        train_mask = torch.ones(data.num_nodes, dtype=torch.bool)
+        train_mask[unlabelled_inds] = False
+        data.train_mask = train_mask
+        print(f"{len(unlabelled_inds)} nodes marked as unlabelled")
+
+    # TODO: have these splits account for the possibility of the unlabelled_mask
     # Split the graph by masks into training and validation nodes
-    if val_x_min is None:
+    if val_x_min is None and not mask_unlabelled:
         print("No validation patched provided, splitting nodes randomly")
         data = RandomNodeSplit(num_val=0.3, num_test=0.0)(data)
     else:
@@ -91,7 +104,8 @@ def main(
         val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
         val_mask[val_node_inds] = True
         data.val_mask = val_mask
-        train_mask = torch.ones(data.num_nodes, dtype=torch.bool)
+        if not mask_unlabelled:
+            train_mask = torch.ones(data.num_nodes, dtype=torch.bool)
         train_mask[val_node_inds] = False
         data.train_mask = train_mask
     print(
