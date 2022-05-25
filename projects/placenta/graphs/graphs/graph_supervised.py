@@ -8,10 +8,55 @@ from torch_geometric.loader import (
     NeighborSampler,
     NeighborLoader,
 )
+from torch_geometric.transforms import RandomNodeSplit
 import pandas as pd
 
 from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
 from happy.models.clustergcn import ClusterGCN
+from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
+
+
+def setup_node_splits(
+    data, tissue_class, mask_unlabelled, include_validation, val_patch_coords
+):
+    # Mark everything as training data first
+    train_mask = torch.ones(data.num_nodes, dtype=torch.bool)
+    data.train_mask = train_mask
+
+    # Mask unlabelled data to ignore during training
+    if mask_unlabelled:
+        unlabelled_inds = (tissue_class == 0).nonzero()[0]
+        unlabelled_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+        unlabelled_mask[unlabelled_inds] = True
+        data.unlabelled_mask = unlabelled_mask
+        train_mask[unlabelled_inds] = False
+        data.train_mask = train_mask
+        print(f"{len(unlabelled_inds)} nodes marked as unlabelled")
+
+    # Split the graph by masks into training and validation nodes
+    if include_validation:
+        if val_patch_coords[0] is None and not mask_unlabelled:
+            print("No validation patched provided, splitting nodes randomly")
+            data = RandomNodeSplit(num_val=0.3, num_test=0.0)(data)
+        else:
+            print("Splitting graph by validation patch")
+            val_node_inds = get_nodes_within_tiles(
+                (val_patch_coords[0], val_patch_coords[1]),
+                val_patch_coords[2],
+                val_patch_coords[3],
+                data["pos"][:, 0],
+                data["pos"][:, 1],
+            )
+            val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+            val_mask[val_node_inds] = True
+            data.val_mask = val_mask
+            train_mask[val_node_inds] = False
+            data.train_mask = train_mask
+        print(
+            f"Graph split into {data.train_mask.sum().item()} train nodes "
+            f"and {data.val_mask.sum().item()} validation nodes"
+        )
+    return data
 
 
 def setup_dataloaders(

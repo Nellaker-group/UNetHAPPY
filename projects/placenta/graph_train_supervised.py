@@ -2,14 +2,9 @@ from typing import Optional
 
 import typer
 import torch
-from torch_geometric.transforms import ToUndirected, RandomNodeSplit
+from torch_geometric.transforms import ToUndirected
 
-from graphs.graphs.create_graph import (
-    get_raw_data,
-    setup_graph,
-    get_groundtruth_patch,
-    get_nodes_within_tiles,
-)
+from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
 from happy.organs.organs import get_organ
 from happy.logger.logger import Logger
@@ -50,6 +45,7 @@ def main(
     val_width: Optional[int] = None,
     val_height: Optional[int] = None,
     mask_unlabelled: bool = True,
+    include_validation: bool = True,
 ):
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
@@ -76,41 +72,10 @@ def main(
     if model_type == "sup_clustergcn":
         data = ToUndirected()(data)
 
-    # Mask unlabelled data and produce the initial training mask
-    if mask_unlabelled:
-        unlabelled_inds = (tissue_class == 0).nonzero()[0]
-        unlabelled_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
-        unlabelled_mask[unlabelled_inds] = True
-        data.unlabelled_mask = unlabelled_mask
-        train_mask = torch.ones(data.num_nodes, dtype=torch.bool)
-        train_mask[unlabelled_inds] = False
-        data.train_mask = train_mask
-        print(f"{len(unlabelled_inds)} nodes marked as unlabelled")
-
-    # TODO: have these splits account for the possibility of the unlabelled_mask
-    # Split the graph by masks into training and validation nodes
-    if val_x_min is None and not mask_unlabelled:
-        print("No validation patched provided, splitting nodes randomly")
-        data = RandomNodeSplit(num_val=0.3, num_test=0.0)(data)
-    else:
-        print("Splitting graph by validation patch")
-        val_node_inds = get_nodes_within_tiles(
-            (val_x_min, val_y_min),
-            val_width,
-            val_height,
-            data["pos"][:, 0],
-            data["pos"][:, 1],
-        )
-        val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
-        val_mask[val_node_inds] = True
-        data.val_mask = val_mask
-        if not mask_unlabelled:
-            train_mask = torch.ones(data.num_nodes, dtype=torch.bool)
-        train_mask[val_node_inds] = False
-        data.train_mask = train_mask
-    print(
-        f"Graph split into {data.train_mask.sum().item()} train nodes "
-        f"and {data.val_mask.sum().item()} validation nodes"
+    # Split nodes into unlabelled, training and validation sets
+    val_patch_coords = (val_x_min, val_y_min, val_width, val_height)
+    data = graph_supervised.setup_node_splits(
+        data, tissue_class, mask_unlabelled, include_validation, val_patch_coords
     )
 
     # Setup the dataloader which minibatches the graph
@@ -145,7 +110,7 @@ def main(
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
 
-            if epoch % 10 == 0 or epoch == 1:
+            if include_validation and (epoch % 10 == 0 or epoch == 1):
                 train_accuracy, val_accuracy = graph_supervised.validate(
                     model, data, val_loader, device
                 )
@@ -155,6 +120,7 @@ def main(
                 # Save new best model
                 if val_accuracy >= prev_best_val:
                     save_model(model, run_path / f"{epoch}_graph_model.pt")
+                    print("Saved best model")
                     prev_best_val = val_accuracy
 
     except KeyboardInterrupt:
