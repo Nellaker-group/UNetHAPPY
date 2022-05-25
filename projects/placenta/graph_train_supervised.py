@@ -133,6 +133,7 @@ def main(
     # Train!
     try:
         print("Training:")
+        prev_best_val = 0
         for epoch in range(1, epochs + 1):
             loss, accuracy = graph_supervised.train(
                 model_type,
@@ -151,8 +152,11 @@ def main(
                 logger.log_accuracy("train_inf", epoch - 1, train_accuracy)
                 logger.log_accuracy("val", epoch - 1, val_accuracy)
 
-            if epoch % 50 == 0 and epoch != epochs:
-                save_model(model, run_path / f"{epoch}_graph_model.pt")
+                # Save new best model
+                if val_accuracy >= prev_best_val:
+                    save_model(model, run_path / f"{epoch}_graph_model.pt")
+                    prev_best_val = val_accuracy
+
     except KeyboardInterrupt:
         save_hp = input("Would you like to save the hyperparameters anyway? y/n: ")
         if save_hp == "y":
