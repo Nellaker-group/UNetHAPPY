@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 import typer
 import torch
@@ -52,7 +53,7 @@ def main(
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
     label_type: str = "full",
-    tissue_label_tsv: str = "139_tissue_points.tsv",
+    tissue_label_tsv: Optional[str] = None,
 ):
     device = get_device()
     project_dir = get_project_dir(project_name)
