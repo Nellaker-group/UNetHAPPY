@@ -136,6 +136,12 @@ def setup_training_params(
             class_weights = compute_class_weight(
                 "balanced", classes=np.unique(data_classes), y=data_classes
             )
+            # Account for missing tissues in training data
+            classes_in_training = set(np.unique(data_classes))
+            all_classes = set(range(0, max(classes_in_training)))
+            missing_classes = all_classes - classes_in_training
+            for i in missing_classes:
+                class_weights = np.insert(class_weights, i, 0.0)
             class_weights = torch.FloatTensor(class_weights)
             class_weights = class_weights.to(device)
             criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
@@ -148,6 +154,12 @@ def setup_training_params(
             class_weights = compute_class_weight(
                 "balanced", classes=np.unique(data_classes), y=data_classes
             )
+            # Account for missing tissues in training data
+            classes_in_training = set(np.unique(data_classes))
+            all_classes = set(range(0, max(classes_in_training)))
+            missing_classes = all_classes - classes_in_training
+            for i in missing_classes:
+                class_weights = np.insert(class_weights, i, 0.0)
             class_weights = torch.FloatTensor(class_weights)
             class_weights = class_weights.to(device)
             criterion = torch.nn.NLLLoss(weight=class_weights)
