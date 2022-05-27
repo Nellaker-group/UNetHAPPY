@@ -9,6 +9,8 @@ from torch_geometric.loader import (
     NeighborLoader,
 )
 from torch_geometric.transforms import RandomNodeSplit
+from sklearn.utils.class_weight import compute_class_weight
+import numpy as np
 import pandas as pd
 
 from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
@@ -124,10 +126,26 @@ def setup_model(model_type, data, device, layers, pretrained=None, num_classes=N
     return model
 
 
+def setup_training_params(model, learning_rate, train_dataloader, device, weighted_loss):
+    if weighted_loss:
+        data_classes = train_dataloader.data.y[train_dataloader.data.train_mask].numpy()
+        class_weights = compute_class_weight(
+            "balanced", classes=np.unique(data_classes), y=data_classes
+        )
+        class_weights = torch.FloatTensor(class_weights)
+        class_weights = class_weights.to(device)
+        criterion = torch.nn.NLLLoss(weight=class_weights)
+    else:
+        criterion = torch.nn.NLLLoss()
+    optimiser = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    return optimiser, criterion
+
+
 def train(
     model_type,
     model,
     optimiser,
+    criterion,
     train_loader,
     device,
 ):
@@ -144,7 +162,8 @@ def train(
             out = model(batch.x, batch.edge_index)
             train_out = out[batch.train_mask]
             train_y = batch.y[batch.train_mask]
-            loss = F.nll_loss(train_out, train_y)
+            # loss = F.nll_loss(train_out, train_y)
+            loss = criterion(train_out, train_y)
             loss.backward()
             optimiser.step()
 

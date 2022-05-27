@@ -3,6 +3,7 @@ from typing import Optional
 import typer
 import torch
 from torch_geometric.transforms import ToUndirected
+from sklearn.utils.class_weight import compute_class_weight
 
 from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
@@ -37,6 +38,7 @@ def main(
     epochs: int = 50,
     layers: int = typer.Option(...),
     learning_rate: float = 0.001,
+    weighted_loss: bool = False,
     vis: bool = True,
     label_type: str = "full",
     tissue_label_tsv: str = "139_tissue_points.tsv",
@@ -90,7 +92,11 @@ def main(
     model = graph_supervised.setup_model(
         model_type, data, device, layers, pretrained_path, num_classes
     )
-    optimiser = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    # Setup training parameters
+    optimiser, criterion = graph_supervised.setup_training_params(
+        model, learning_rate, train_loader, device, weighted_loss
+    )
 
     # Saves each run by its timestamp
     run_path = setup_run(project_dir, f"{model_type}/{exp_name}", "graph")
@@ -104,6 +110,7 @@ def main(
                 model_type,
                 model,
                 optimiser,
+                criterion,
                 train_loader,
                 device,
             )
