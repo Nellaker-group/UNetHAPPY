@@ -94,7 +94,7 @@ def main(
 
     # Setup training parameters
     optimiser, criterion = graph_supervised.setup_training_params(
-        model, model_type, learning_rate, train_loader, device, weighted_loss
+        model, model_type, organ, learning_rate, train_loader, device, weighted_loss
     )
 
     # Saves each run by its timestamp

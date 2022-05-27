@@ -127,7 +127,7 @@ def setup_model(model_type, data, device, layers, pretrained=None, num_classes=N
 
 
 def setup_training_params(
-    model, model_type, learning_rate, train_dataloader, device, weighted_loss
+    model, model_type, organ, learning_rate, train_dataloader, device, weighted_loss
 ):
     if model_type == "sup_graphsage":
         if weighted_loss:
@@ -138,8 +138,9 @@ def setup_training_params(
             )
             # Account for missing tissues in training data
             classes_in_training = set(np.unique(data_classes))
-            all_classes = set(range(0, max(classes_in_training)))
-            missing_classes = all_classes - classes_in_training
+            all_classes = {tissue.id for tissue in organ.tissues}
+            missing_classes = list(all_classes - classes_in_training)
+            missing_classes.sort()
             for i in missing_classes:
                 class_weights = np.insert(class_weights, i, 0.0)
             class_weights = torch.FloatTensor(class_weights)
@@ -156,8 +157,9 @@ def setup_training_params(
             )
             # Account for missing tissues in training data
             classes_in_training = set(np.unique(data_classes))
-            all_classes = set(range(0, max(classes_in_training)))
-            missing_classes = all_classes - classes_in_training
+            all_classes = {tissue.id for tissue in organ.tissues}
+            missing_classes = list(all_classes - classes_in_training)
+            missing_classes.sort()
             for i in missing_classes:
                 class_weights = np.insert(class_weights, i, 0.0)
             class_weights = torch.FloatTensor(class_weights)
