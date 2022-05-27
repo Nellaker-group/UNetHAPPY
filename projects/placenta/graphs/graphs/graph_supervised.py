@@ -192,15 +192,17 @@ def train(
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
-            y = batch.y[: batch.batch_size]
+            train_y = batch.y[: batch.batch_size][batch.train_mask[: batch.batch_size]]
             out = model(batch.x, batch.edge_index)[: batch.batch_size]
-            loss = F.cross_entropy(out, y)
+            train_out = out[batch.train_mask[: batch.batch_size]]
+            loss = criterion(train_out, train_y)
             loss.backward()
             optimiser.step()
 
-            total_loss += float(loss) * batch.batch_size
-            total_correct += int((out.argmax(dim=-1).eq(y)).sum())
-            total_examples += batch.batch_size
+            nodes = batch.train_mask[: batch.batch_size].sum().item()
+            total_loss += float(loss) * nodes
+            total_correct += int((train_out.argmax(dim=-1).eq(train_y)).sum())
+            total_examples += nodes
 
     return total_loss / total_examples, total_correct / total_examples
 
