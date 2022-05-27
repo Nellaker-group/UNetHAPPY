@@ -24,7 +24,6 @@ def main(file_name: str = typer.Option(...)):
                 "label": d["Label"]["classifications"][0]["answer"]["value"],
                 "duration": d["Seconds to Label"],
                 "has_comment": d["Has Open Issues"],
-                "wuv": True,
                 "is_pathologist": PATHOLOGIST_MAPPING[d["Created By"]],
             }
             cleaned_data.append(cleaned_d)
@@ -71,8 +70,12 @@ def main(file_name: str = typer.Option(...)):
     # TODO: agreement for each tissue type between pathologists and non-experts
     # TODO: unusual cases (most disagreement)
     # TODO: labels marked 'unclear'
+    # TODO: Distribution of agreement per example (counts of same labels)
     # TODO: total agreement between pathologists and me
     # TODO: agreement for each tissue type between pathologists and me
+    # TODO: agreement between pathologists but not me
+    # TODO: agreement between pathologists and me
+    # TODO: Hierarchy tissues and agreement based on that...
     # TODO: total agreement between my old qupath self and my current labelbox self
 
     # TODO: plotting of all of this
@@ -96,6 +99,10 @@ def get_predictions_by_pathologist(df, pathologist):
     predicted_labels = df[df["pathologist"] == pathologist][["image_name", "label"]]
     predicted_labels.sort_values(by="image_name", ignore_index=True, inplace=True)
     return predicted_labels
+
+def get_num_unique_labels_per_image(df):
+    return df.groupby('image_name')['label'].nunique()
+
 
 if __name__ == "__main__":
     typer.run(main)
