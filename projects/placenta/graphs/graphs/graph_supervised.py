@@ -126,17 +126,35 @@ def setup_model(model_type, data, device, layers, pretrained=None, num_classes=N
     return model
 
 
-def setup_training_params(model, learning_rate, train_dataloader, device, weighted_loss):
-    if weighted_loss:
-        data_classes = train_dataloader.data.y[train_dataloader.data.train_mask].numpy()
-        class_weights = compute_class_weight(
-            "balanced", classes=np.unique(data_classes), y=data_classes
-        )
-        class_weights = torch.FloatTensor(class_weights)
-        class_weights = class_weights.to(device)
-        criterion = torch.nn.NLLLoss(weight=class_weights)
+def setup_training_params(
+    model, model_type, learning_rate, train_dataloader, device, weighted_loss
+):
+    if model_type == "sup_graphsage":
+        if weighted_loss:
+            data_classes = train_dataloader.data.y[
+                train_dataloader.data.train_mask].numpy()
+            class_weights = compute_class_weight(
+                "balanced", classes=np.unique(data_classes), y=data_classes
+            )
+            class_weights = torch.FloatTensor(class_weights)
+            class_weights = class_weights.to(device)
+            criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
+        else:
+            criterion = torch.nn.CrossEntropyLoss()
+    elif model_type == "sup_clustergcn":
+        if weighted_loss:
+            data_classes = train_dataloader.cluster_data.data.y[
+                train_dataloader.cluster_data.data.train_mask].numpy()
+            class_weights = compute_class_weight(
+                "balanced", classes=np.unique(data_classes), y=data_classes
+            )
+            class_weights = torch.FloatTensor(class_weights)
+            class_weights = class_weights.to(device)
+            criterion = torch.nn.NLLLoss(weight=class_weights)
+        else:
+            criterion = torch.nn.NLLLoss()
     else:
-        criterion = torch.nn.NLLLoss()
+        raise ValueError(f"No such model type {model_type}")
     optimiser = torch.optim.Adam(model.parameters(), lr=learning_rate)
     return optimiser, criterion
 
@@ -162,7 +180,6 @@ def train(
             out = model(batch.x, batch.edge_index)
             train_out = out[batch.train_mask]
             train_y = batch.y[batch.train_mask]
-            # loss = F.nll_loss(train_out, train_y)
             loss = criterion(train_out, train_y)
             loss.backward()
             optimiser.step()

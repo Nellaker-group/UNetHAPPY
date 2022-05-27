@@ -3,7 +3,6 @@ from typing import Optional
 import typer
 import torch
 from torch_geometric.transforms import ToUndirected
-from sklearn.utils.class_weight import compute_class_weight
 
 from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
@@ -95,7 +94,7 @@ def main(
 
     # Setup training parameters
     optimiser, criterion = graph_supervised.setup_training_params(
-        model, learning_rate, train_loader, device, weighted_loss
+        model, model_type, learning_rate, train_loader, device, weighted_loss
     )
 
     # Saves each run by its timestamp
