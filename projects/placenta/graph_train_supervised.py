@@ -38,6 +38,7 @@ def main(
     layers: int = typer.Option(...),
     learning_rate: float = 0.001,
     weighted_loss: bool = False,
+    use_custom_weights: bool = True,
     vis: bool = True,
     label_type: str = "full",
     tissue_label_tsv: str = "139_tissue_points.tsv",
@@ -94,7 +95,14 @@ def main(
 
     # Setup training parameters
     optimiser, criterion = graph_supervised.setup_training_params(
-        model, model_type, organ, learning_rate, train_loader, device, weighted_loss
+        model,
+        model_type,
+        organ,
+        learning_rate,
+        train_loader,
+        device,
+        weighted_loss,
+        use_custom_weights,
     )
 
     # Saves each run by its timestamp

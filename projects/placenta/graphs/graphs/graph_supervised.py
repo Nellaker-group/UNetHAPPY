@@ -1,7 +1,6 @@
 import copy
 
 import torch
-import torch.nn.functional as F
 from torch_geometric.loader import (
     ClusterData,
     ClusterLoader,
@@ -127,22 +126,23 @@ def setup_model(model_type, data, device, layers, pretrained=None, num_classes=N
 
 
 def setup_training_params(
-    model, model_type, organ, learning_rate, train_dataloader, device, weighted_loss
+    model,
+    model_type,
+    organ,
+    learning_rate,
+    train_dataloader,
+    device,
+    weighted_loss,
+    use_custom_weights,
 ):
     if model_type == "sup_graphsage":
         if weighted_loss:
             data_classes = train_dataloader.data.y[
-                train_dataloader.data.train_mask].numpy()
-            class_weights = compute_class_weight(
-                "balanced", classes=np.unique(data_classes), y=data_classes
+                train_dataloader.data.train_mask
+            ].numpy()
+            class_weights = _compute_tissue_weights(
+                data_classes, organ, use_custom_weights
             )
-            # Account for missing tissues in training data
-            classes_in_training = set(np.unique(data_classes))
-            all_classes = {tissue.id for tissue in organ.tissues}
-            missing_classes = list(all_classes - classes_in_training)
-            missing_classes.sort()
-            for i in missing_classes:
-                class_weights = np.insert(class_weights, i, 0.0)
             class_weights = torch.FloatTensor(class_weights)
             class_weights = class_weights.to(device)
             criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
@@ -151,17 +151,11 @@ def setup_training_params(
     elif model_type == "sup_clustergcn":
         if weighted_loss:
             data_classes = train_dataloader.cluster_data.data.y[
-                train_dataloader.cluster_data.data.train_mask].numpy()
-            class_weights = compute_class_weight(
-                "balanced", classes=np.unique(data_classes), y=data_classes
+                train_dataloader.cluster_data.data.train_mask
+            ].numpy()
+            class_weights = _compute_tissue_weights(
+                data_classes, organ, use_custom_weights
             )
-            # Account for missing tissues in training data
-            classes_in_training = set(np.unique(data_classes))
-            all_classes = {tissue.id for tissue in organ.tissues}
-            missing_classes = list(all_classes - classes_in_training)
-            missing_classes.sort()
-            for i in missing_classes:
-                class_weights = np.insert(class_weights, i, 0.0)
             class_weights = torch.FloatTensor(class_weights)
             class_weights = class_weights.to(device)
             criterion = torch.nn.NLLLoss(weight=class_weights)
@@ -296,3 +290,23 @@ def save_state(
     params_df.to_csv(run_path / "params.csv", index=False)
 
     logger.to_csv(run_path / "graph_train_stats.csv")
+
+
+def _compute_tissue_weights(data_classes, organ, use_custom_weights):
+    unique_classes = np.unique(data_classes)
+    if not use_custom_weights:
+        weighting = "balanced"
+    else:
+        custom_weights = [1.5, 0.47, 0.77, 10.5, 0.64, 1.5, 5.6, 3.4, 77]
+        weighting = dict(zip(list(unique_classes), custom_weights))
+    class_weights = compute_class_weight(
+        weighting, classes=unique_classes, y=data_classes
+    )
+    # Account for missing tissues in training data
+    classes_in_training = set(unique_classes)
+    all_classes = {tissue.id for tissue in organ.tissues}
+    missing_classes = list(all_classes - classes_in_training)
+    missing_classes.sort()
+    for i in missing_classes:
+        class_weights = np.insert(class_weights, i, 0.0)
+    return class_weights
