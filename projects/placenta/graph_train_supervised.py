@@ -48,6 +48,7 @@ def main(
     val_height: Optional[int] = None,
     mask_unlabelled: bool = True,
     include_validation: bool = True,
+    validation_step: int = 25,
 ):
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
@@ -124,7 +125,7 @@ def main(
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
 
-            if include_validation and (epoch % 10 == 0 or epoch == 1):
+            if include_validation and (epoch % validation_step == 0 or epoch == 1):
                 train_accuracy, val_accuracy = graph_supervised.validate(
                     model, data, val_loader, device
                 )
