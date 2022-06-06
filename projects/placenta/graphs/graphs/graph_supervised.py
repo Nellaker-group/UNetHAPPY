@@ -297,7 +297,7 @@ def _compute_tissue_weights(data_classes, organ, use_custom_weights):
     if not use_custom_weights:
         weighting = "balanced"
     else:
-        custom_weights = [1.5, 0.47, 0.77, 10.5, 0.64, 1.5, 5.6, 3.4, 77]
+        custom_weights = [1, 0.67, 0.9, 10.5, 0.8, 1.3, 5.6, 3, 77]
         weighting = dict(zip(list(unique_classes), custom_weights))
     class_weights = compute_class_weight(
         weighting, classes=unique_classes, y=data_classes
