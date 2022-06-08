@@ -4,6 +4,7 @@ import pandas as pd
 from torch_cluster import knn_graph, radius_graph
 from torch_geometric.data import Data
 from torch_geometric.utils.subgraph import subgraph
+from torch_geometric.utils import to_undirected
 from torch_geometric.transforms import Distance, KNNGraph
 from scipy.spatial import Voronoi
 from tqdm import tqdm
@@ -105,7 +106,7 @@ def setup_graph(coords, k, feature, graph_method, norm_edges=True, loop=True):
     elif graph_method == "delaunay":
         graph = make_delaunay_graph(data, norm_edges)
     elif graph_method == "intersection":
-        graph = make_intersection_graph(data, k, norm_edges, loop)
+        graph = make_intersection_graph(data, k, norm_edges)
     else:
         raise ValueError(f"No such graph method: {graph_method}")
     if graph.x.ndim == 1:
@@ -153,17 +154,24 @@ def make_delaunay_graph(data, norm_edges=True):
     return data
 
 
-def make_intersection_graph(data, k, norm_edges=True, loop=True):
+def make_intersection_graph(data, k, norm_edges=True):
     print(f"Generating graph for k={k}")
     knn_graph = KNNGraph(k=k + 1, loop=False, force_undirected=True)(data)
     knn_edge_index = knn_graph.edge_index.T
+    knn_edge_index = np.array(knn_edge_index.tolist())
     print(f"Generating delaunay graph")
     triang = tri.Triangulation(data.pos[:, 0], data.pos[:, 1])
-    delaunay_edge_index = torch.tensor(triang.edges.astype("int64"), dtype=torch.long)
+    delaunay_edge_index = triang.edges.astype("int64")
 
     print(f"Generating intersection of both graphs")
-    m = (knn_edge_index[:, None] == delaunay_edge_index).all(-1).any(1)
-    data.edge_index = knn_edge_index[m].T
+    _, ncols = knn_edge_index.shape
+    dtype = ", ".join([str(knn_edge_index.dtype)] * ncols)
+    intersection = np.intersect1d(
+        knn_edge_index.view(dtype), delaunay_edge_index.view(dtype)
+    )
+    intersection = intersection.view(knn_edge_index.dtype).reshape(-1, ncols)
+    intersection = torch.tensor(intersection, dtype=torch.long).T
+    data.edge_index = intersection
 
     get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
     data = get_edge_distance_weights(data)

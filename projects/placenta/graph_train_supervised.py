@@ -72,8 +72,7 @@ def main(
     # Create the graph from the raw data
     data = setup_graph(coords, k, feature_data, graph_method.value, loop=False)
     data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
-    if model_type == "sup_clustergcn":
-        data = ToUndirected()(data)
+    data = ToUndirected()(data)
 
     # Split nodes into unlabelled, training and validation sets
     val_patch_coords = (val_x_min, val_y_min, val_width, val_height)
