@@ -21,6 +21,7 @@ from projects.placenta.graphs.graphs.create_graph import (
     make_radius_k_graph,
     make_voronoi,
     make_delaunay_triangulation,
+    make_intersection_graph,
 )
 
 
@@ -29,6 +30,7 @@ class MethodArg(str, Enum):
     radius = "radius"
     voronoi = "voronoi"
     delaunay = "delaunay"
+    intersection = "intersection"
     all = "all"
 
 
@@ -98,6 +100,8 @@ def main(
         vis_voronoi(data, plot_name, save_dir, organ)
     elif method == "delaunay":
         vis_delaunay(data, plot_name, save_dir, organ)
+    elif method == "intersection":
+        vis_intersection(data, 6, plot_name, save_dir, organ, width, height)
     elif method == "all":
         vis_for_range_k(
             6, 7, data, plot_name, save_dir, organ, width, height, plot_edges
@@ -238,6 +242,30 @@ def vis_delaunay(data, plot_name, save_dir, organ):
 
     plot_name = f"{plot_name}.png"
     plt.savefig(save_path / plot_name)
+    print(f"Plot saved to {save_path / plot_name}")
+
+
+def vis_intersection(data, k, plot_name, save_dir, organ, width, height):
+    # Specify save graph vis location
+    save_path = save_dir / "intersection"
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    intersection_graph = make_intersection_graph(data, k)
+    edge_index = intersection_graph.edge_index
+    edge_weight = intersection_graph.edge_attr
+
+    plot_name = f"k{k}_{plot_name}.png"
+    print(f"Plotting...")
+    visualize_points(
+        organ,
+        save_path / plot_name,
+        data.pos,
+        labels=data.x,
+        edge_index=edge_index,
+        edge_weight=edge_weight,
+        width=width,
+        height=height,
+    )
     print(f"Plot saved to {save_path / plot_name}")
 
 

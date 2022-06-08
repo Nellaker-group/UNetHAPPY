@@ -70,7 +70,7 @@ def main(
     num_classes = len(organ.tissues)
 
     # Create the graph from the raw data
-    data = setup_graph(coords, k, feature_data, graph_method.value)
+    data = setup_graph(coords, k, feature_data, graph_method.value, loop=False)
     data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
     if model_type == "sup_clustergcn":
         data = ToUndirected()(data)

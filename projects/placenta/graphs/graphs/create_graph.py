@@ -4,7 +4,7 @@ import pandas as pd
 from torch_cluster import knn_graph, radius_graph
 from torch_geometric.data import Data
 from torch_geometric.utils.subgraph import subgraph
-from torch_geometric.transforms import Distance
+from torch_geometric.transforms import Distance, KNNGraph
 from scipy.spatial import Voronoi
 from tqdm import tqdm
 import matplotlib.tri as tri
@@ -104,6 +104,8 @@ def setup_graph(coords, k, feature, graph_method, norm_edges=True, loop=True):
         graph = make_k_graph(data, k, norm_edges, loop)
     elif graph_method == "delaunay":
         graph = make_delaunay_graph(data, norm_edges)
+    elif graph_method == "intersection":
+        graph = make_intersection_graph(data, k, norm_edges, loop)
     else:
         raise ValueError(f"No such graph method: {graph_method}")
     if graph.x.ndim == 1:
@@ -113,7 +115,7 @@ def setup_graph(coords, k, feature, graph_method, norm_edges=True, loop=True):
 
 def make_k_graph(data, k, norm_edges=True, loop=True):
     print(f"Generating graph for k={k}")
-    data.edge_index = knn_graph(data.pos, k=k + 1, loop=loop)
+    data = KNNGraph(k=k + 1, loop=loop, force_undirected=True)(data)
     get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
     data = get_edge_distance_weights(data)
     print(f"Graph made with {len(data.edge_index[0])} edges!")
@@ -148,6 +150,24 @@ def make_delaunay_graph(data, norm_edges=True):
     get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
     data = get_edge_distance_weights(data)
     print("Graph made!")
+    return data
+
+
+def make_intersection_graph(data, k, norm_edges=True, loop=True):
+    print(f"Generating graph for k={k}")
+    knn_graph = KNNGraph(k=k + 1, loop=False, force_undirected=True)(data)
+    knn_edge_index = knn_graph.edge_index.T
+    print(f"Generating delaunay graph")
+    triang = tri.Triangulation(data.pos[:, 0], data.pos[:, 1])
+    delaunay_edge_index = torch.tensor(triang.edges.astype("int64"), dtype=torch.long)
+
+    print(f"Generating intersection of both graphs")
+    m = (knn_edge_index[:, None] == delaunay_edge_index).all(-1).any(1)
+    data.edge_index = knn_edge_index[m].T
+
+    get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
+    data = get_edge_distance_weights(data)
+    print(f"Graph made with {len(data.edge_index[0])} edges!")
     return data
 
 

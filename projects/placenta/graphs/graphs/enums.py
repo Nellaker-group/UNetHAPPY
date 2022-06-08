@@ -8,3 +8,4 @@ class FeatureArg(str, Enum):
 class MethodArg(str, Enum):
     k = "k"
     delaunay = "delaunay"
+    intersection = "intersection"
