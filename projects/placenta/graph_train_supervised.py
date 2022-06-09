@@ -3,6 +3,7 @@ from typing import Optional
 import typer
 import torch
 from torch_geometric.transforms import ToUndirected
+from torch_geometric.utils import add_self_loops
 
 from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
@@ -73,6 +74,9 @@ def main(
     data = setup_graph(coords, k, feature_data, graph_method.value, loop=False)
     data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
     data = ToUndirected()(data)
+    data.edge_index, data.edge_attr = add_self_loops(
+        data["edge_index"], data["edge_attr"], fill_value="mean"
+    )
 
     # Split nodes into unlabelled, training and validation sets
     val_patch_coords = (val_x_min, val_y_min, val_width, val_height)

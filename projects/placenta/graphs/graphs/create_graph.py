@@ -150,7 +150,7 @@ def make_delaunay_graph(data, norm_edges=True):
     data.edge_index = torch.tensor(triang.edges.astype("int64"), dtype=torch.long).T
     get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
     data = get_edge_distance_weights(data)
-    print("Graph made!")
+    print(f"Graph made with {len(data.edge_index[0])} edges!")
     return data
 
 

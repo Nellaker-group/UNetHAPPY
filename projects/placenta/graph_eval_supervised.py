@@ -12,7 +12,8 @@ from sklearn.metrics import (
     roc_auc_score,
     matthews_corrcoef,
 )
-from sklearn.metrics import precision_recall_fscore_support as score
+from torch_geometric.transforms import ToUndirected
+from torch_geometric.utils import add_self_loops
 from torch_geometric.loader import NeighborSampler, NeighborLoader
 from scipy.special import softmax
 import numpy as np
@@ -65,7 +66,11 @@ def main(
     )
 
     feature_data = get_feature(feature.value, predictions, embeddings)
-    data = setup_graph(coords, k, feature_data, graph_method.value)
+    data = setup_graph(coords, k, feature_data, graph_method.value, loop=False)
+    data = ToUndirected()(data)
+    data.edge_index, data.edge_attr = add_self_loops(
+        data["edge_index"], data["edge_attr"], fill_value="mean"
+    )
     x = data.x.to(device)
     pos = data.pos
 
