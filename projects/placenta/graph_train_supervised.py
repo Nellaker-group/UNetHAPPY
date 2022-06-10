@@ -11,7 +11,7 @@ from happy.organs.organs import get_organ
 from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
-from graphs.graphs.enums import FeatureArg, MethodArg
+from graphs.graphs.enums import FeatureArg, MethodArg, SupervisedModelsArg
 from graphs.graphs.utils import get_feature, send_graph_to_device, save_model
 from graphs.graphs import graph_supervised
 
@@ -31,7 +31,7 @@ def main(
     feature: FeatureArg = FeatureArg.embeddings,
     pretrained: Optional[str] = None,
     top_conf: bool = False,
-    model_type: str = "sup_graphsage",
+    model_type: SupervisedModelsArg = SupervisedModelsArg.sup_graphsage,
     graph_method: MethodArg = MethodArg.k,
     batch_size: int = 51200,
     num_neighbours: int = 10,
@@ -51,6 +51,8 @@ def main(
     include_validation: bool = True,
     validation_step: int = 25,
 ):
+    model_type = model_type.value
+
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
     organ = get_organ(organ_name)
@@ -94,7 +96,7 @@ def main(
 
     # Setup the model
     model = graph_supervised.setup_model(
-        model_type, data, device, layers, pretrained_path, num_classes
+        model_type, data, device, layers, num_classes, pretrained_path
     )
 
     # Setup training parameters

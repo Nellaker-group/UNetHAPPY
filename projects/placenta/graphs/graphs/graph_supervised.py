@@ -14,6 +14,7 @@ import pandas as pd
 
 from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
 from happy.models.clustergcn import ClusterGCN
+from happy.models.gat import GAT, GATv2
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
 
 
@@ -67,7 +68,7 @@ def setup_dataloaders(
     batch_size,
     num_neighbors,
 ):
-    if model_type == "sup_clustergcn":
+    if model_type == "sup_clustergcn" or model_type == "sup_gat":
         cluster_data = ClusterData(
             data, num_parts=int(data.x.size()[0] / num_neighbors), recursive=False
         )
@@ -95,7 +96,7 @@ def setup_dataloaders(
     return train_loader, val_loader
 
 
-def setup_model(model_type, data, device, layers, pretrained=None, num_classes=None):
+def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
     if pretrained:
         return torch.load(pretrained / "graph_model.pt", map_location=device)
     if model_type == "sup_graphsage":
@@ -103,6 +104,14 @@ def setup_model(model_type, data, device, layers, pretrained=None, num_classes=N
             data.num_node_features,
             hidden_channels=64,
             out_channels=num_classes,
+            num_layers=layers,
+        )
+    elif model_type == "sup_gat":
+        model = GAT(
+            data.num_node_features,
+            hidden_channels=128,
+            out_channels=num_classes,
+            heads=1,
             num_layers=layers,
         )
     elif model_type == "sup_diffpool":
@@ -148,7 +157,7 @@ def setup_training_params(
             criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
         else:
             criterion = torch.nn.CrossEntropyLoss()
-    elif model_type == "sup_clustergcn":
+    elif model_type == "sup_clustergcn" or model_type == "sup_gat":
         if weighted_loss:
             data_classes = train_dataloader.cluster_data.data.y[
                 train_dataloader.cluster_data.data.train_mask
@@ -181,7 +190,7 @@ def train(
     total_examples = 0
     total_correct = 0
 
-    if model_type == "sup_clustergcn":
+    if model_type == "sup_clustergcn" or model_type == "sup_gat":
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
