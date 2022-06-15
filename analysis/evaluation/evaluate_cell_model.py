@@ -55,6 +55,7 @@ def main(
     hp = HPs(dataset_names, 100)
     organ = get_organ(organ_name)
     cell_mapping = {cell.id: cell.label for cell in organ.cells}
+    cell_colours = {cell.id: cell.colourblind_colour for cell in organ.cells}
 
     model, image_size = setup_model(
         "resnet-50", False, len(organ.cells), pre_trained, False, device
@@ -133,6 +134,7 @@ def main(
         if plot_pr_curves:
             _plot_pr_curves(
                 cell_mapping,
+                cell_colours,
                 dataset_name,
                 ground_truth[dataset_name],
                 outs[dataset_name],
@@ -146,7 +148,7 @@ def _convert_to_alt_label(organ, labels):
     return [alt_id_mapping[label] for label in labels]
 
 
-def _plot_pr_curves(cell_mapping, dataset_name, ground_truth, scores):
+def _plot_pr_curves(cell_mapping, cell_colours, dataset_name, ground_truth, scores):
     cell_classes = np.unique(list(cell_mapping.keys()))
 
     ground_truth = label_binarize(ground_truth, classes=cell_classes)
@@ -173,24 +175,29 @@ def _plot_pr_curves(cell_mapping, dataset_name, ground_truth, scores):
 
     # Plot Precision-Recall curve for each class
     plt.clf()
+    plt.figure()
+    ax = plt.subplot(111)
     plt.plot(
         recall["micro"],
         precision["micro"],
         label=f"mavg ({average_precision['micro']:0.2f})",
+        color='black',
     )
     for i in cell_classes:
         plt.plot(
             recall[i],
             precision[i],
             label=f"{cell_mapping[i]} ({average_precision[i]:0.2f})",
+            color=cell_colours[i]
         )
 
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.title(f"Precision-Recall curves for {dataset_name} cells")
-    plt.legend(loc="lower right")
+    plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     plt.savefig(f"../../analysis/evaluation/plots/{dataset_name}_pr_curves.png")
     plt.clf()
 

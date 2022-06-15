@@ -8,6 +8,7 @@ class Cell:
     name: str
     colour: str
     alt_colour: str
+    colourblind_colour: str
     id: int
     alt_id: int
 
@@ -45,17 +46,17 @@ class Organ:
 
 PLACENTA = Organ(
     [
-        Cell("CYT", "Cytotrophoblasts", "#24ff24", "#0d8519", 0, 0),
-        Cell("FIB", "Fibroblast", "#920000", "#7b03fc", 1, 1),
-        Cell("HOF", "Hofbauer", "#ffff6d", "#979903", 2, 1),
-        Cell("SYN", "Syncytiotrophoblast", "#6db6ff", "#0f0cad", 3, 0),
-        Cell("VEN", "Vascular Endothelial", "#ff9600", "#734c0e", 4, 2),
-        Cell("MAT", "Maternal Decidua", "#008080", "#008080", 5, 3),
-        Cell("VMY", "Vascular Myocyte", "#cc6633", "#cc6633", 6, 1),
-        Cell("WBC", "White Blood Cell", "#2f3ec7", "#2f3ec7", 7, 4),
-        Cell("MES", "Mesenchymal Cell", "#ff00ff", "#ff00ff", 8, 1),
-        Cell("EVT", "Extra Villus Trophoblast", "#b8b0f1", "#b8b0f1", 9, 0),
-        Cell("KNT", "Syncytial Knots", "#00ffff", "#00ffff", 10, 0),
+        Cell("CYT", "Cytotrophoblasts", "#24ff24", "#0d8519", "#00E307", 0, 0),
+        Cell("FIB", "Fibroblast", "#920000", "#7b03fc", "#F60239", 1, 1),
+        Cell("HOF", "Hofbauer", "#ffff6d", "#979903", "#FFDC3D", 2, 1),
+        Cell("SYN", "Syncytiotrophoblast", "#6db6ff", "#0f0cad", "#009FFA", 3, 0),
+        Cell("VEN", "Vascular Endothelial", "#ff9600", "#734c0e", "#FF6E3A", 4, 2),
+        Cell("MAT", "Maternal Decidua", "#008080", "#008080", "#008169", 5, 3),
+        Cell("VMY", "Vascular Myocyte", "#cc6633", "#cc6633", "#6A0213", 6, 1),
+        Cell("WBC", "White Blood Cell", "#2f3ec7", "#2f3ec7", "#003C86", 7, 4),
+        Cell("MES", "Mesenchymal Cell", "#ff00ff", "#ff00ff", "#FF71FD", 8, 1),
+        Cell("EVT", "Extra Villus Trophoblast", "#b8b0f1", "#b8b0f1", "#FFCFE2", 9, 0),
+        Cell("KNT", "Syncytial Knots", "#00ffff", "#00ffff", "#7CFFFA", 10, 0),
     ],
     [
         Tissue("Unlabelled", "Unlabelled", "#000000", 0),
@@ -75,13 +76,13 @@ PLACENTA = Organ(
 )
 PLACENTA_CORD = Organ(
     [
-        Cell("EPI", "Epithelial Cell", "#ff0000", "#ff0000", 0, 0),
-        Cell("FIB", "Fibroblast", "#920000", "#7b03fc", 1, 1),
-        Cell("MAC", "Macrophage", "#ffff6d", "#979903", 2, 2),
-        Cell("VEN", "Vascular Endothelial", "#ff9600", "#734c0e", 3, 3),
-        Cell("VMY", "Vascular Myocyte", "#cc6633", "#cc6633", 4, 4),
-        Cell("WBC", "White Blood Cell", "#2f3ec7", "#2f3ec7", 5, 5),
-        Cell("MES", "Mesenchymal Cell", "#ff00ff", "#ff00ff", 6, 6),
+        Cell("EPI", "Epithelial Cell", "#ff0000", "#ff0000", "#ff0000", 0, 0),
+        Cell("FIB", "Fibroblast", "#920000", "#7b03fc", "#7b03fc", 1, 1),
+        Cell("MAC", "Macrophage", "#ffff6d", "#979903", "#979903", 2, 2),
+        Cell("VEN", "Vascular Endothelial", "#ff9600", "#734c0e", "#734c0e", 3, 3),
+        Cell("VMY", "Vascular Myocyte", "#cc6633", "#cc6633", "#cc6633", 4, 4),
+        Cell("WBC", "White Blood Cell", "#2f3ec7", "#2f3ec7", "#2f3ec7", 5, 5),
+        Cell("MES", "Mesenchymal Cell", "#ff00ff", "#ff00ff", "#ff00ff", 6, 6),
     ],
     [],
 )

@@ -32,7 +32,7 @@ def get_cell_confusion_matrix(organ, pred, truth):
 def plot_confusion_matrix(cm, dataset_name, run_path, fmt="d"):
     save_path = run_path / f"{dataset_name}_confusion_matrix.png"
 
-    sns.heatmap(cm, annot=True, cmap="Blues", square=True, fmt=fmt)
+    sns.heatmap(cm, annot=True, cmap="Blues", square=True, cbar=False, fmt=fmt)
     plt.title(f"Classification for {dataset_name} Validation")
     plt.ylabel("True Label")
     plt.xlabel("Predicted Label")
