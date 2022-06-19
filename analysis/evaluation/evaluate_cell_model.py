@@ -20,6 +20,7 @@ from sklearn.metrics import (
 )
 
 from happy.utils.utils import get_device
+from happy.train.utils import get_cell_confusion_matrix, plot_confusion_matrix
 from happy.organs.organs import get_organ
 from happy.train.cell_train import setup_data, setup_model
 
@@ -32,6 +33,7 @@ def main(
     dataset_names: List[str] = typer.Option([]),
     print_mean_confidence: bool = False,
     plot_pr_curves: bool = True,
+    plot_confusion_matrix: bool = True,
 ):
     """Evaluates model performance across validation datasets
 
@@ -140,6 +142,14 @@ def main(
                 outs[dataset_name],
             )
 
+        if plot_confusion_matrix:
+            _plot_confusion_matrix(
+                organ,
+                predictions[dataset_name],
+                ground_truth[dataset_name],
+                dataset_name,
+            )
+
 
 def _convert_to_alt_label(organ, labels):
     ids = [cell.id for cell in organ.cells]
@@ -181,14 +191,14 @@ def _plot_pr_curves(cell_mapping, cell_colours, dataset_name, ground_truth, scor
         recall["micro"],
         precision["micro"],
         label=f"mavg ({average_precision['micro']:0.2f})",
-        color='black',
+        color="black",
     )
     for i in cell_classes:
         plt.plot(
             recall[i],
             precision[i],
             label=f"{cell_mapping[i]} ({average_precision[i]:0.2f})",
-            color=cell_colours[i]
+            color=cell_colours[i],
         )
 
     plt.xlim([0.0, 1.0])
@@ -200,6 +210,14 @@ def _plot_pr_curves(cell_mapping, cell_colours, dataset_name, ground_truth, scor
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     plt.savefig(f"../../analysis/evaluation/plots/{dataset_name}_pr_curves.png")
     plt.clf()
+
+
+def _plot_confusion_matrix(organ, pred, truth, dataset_name):
+    cm = get_cell_confusion_matrix(organ, pred, truth)
+    plt.clf()
+    plot_confusion_matrix(
+        cm, dataset_name, Path(f"../../analysis/evaluation/plots/"), fmt="d"
+    )
 
 
 if __name__ == "__main__":
