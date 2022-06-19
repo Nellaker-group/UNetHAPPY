@@ -47,7 +47,7 @@ class Organ:
 PLACENTA = Organ(
     [
         Cell("CYT", "Cytotrophoblasts", "#24ff24", "#0d8519", "#00E307", 0, 0),
-        Cell("FIB", "Fibroblast", "#920000", "#7b03fc", "#F60239", 1, 1),
+        Cell("FIB", "Fibroblast", "#920000", "#7b03fc", "#C80B2A", 1, 1),
         Cell("HOF", "Hofbauer", "#ffff6d", "#979903", "#FFDC3D", 2, 1),
         Cell("SYN", "Syncytiotrophoblast", "#6db6ff", "#0f0cad", "#009FFA", 3, 0),
         Cell("VEN", "Vascular Endothelial", "#ff9600", "#734c0e", "#FF6E3A", 4, 2),

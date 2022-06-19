@@ -1,5 +1,6 @@
 from enum import Enum
 from pathlib import Path
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +14,7 @@ from happy.organs.organs import get_organ
 from happy.hdf5.utils import (
     get_datasets_in_patch,
     filter_by_confidence,
+    filter_by_cell_type,
     get_embeddings_file,
 )
 from happy.utils.utils import get_project_dir
@@ -45,6 +47,7 @@ def main(
     height: int = -1,
     top_conf: bool = False,
     plot_edges: bool = False,
+    single_cell: Optional[str] = None,
 ):
     """Generates a graph and saves it's visualisation. Node are coloured by cell type
 
@@ -80,6 +83,11 @@ def main(
             predictions, embeddings, coords, confidence, 0.9, 1.0
         )
 
+    if single_cell:
+        predictions, embeddings, coords, confidence = filter_by_cell_type(
+            predictions, embeddings, coords, confidence, single_cell, organ
+        )
+
     # Make graph data object
     data = Data(x=predictions, pos=torch.Tensor(coords.astype("int32")))
 
@@ -88,6 +96,7 @@ def main(
         project_dir / "visualisations" / "graphs" / save_dirs / f"w{width}_h{height}"
     )
     plot_name = f"x{x_min}_y{y_min}_top_conf" if top_conf else f"x{x_min}_y{y_min}"
+    plot_name = f"{plot_name}_{single_cell}" if single_cell else plot_name
 
     method = method.value
     if method == "k":
@@ -282,7 +291,7 @@ def visualize_points(
     point_size=None,
 ):
     if colours is None:
-        colours_dict = {cell.id: cell.colour for cell in organ.cells}
+        colours_dict = {cell.id: cell.colourblind_colour for cell in organ.cells}
         colours = [colours_dict[label] for label in labels]
 
     if point_size is None:
