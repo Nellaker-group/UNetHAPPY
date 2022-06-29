@@ -124,7 +124,7 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
     elif model_type == "sup_clustergcn":
         model = ClusterGCN(
             data.num_node_features,
-            hidden_channels=128,
+            hidden_channels=256,
             out_channels=num_classes,
             num_layers=layers,
         )
