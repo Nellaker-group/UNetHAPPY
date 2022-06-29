@@ -48,12 +48,14 @@ def filter_hdf5(
     ) = get_hdf5_datasets(file_path, start, num_points)
 
     if metric_type == "cell_class":
-        cell_class = metric_start
-        label_map = {cell.label: cell.id for cell in organ.cells}
-        filtered_embeddings = embeddings[predictions == label_map[cell_class]]
-        filtered_predictions = predictions[predictions == label_map[cell_class]]
-        filtered_confidence = confidence[predictions == label_map[cell_class]]
-        filtered_coords = coords[predictions == label_map[cell_class]]
+        (
+            filtered_predictions,
+            filtered_embeddings,
+            filtered_coords,
+            filtered_confidence,
+        ) = filter_by_cell_type(
+            predictions, embeddings, coords, confidence, metric_start, organ
+        )
     elif metric_type == "confidence":
         min_conf = metric_start
         max_conf = metric_end
@@ -121,6 +123,21 @@ def filter_by_confidence(
     filtered_coords = coords[
         np.logical_and((confidence >= min_conf), (confidence <= max_conf))
     ]
+    return (
+        filtered_predictions,
+        filtered_embeddings,
+        filtered_coords,
+        filtered_confidence,
+    )
+
+
+def filter_by_cell_type(predictions, embeddings, coords, confidence, cell_type, organ):
+    label_map = {cell.label: cell.id for cell in organ.cells}
+    filtered_embeddings = embeddings[predictions == label_map[cell_type]]
+    filtered_predictions = predictions[predictions == label_map[cell_type]]
+    filtered_confidence = confidence[predictions == label_map[cell_type]]
+    filtered_coords = coords[predictions == label_map[cell_type]]
+
     return (
         filtered_predictions,
         filtered_embeddings,

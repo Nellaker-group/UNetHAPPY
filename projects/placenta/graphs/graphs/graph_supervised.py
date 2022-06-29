@@ -6,6 +6,7 @@ from torch_geometric.loader import (
     ClusterLoader,
     NeighborSampler,
     NeighborLoader,
+    DataLoader,
 )
 from torch_geometric.transforms import RandomNodeSplit
 from sklearn.utils.class_weight import compute_class_weight
@@ -13,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
-from happy.models.clustergcn import ClusterGCN
+from happy.models.clustergcn import ClusterGCN, ClusterGCNConvNet
 from happy.models.gat import GAT, GATv2
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
 

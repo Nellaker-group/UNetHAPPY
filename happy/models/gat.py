@@ -54,7 +54,7 @@ class GAT(nn.Module):
             x = F.dropout(x, p=0.6, training=self.training)
             x = conv(x, edge_index)
             if i != len(self.convs) - 1:
-                x = F.elu(x)
+                x = F.relu(x)
         return F.log_softmax(x, dim=-1)
 
     def inference(self, x_all, subgraph_loader, device):
@@ -69,7 +69,7 @@ class GAT(nn.Module):
                 x_target = x[: size[1]]
                 x = conv((x, x_target), edge_index)
                 if i != len(self.convs) - 1:
-                    x = F.elu(x)
+                    x = F.relu(x)
                 xs.append(x.cpu())
 
             x_all = torch.cat(xs, dim=0)
@@ -133,7 +133,7 @@ class GATv2(nn.Module):
             x = F.dropout(x, p=0.6, training=self.training)
             x = conv(x, edge_index)
             if i != len(self.convs) - 1:
-                x = F.elu(x)
+                x = F.relu(x)
         return F.log_softmax(x, dim=-1)
 
     def inference(self, x_all, subgraph_loader, device):
@@ -148,7 +148,7 @@ class GATv2(nn.Module):
                 x_target = x[: size[1]]
                 x = conv((x, x_target), edge_index)
                 if i != len(self.convs) - 1:
-                    x = F.elu(x)
+                    x = F.relu(x)
                 xs.append(x.cpu())
 
             x_all = torch.cat(xs, dim=0)
