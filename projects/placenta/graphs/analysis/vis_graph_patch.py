@@ -108,7 +108,7 @@ def main(
     elif method == "voronoi":
         vis_voronoi(data, plot_name, save_dir, organ)
     elif method == "delaunay":
-        vis_delaunay(data, plot_name, save_dir, organ)
+        vis_delaunay(data, plot_name, save_dir, organ, width, height)
     elif method == "intersection":
         vis_intersection(data, 6, plot_name, save_dir, organ, width, height)
     elif method == "all":
@@ -116,7 +116,7 @@ def main(
             6, 7, data, plot_name, save_dir, organ, width, height, plot_edges
         )
         vis_voronoi(data, plot_name, save_dir, organ)
-        vis_delaunay(data, plot_name, save_dir, organ)
+        vis_delaunay(data, plot_name, save_dir, organ, width, height)
     else:
         raise ValueError(f"no such method: {method}")
 
@@ -227,8 +227,8 @@ def vis_voronoi(data, plot_name, save_dir, organ, show_points=False):
     print(f"Plot saved to {save_path / plot_name}")
 
 
-def vis_delaunay(data, plot_name, save_dir, organ):
-    colours_dict = {cell.id: cell.colour for cell in organ.cells}
+def vis_delaunay(data, plot_name, save_dir, organ, width, height):
+    colours_dict = {cell.id: cell.colourblind_colour for cell in organ.cells}
     colours = [colours_dict[label] for label in data.x]
 
     # Specify save graph vis location
@@ -240,8 +240,9 @@ def vis_delaunay(data, plot_name, save_dir, organ):
 
     point_size = 1 if len(delaunay.edges) >= 10000 else 2
 
-    fig = plt.figure(figsize=(8, 8), dpi=150)
-    plt.triplot(delaunay, linewidth=0.3, color="black")
+    figsize = _calc_figsize(data.pos, width, height)
+    fig = plt.figure(figsize=figsize, dpi=150)
+    plt.triplot(delaunay, linewidth=0.5, color="black")
     plt.scatter(
         data.pos[:, 0], data.pos[:, 1], marker=".", s=point_size, zorder=1000, c=colours
     )
