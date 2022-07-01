@@ -173,9 +173,10 @@ def main(
         height=height,
     )
 
-    label_dict = {tissue.id: tissue.label for tissue in organ.tissues}
-    predicted_labels = [label_dict[label] for label in predicted_labels]
-    _save_tissue_preds_as_tsv(predicted_labels, coords, save_path)
+    if x_min is None:
+        label_dict = {tissue.id: tissue.label for tissue in organ.tissues}
+        predicted_labels = [label_dict[label] for label in predicted_labels]
+        _save_tissue_preds_as_tsv(predicted_labels, coords, save_path)
 
 
 def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled):
