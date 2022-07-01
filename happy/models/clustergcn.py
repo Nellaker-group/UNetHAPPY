@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from torch_geometric.nn import SAGEConv, ClusterGCNConv
+from torch_geometric.nn import SAGEConv, ClusterGCNConv, norm
 
 
 class ClusterGCN(nn.Module):
@@ -9,16 +9,19 @@ class ClusterGCN(nn.Module):
         super(ClusterGCN, self).__init__()
         self.num_layers = num_layers
         self.convs = nn.ModuleList()
+        self.bns = nn.ModuleList()
 
         for i in range(num_layers):
             in_channels = in_channels if i == 0 else hidden_channels
             hidden_channels = out_channels if i == num_layers - 1 else hidden_channels
             self.convs.append(SAGEConv(in_channels, hidden_channels))
+            self.bns.append(norm.BatchNorm(hidden_channels))
 
     def forward(self, x, edge_index):
         for i, conv in enumerate(self.convs):
             x = conv(x, edge_index)
             if i != len(self.convs) - 1:
+                x = self.bns[i](x)
                 x = F.relu(x)
                 x = F.dropout(x, p=0.5, training=self.training)
         return F.log_softmax(x, dim=-1)
@@ -35,6 +38,7 @@ class ClusterGCN(nn.Module):
                 x_target = x[:size[1]]
                 x = conv((x, x_target), edge_index)
                 if i != len(self.convs) - 1:
+                    x = self.bns[i](x)
                     x = F.relu(x)
                 xs.append(x.cpu())
 
