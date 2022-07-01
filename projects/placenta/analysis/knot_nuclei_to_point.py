@@ -104,6 +104,7 @@ def process_knt_cells(
     all_embeddings = np.delete(all_embeddings, inds_to_remove_from_total, axis=0)
     all_coords = np.delete(all_coords, inds_to_remove_from_total, axis=0)
     all_confidence = np.delete(all_confidence, inds_to_remove_from_total, axis=0)
+    print(f"Clustered {len(inds_to_remove_from_total)} KNT cells into a single point")
 
     return all_predictions, all_embeddings, all_coords, all_confidence
 
@@ -137,7 +138,7 @@ def _convert_isolated_knt_into_syn(
     knt_predictions[lone_knt_indices] = 3
     print(
         f"Converted {len(lone_knt_indices)} KNT cells with fewer than "
-        f"{cut_off_count+1} neighbors into SYN"
+        f"{cut_off_count+1} neighbours into SYN"
     )
     return all_predictions, knt_predictions
 

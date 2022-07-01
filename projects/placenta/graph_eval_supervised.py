@@ -146,7 +146,8 @@ def main(
                 )
 
     # Print some prediction count info
-    _print_prediction_stats(predicted_labels)
+    tissue_label_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
+    _print_prediction_stats(predicted_labels, tissue_label_mapping)
 
     # Evaluate against ground truth tissue annotations
     if tissue_label_tsv is not None:
@@ -172,10 +173,12 @@ def main(
         height=height,
     )
 
+    label_dict = {tissue.id: tissue.label for tissue in organ.tissues}
+    predicted_labels = [label_dict[label] for label in predicted_labels]
+    _save_tissue_preds_as_tsv(predicted_labels, coords, save_path)
 
-def evaluate(
-    tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled
-):
+
+def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled):
     tissue_ids = [tissue.id for tissue in organ.tissues]
     tissue_labels = [tissue.label for tissue in organ.tissues]
     if remove_unlabelled:
@@ -230,7 +233,6 @@ def evaluate(
             row_insert = np.zeros((1, cm.shape[1]))
             cm = np.insert(cm, missing_id, row_insert, 0)
 
-
     cm_df = pd.DataFrame(cm, columns=tissue_labels, index=tissue_labels).astype(int)
     unique_counts = cm.sum(axis=1)
     cm_df_props = (
@@ -266,10 +268,20 @@ def _remove_unlabelled(tissue_class, predicted_labels, pos, out):
     return labelled_inds, tissue_class, predicted_labels, pos, out
 
 
-def _print_prediction_stats(predicted_labels):
+def _print_prediction_stats(predicted_labels, tissue_label_mapping):
     unique, counts = np.unique(predicted_labels, return_counts=True)
-    unique_counts = dict(zip(unique, counts))
+    unique_labels = []
+    for label in unique:
+        unique_labels.append(tissue_label_mapping[label])
+    unique_counts = dict(zip(unique_labels, counts))
     print(f"Predictions per label: {unique_counts}")
+
+
+def _save_tissue_preds_as_tsv(predicted_labels, coords, save_path):
+    tissue_preds_df = pd.DataFrame(
+        {"x": coords[:, 0], "y": coords[:, 1], "class": predicted_labels}
+    )
+    tissue_preds_df.to_csv(save_path / "tissue_preds.tsv", sep="\t", index=False)
 
 
 if __name__ == "__main__":
