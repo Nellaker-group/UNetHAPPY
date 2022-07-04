@@ -4,7 +4,21 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-from sklearn.metrics import confusion_matrix
+from sklearn.preprocessing import label_binarize
+from scipy.special import softmax
+from sklearn.metrics import (
+    confusion_matrix,
+    precision_recall_curve,
+    average_precision_score,
+)
+
+
+def setup_run(project_dir, exp_name, dataset_type):
+    fmt = "%Y-%m-%dT%H-%M-%S"
+    timestamp = datetime.strftime(datetime.utcnow(), fmt)
+    run_path = project_dir / "results" / dataset_type / exp_name / timestamp
+    run_path.mkdir(parents=True, exist_ok=True)
+    return run_path
 
 
 def get_cell_confusion_matrix(organ, pred, truth):
@@ -22,7 +36,7 @@ def get_cell_confusion_matrix(organ, pred, truth):
     if len(missing_cell_ids) > 0:
         for missing_id in missing_cell_ids:
             column_insert = np.zeros((cm.shape[0], 1))
-            cm = np.hstack((cm[:,:missing_id], column_insert, cm[:,missing_id:]))
+            cm = np.hstack((cm[:, :missing_id], column_insert, cm[:, missing_id:]))
             row_insert = np.zeros((1, cm.shape[1]))
             cm = np.insert(cm, missing_id, row_insert, 0)
 
@@ -42,9 +56,55 @@ def plot_confusion_matrix(cm, dataset_name, run_path, fmt="d"):
     plt.clf()
 
 
-def setup_run(project_dir, exp_name, dataset_type):
-    fmt = "%Y-%m-%dT%H-%M-%S"
-    timestamp = datetime.strftime(datetime.utcnow(), fmt)
-    run_path = project_dir / "results" / dataset_type / exp_name / timestamp
-    run_path.mkdir(parents=True, exist_ok=True)
-    return run_path
+def plot_pr_curves(id_to_label, colours, ground_truth, scores, save_path):
+    class_ids = np.unique(list(id_to_label.keys()))
+
+    ground_truth = label_binarize(ground_truth, classes=class_ids)
+    scores = np.array(scores)
+    scores = softmax(scores, axis=1)
+
+    # Compute Precision-Recall and plot curve
+    precision = dict()
+    recall = dict()
+    average_precision = dict()
+    for i in class_ids:
+        precision[i], recall[i], _ = precision_recall_curve(
+            ground_truth[:, i], scores[:, i]
+        )
+        average_precision[i] = average_precision_score(ground_truth[:, i], scores[:, i])
+
+    # Compute micro-average ROC curve and ROC area
+    precision["micro"], recall["micro"], _ = precision_recall_curve(
+        ground_truth.ravel(), scores.ravel()
+    )
+    average_precision["micro"] = average_precision_score(
+        ground_truth, scores, average="micro"
+    )
+
+    # Plot Precision-Recall curve for each class
+    plt.clf()
+    plt.figure()
+    ax = plt.subplot(111)
+    plt.plot(
+        recall["micro"],
+        precision["micro"],
+        label=f"mavg ({average_precision['micro']:0.2f})",
+        color="black",
+    )
+    for i in class_ids:
+        plt.plot(
+            recall[i],
+            precision[i],
+            label=f"{id_to_label[i]} ({average_precision[i]:0.2f})",
+            color=colours[i],
+        )
+
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    plt.savefig(save_path)
+    plt.clf()

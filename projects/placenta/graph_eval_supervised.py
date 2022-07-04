@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from happy.utils.utils import get_device, get_project_dir
-from happy.train.utils import plot_confusion_matrix
+from happy.train.utils import plot_confusion_matrix, plot_pr_curves
 from happy.organs.organs import get_organ
 from graphs.graphs.create_graph import get_raw_data, setup_graph
 from graphs.graphs.embeddings import fit_umap, plot_cell_graph_umap, plot_tissue_umap
@@ -257,6 +257,12 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
     plt.figure(figsize=(10, 8))
     sns.set(font_scale=1.1)
     plot_confusion_matrix(cm_df_props, "All Tissues Proportion", run_path, ".2f")
+
+    tissue_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
+    tissue_colours = {tissue.id: tissue.colour for tissue in organ.tissues}
+    plot_pr_curves(
+        tissue_mapping, tissue_colours, tissue_class, out, run_path / "pr_curves.png"
+    )
 
 
 def _remove_unlabelled(tissue_class, predicted_labels, pos, out):

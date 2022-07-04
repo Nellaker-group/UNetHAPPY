@@ -8,19 +8,20 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import label_binarize
 from scipy.special import softmax
 from sklearn.metrics import (
     accuracy_score,
     top_k_accuracy_score,
     cohen_kappa_score,
     matthews_corrcoef,
-    precision_recall_curve,
-    average_precision_score,
 )
 
 from happy.utils.utils import get_device
-from happy.train.utils import get_cell_confusion_matrix, plot_confusion_matrix
+from happy.train.utils import (
+    get_cell_confusion_matrix,
+    plot_confusion_matrix,
+    plot_pr_curves,
+)
 from happy.organs.organs import get_organ
 from happy.train.cell_train import setup_data, setup_model
 
@@ -32,8 +33,8 @@ def main(
     pre_trained: str = typer.Option(...),
     dataset_names: List[str] = typer.Option([]),
     print_mean_confidence: bool = False,
-    plot_pr_curves: bool = True,
-    plot_confusion_matrix: bool = True,
+    plot_pr: bool = True,
+    plot_cm: bool = True,
 ):
     """Evaluates model performance across validation datasets
 
@@ -44,7 +45,8 @@ def main(
         pre_trained: relative path to pretrained model
         dataset_names: the datasets who's validation set to evaluate over
         print_mean_confidence: whether to print confidence confusion matrix
-        plot_pr_curves: whether to plot the pr curves
+        plot_pr: whether to plot the pr curves
+        plot_cm: whether to plot the confusion matrix
     """
     device = get_device()
 
@@ -126,23 +128,26 @@ def main(
             print("Mean confidence across cells for ground truth cell types:")
             print(list(cell_mapping.values()))
             for cell_id, cell_label in cell_mapping.items():
-                cell_inds = (np.array(ground_truth[dataset_name]) == cell_id).nonzero()[0]
+                cell_inds = (np.array(ground_truth[dataset_name]) == cell_id).nonzero()[
+                    0
+                ]
                 cell_scores = np.array(outs[dataset_name])[cell_inds]
                 cell_confidences = np.mean(softmax(cell_scores, axis=1), axis=0)
                 if np.all(np.isnan(cell_confidences)):
                     continue
                 print(f"{cell_label}: {np.round(cell_confidences, 3)}")
 
-        if plot_pr_curves:
-            _plot_pr_curves(
+        if plot_pr:
+            save_path = f"../../analysis/evaluation/plots/{dataset_name}_pr_curves.png"
+            plot_pr_curves(
                 cell_mapping,
                 cell_colours,
-                dataset_name,
                 ground_truth[dataset_name],
                 outs[dataset_name],
+                save_path,
             )
 
-        if plot_confusion_matrix:
+        if plot_cm:
             _plot_confusion_matrix(
                 organ,
                 predictions[dataset_name],
@@ -156,60 +161,6 @@ def _convert_to_alt_label(organ, labels):
     alt_ids = [cell.alt_id for cell in organ.cells]
     alt_id_mapping = dict(zip(ids, alt_ids))
     return [alt_id_mapping[label] for label in labels]
-
-
-def _plot_pr_curves(cell_mapping, cell_colours, dataset_name, ground_truth, scores):
-    cell_classes = np.unique(list(cell_mapping.keys()))
-
-    ground_truth = label_binarize(ground_truth, classes=cell_classes)
-    scores = np.array(scores)
-    scores = softmax(scores, axis=1)
-
-    # Compute Precision-Recall and plot curve
-    precision = dict()
-    recall = dict()
-    average_precision = dict()
-    for i in cell_classes:
-        precision[i], recall[i], _ = precision_recall_curve(
-            ground_truth[:, i], scores[:, i]
-        )
-        average_precision[i] = average_precision_score(ground_truth[:, i], scores[:, i])
-
-    # Compute micro-average ROC curve and ROC area
-    precision["micro"], recall["micro"], _ = precision_recall_curve(
-        ground_truth.ravel(), scores.ravel()
-    )
-    average_precision["micro"] = average_precision_score(
-        ground_truth, scores, average="micro"
-    )
-
-    # Plot Precision-Recall curve for each class
-    plt.clf()
-    plt.figure()
-    ax = plt.subplot(111)
-    plt.plot(
-        recall["micro"],
-        precision["micro"],
-        label=f"mavg ({average_precision['micro']:0.2f})",
-        color="black",
-    )
-    for i in cell_classes:
-        plt.plot(
-            recall[i],
-            precision[i],
-            label=f"{cell_mapping[i]} ({average_precision[i]:0.2f})",
-            color=cell_colours[i],
-        )
-
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel("Recall")
-    plt.ylabel("Precision")
-    plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
-    box = ax.get_position()
-    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-    plt.savefig(f"../../analysis/evaluation/plots/{dataset_name}_pr_curves.png")
-    plt.clf()
 
 
 def _plot_confusion_matrix(organ, pred, truth, dataset_name):
