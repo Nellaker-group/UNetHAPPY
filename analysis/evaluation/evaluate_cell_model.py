@@ -164,7 +164,7 @@ def _convert_to_alt_label(organ, labels):
 
 
 def _plot_confusion_matrix(organ, pred, truth, dataset_name):
-    cm = get_cell_confusion_matrix(organ, pred, truth)
+    cm = get_cell_confusion_matrix(organ, pred, truth, proportion_label=True)
     plt.clf()
     plot_confusion_matrix(
         cm, dataset_name, Path(f"../../analysis/evaluation/plots/"), fmt="d"

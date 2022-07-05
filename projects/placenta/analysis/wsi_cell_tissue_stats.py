@@ -1,6 +1,8 @@
 import typer
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from happy.organs.organs import get_organ
 from happy.utils.utils import get_project_dir
@@ -25,7 +27,7 @@ def main(
     # Create database connection
     db.init()
     organ = get_organ("placenta")
-    cell_label_mapping = {tissue.id: tissue.label for tissue in organ.cells}
+    cell_label_mapping = {cell.id: cell.label for cell in organ.cells}
     project_dir = get_project_dir(project_name)
 
     # Get path to embeddings hdf5 files
@@ -73,7 +75,30 @@ def main(
     unique_tissue_counts = dict(zip(unique_tissues, tissue_counts))
     print(f"Num tissue predictions per label: {unique_tissue_counts}")
 
-    # TODO: find avg cell types within each tissue type and plot as stacked bar chart
+    # get number of cell types within each tissue type
+    cell_predictions = [cell_label_mapping[cell] for cell in predictions]
+    get_cells_within_tissues(coords, cell_predictions, tissue_preds["class"])
+
+
+# find cell types within each tissue type and plot as stacked bar chart
+def get_cells_within_tissues(coords, cell_predictions, tissue_predictions):
+    combined_df = pd.DataFrame(
+        {
+            "x": coords[:, 0],
+            "y": coords[:, 1],
+            "Cells": cell_predictions,
+            "Tissues": tissue_predictions,
+        }
+    )
+    grouped_df = (
+        combined_df.groupby(["Tissues", "Cells"]).size().reset_index(name="count")
+    )
+    grouped_df["prop"] = grouped_df.groupby(["Tissues"])["count"].transform(
+        lambda x: x * 100 / x.sum()
+    )
+    prop_df = grouped_df.pivot_table(index="Tissues", columns="Cells", values="prop")
+    prop_df.plot(kind="bar", stacked=True)
+    plt.show()
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ def setup_run(project_dir, exp_name, dataset_type):
     return run_path
 
 
-def get_cell_confusion_matrix(organ, pred, truth):
+def get_cell_confusion_matrix(organ, pred, truth, proportion_label=False):
     cell_labels = [cell.label for cell in organ.cells]
     cell_ids = {cell.id for cell in organ.cells}
 
@@ -40,7 +40,74 @@ def get_cell_confusion_matrix(organ, pred, truth):
             row_insert = np.zeros((1, cm.shape[1]))
             cm = np.insert(cm, missing_id, row_insert, 0)
 
-    return pd.DataFrame(cm, columns=cell_labels, index=cell_labels).astype(int)
+    row_labels = []
+    if proportion_label:
+        unique_counts = cm.sum(axis=1)
+        total_counts = cm.sum()
+        label_proportions = ((unique_counts / total_counts) * 100).round(2)
+        for i, label in enumerate(cell_labels):
+            row_labels.append(f"{label}\n({label_proportions[i]}%)")
+
+    return pd.DataFrame(cm, columns=cell_labels, index=row_labels).astype(int)
+
+
+def get_tissue_confusion_matrix(
+    organ, pred, truth, remove_unlabelled=True, proportion_label=False
+):
+    tissue_ids = {tissue.id for tissue in organ.tissues}
+    tissue_labels = {tissue.label for tissue in organ.tissues}
+
+    unique_values_in_pred = set(pred)
+    unique_values_in_truth = set(truth)
+    unique_values_in_matrix = unique_values_in_pred.union(unique_values_in_truth)
+    missing_tissue_ids = list(set(tissue_ids) - unique_values_in_matrix)
+    missing_tissue_ids.sort()
+
+    if remove_unlabelled:
+        if 0 in missing_tissue_ids:
+            missing_tissue_ids.remove(0)
+            tissue_labels = tissue_labels[1:]
+
+    cm = confusion_matrix(truth, pred)
+
+    if len(missing_tissue_ids) > 0:
+        for missing_id in missing_tissue_ids:
+            column_insert = np.zeros((cm.shape[0], 1))
+            cm = np.hstack((cm[:, :missing_id], column_insert, cm[:, missing_id:]))
+            row_insert = np.zeros((1, cm.shape[1]))
+            cm = np.insert(cm, missing_id, row_insert, 0)
+
+    row_labels = []
+    if proportion_label:
+        unique_counts = cm.sum(axis=1)
+        total_counts = cm.sum()
+        label_proportions = ((unique_counts / total_counts) * 100).round(2)
+        for i, label in enumerate(tissue_labels):
+            row_labels.append(f"{label} ({label_proportions[i]}%)")
+
+    cm_df = pd.DataFrame(cm, columns=tissue_labels, index=tissue_labels).astype(int)
+    unique_counts = cm.sum(axis=1)
+
+    cm_df_props = (
+        pd.DataFrame(
+            cm / unique_counts[:, None], columns=tissue_labels, index=tissue_labels
+        )
+        .fillna(0)
+        .astype(float)
+    )
+
+    empty_rows = (cm_df.T != 0).any()
+    cm_df = cm_df[empty_rows]
+    cm_df_props = cm_df_props[empty_rows]
+    empty_row_names = empty_rows[empty_rows == False].index.tolist()
+    cm_df = cm_df.drop(columns=empty_row_names)
+    cm_df_props = cm_df_props.drop(columns=empty_row_names)
+
+    row_labels = np.array(row_labels)
+    row_labels = row_labels[empty_rows]
+    cm_df_props.set_index(row_labels, drop=True, inplace=True)
+
+    return cm_df, cm_df_props
 
 
 def plot_confusion_matrix(cm, dataset_name, run_path, fmt="d"):
@@ -56,12 +123,12 @@ def plot_confusion_matrix(cm, dataset_name, run_path, fmt="d"):
     plt.clf()
 
 
-def plot_pr_curves(id_to_label, colours, ground_truth, scores, save_path):
+def plot_pr_curves(id_to_label, colours, ground_truth, scores, save_path, figsize=None):
     class_ids = np.unique(list(id_to_label.keys()))
 
     ground_truth = label_binarize(ground_truth, classes=class_ids)
     scores = np.array(scores)
-    scores = softmax(scores, axis=1)
+    scores = softmax(scores, axis=-1)
 
     # Compute Precision-Recall and plot curve
     precision = dict()
@@ -83,7 +150,7 @@ def plot_pr_curves(id_to_label, colours, ground_truth, scores, save_path):
 
     # Plot Precision-Recall curve for each class
     plt.clf()
-    plt.figure()
+    plt.figure(figsize=figsize)
     ax = plt.subplot(111)
     plt.plot(
         recall["micro"],
