@@ -2,6 +2,7 @@ import typer
 import sklearn.neighbors as sk
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from happy.organs.organs import get_organ
 import happy.db.eval_runs_interface as db
@@ -22,10 +23,12 @@ def main(
     height: int = -1,
     radius: int = 100,
     cut_off_count: int = 3,
+    make_tsv: bool = False,
 ):
     # Create database connection
     db.init()
     organ = get_organ("placenta")
+    cell_label_mapping = {cell.id: cell.label for cell in organ.cells}
 
     # Get path to embeddings hdf5 files
     embeddings_path = get_embeddings_file(project_name, run_id)
@@ -34,7 +37,13 @@ def main(
         embeddings_path, x_min, y_min, width, height
     )
 
-    _, _, _, _ = process_knt_cells(
+    (
+        all_predictions,
+        all_embeddings,
+        all_coords,
+        all_confidence,
+        _,
+    ) = process_knt_cells(
         all_predictions,
         all_embeddings,
         all_coords,
@@ -46,6 +55,14 @@ def main(
         height,
         plot=True,
     )
+
+    if make_tsv:
+        print(f"Making tsv file...")
+        label_predictions = [cell_label_mapping[x] for x in all_predictions]
+        df = pd.DataFrame(
+            {"x": all_coords[:, 0], "y": all_coords[:, 1], "class": label_predictions}
+        )
+        df.to_csv("plots/grouped_knt_cells.tsv", sep="\t", index=False)
 
 
 def process_knt_cells(
@@ -106,7 +123,13 @@ def process_knt_cells(
     all_confidence = np.delete(all_confidence, inds_to_remove_from_total, axis=0)
     print(f"Clustered {len(inds_to_remove_from_total)} KNT cells into a single point")
 
-    return all_predictions, all_embeddings, all_coords, all_confidence
+    return (
+        all_predictions,
+        all_embeddings,
+        all_coords,
+        all_confidence,
+        unique_inds_to_remove,
+    )
 
 
 def _plot_distances_to_nearest_neighbor(num_in_radius):
