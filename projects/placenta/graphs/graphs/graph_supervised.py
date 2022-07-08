@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
-from happy.models.clustergcn import ClusterGCN, ClusterGCNConvNet
+from happy.models.clustergcn import ClusterGCN, ClusterGCNConvNet, JumpingClusterGCN
 from happy.models.gat import GAT, GATv2
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
 
@@ -69,15 +69,19 @@ def setup_dataloaders(
     batch_size,
     num_neighbors,
 ):
-    if model_type == "sup_clustergcn" or model_type == "sup_gat":
+    if (
+        model_type == "sup_clustergcn"
+        or model_type == "sup_gat"
+        or model_type == "sup_jumping"
+    ):
         cluster_data = ClusterData(
             data, num_parts=int(data.x.size()[0] / num_neighbors), recursive=False
         )
         train_loader = ClusterLoader(
-            cluster_data, batch_size=batch_size, shuffle=True, num_workers=12
+            cluster_data, batch_size=batch_size, shuffle=True, num_workers=0
         )
         val_loader = NeighborSampler(
-            data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
+            data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=0
         )
     else:
         train_loader = NeighborLoader(
@@ -115,15 +119,15 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             heads=1,
             num_layers=layers,
         )
-    elif model_type == "sup_diffpool":
-        model = SupervisedDiffPool(
-            data.num_node_features,
-            hidden_channels=64,
-            out_channels=num_classes,
-            num_sage_layers=layers,
-        )
     elif model_type == "sup_clustergcn":
         model = ClusterGCN(
+            data.num_node_features,
+            hidden_channels=256,
+            out_channels=num_classes,
+            num_layers=layers,
+        )
+    elif model_type == "sup_jumping":
+        model = JumpingClusterGCN(
             data.num_node_features,
             hidden_channels=256,
             out_channels=num_classes,
@@ -158,7 +162,11 @@ def setup_training_params(
             criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
         else:
             criterion = torch.nn.CrossEntropyLoss()
-    elif model_type == "sup_clustergcn" or model_type == "sup_gat":
+    elif (
+        model_type == "sup_clustergcn"
+        or model_type == "sup_gat"
+        or model_type == "sup_jumping"
+    ):
         if weighted_loss:
             data_classes = train_dataloader.cluster_data.data.y[
                 train_dataloader.cluster_data.data.train_mask
@@ -191,7 +199,11 @@ def train(
     total_examples = 0
     total_correct = 0
 
-    if model_type == "sup_clustergcn" or model_type == "sup_gat":
+    if (
+        model_type == "sup_clustergcn"
+        or model_type == "sup_gat"
+        or model_type == "sup_jumping"
+    ):
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()

@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from torch_geometric.nn import SAGEConv, ClusterGCNConv, norm
+from torch_geometric.nn import SAGEConv, ClusterGCNConv, norm, JumpingKnowledge
 
 
 class ClusterGCN(nn.Module):
@@ -48,6 +48,62 @@ class ClusterGCN(nn.Module):
                 embeddings = x_all.detach().clone()
 
         return x_all, embeddings
+
+
+class JumpingClusterGCN(nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
+        super(JumpingClusterGCN, self).__init__()
+        self.num_layers = num_layers
+        self.convs = nn.ModuleList()
+        self.bns = nn.ModuleList()
+        self.jump = JumpingKnowledge(mode='cat')
+        self.lin1 = nn.Linear(num_layers * hidden_channels, hidden_channels)
+        self.lin2 = nn.Linear(hidden_channels, out_channels)
+
+        for i in range(num_layers):
+            in_channels = in_channels if i == 0 else hidden_channels
+            self.convs.append(SAGEConv(in_channels, hidden_channels))
+            self.bns.append(norm.BatchNorm(hidden_channels))
+
+    def forward(self, x, edge_index):
+        xs = []
+        for i, conv in enumerate(self.convs):
+            x = conv(x, edge_index)
+            x = self.bns[i](x)
+            x = F.relu(x)
+            x = F.dropout(x, p=0.5, training=self.training)
+            xs.append(x)
+        x = self.jump(xs)
+        x = self.lin1(x)
+        x = F.relu(x)
+        x = F.dropout(x, p=0.5, training=self.training)
+        x = self.lin2(x)
+        return F.log_softmax(x, dim=-1)
+
+    def inference(self, x_all, subgraph_loader, device):
+        # Compute representations of nodes layer by layer, using *all*
+        # available edges. This leads to faster computation in contrast to
+        # immediately computing the final representations of each batch.
+        xs = []
+        for i, conv in enumerate(self.convs):
+            batch_xs = []
+            for batch_size, n_id, adj in subgraph_loader:
+                edge_index, _, size = adj.to(device)
+                x = x_all[n_id].to(device)
+                x_target = x[:size[1]]
+                x = conv((x, x_target), edge_index)
+                x = self.bns[i](x)
+                x = F.relu(x)
+                batch_xs.append(x.cpu())
+            x_all = torch.cat(batch_xs, dim=0)
+            xs.append(x_all)
+
+        x = self.jump(xs)
+        x = self.lin1(x)
+        x = F.relu(x)
+        embeddings = x.detach().clone()
+        x = self.lin2(x)
+        return x, embeddings
 
 
 class ClusterGCNConvNet(nn.Module):
