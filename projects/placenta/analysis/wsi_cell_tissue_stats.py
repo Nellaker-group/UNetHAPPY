@@ -1,6 +1,8 @@
 import typer
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from happy.organs.organs import get_organ
 from happy.utils.utils import get_project_dir
@@ -25,21 +27,22 @@ def main(
     # Create database connection
     db.init()
     organ = get_organ("placenta")
-    cell_label_mapping = {tissue.id: tissue.label for tissue in organ.cells}
+    cell_label_mapping = {cell.id: cell.label for cell in organ.cells}
+    cell_colours_mapping = {cell.label: cell.colourblind_colour for cell in organ.cells}
     project_dir = get_project_dir(project_name)
 
     # Get path to embeddings hdf5 files
     embeddings_path = get_embeddings_file(project_name, run_id)
     # Get hdf5 datasets contained in specified box/patch of WSI
-    predictions, embeddings, coords, confidence = get_datasets_in_patch(
+    predictions, embeddings, cell_coords, confidence = get_datasets_in_patch(
         embeddings_path, x_min, y_min, width, height
     )
 
     if group_knts:
-        predictions, embeddings, coords, confidence = process_knt_cells(
+        predictions, embeddings, cell_coords, confidence = process_knt_cells(
             predictions,
             embeddings,
-            coords,
+            cell_coords,
             confidence,
             organ,
             100,
@@ -68,12 +71,57 @@ def main(
         / "eval"
         / model_name
     )
-    tissue_preds = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")
-    unique_tissues, tissue_counts = np.unique(tissue_preds["class"], return_counts=True)
+    tissue_df = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")
+    unique_tissues, tissue_counts = np.unique(tissue_df["class"], return_counts=True)
     unique_tissue_counts = dict(zip(unique_tissues, tissue_counts))
     print(f"Num tissue predictions per label: {unique_tissue_counts}")
 
-    # TODO: find avg cell types within each tissue type and plot as stacked bar chart
+    # get number of cell types within each tissue type
+    cell_df = pd.DataFrame(
+        {"x": cell_coords[:, 0], "y": cell_coords[:, 1], "cells": predictions}
+    )
+    cell_df["cells"] = cell_df.cells.map(cell_label_mapping)
+    cell_df.sort_values(by=["x", "y"], inplace=True, ignore_index=True)
+    tissue_df.sort_values(by=["x", "y"], inplace=True, ignore_index=True)
+
+    get_cells_within_tissues(cell_df, tissue_df, cell_colours_mapping, pretrained_path)
+
+
+# find cell types within each tissue type and plot as stacked bar chart
+def get_cells_within_tissues(
+    cell_predictions, tissue_predictions, cell_colours_mapping, save_path
+):
+    combined_df = pd.DataFrame(
+        {
+            "cell_x": cell_predictions["x"],
+            "cell_y": cell_predictions["y"],
+            "Cells": cell_predictions["cells"],
+            "tissue_x": tissue_predictions["x"],
+            "tissue_y": tissue_predictions["y"],
+            "Tissues": tissue_predictions["class"],
+        }
+    )
+    grouped_df = (
+        combined_df.groupby(["Tissues", "Cells"]).size().reset_index(name="count")
+    )
+    grouped_df["prop"] = grouped_df.groupby(["Tissues"])["count"].transform(
+        lambda x: x * 100 / x.sum()
+    )
+    prop_df = grouped_df.pivot_table(index="Tissues", columns="Cells", values="prop")
+    prop_df = prop_df[reversed(prop_df.columns)]
+
+    cell_colours = [cell_colours_mapping[cell] for cell in prop_df.columns]
+
+    sns.set(style="whitegrid")
+    plt.figure(figsize=(16, 16))
+    ax = prop_df.plot(kind="bar", stacked=True, color=cell_colours, legend="reverse")
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles[::-1], labels[::-1], loc="center left", bbox_to_anchor=(1, 0.5))
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width, box.height])
+    plt.tight_layout()
+    plt.savefig(save_path / "cells_in_tissues.png")
+    print(f"Plot saved to {save_path / 'cells_in_tissues.png'}")
 
 
 if __name__ == "__main__":
