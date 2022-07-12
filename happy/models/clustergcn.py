@@ -94,16 +94,16 @@ class JumpingClusterGCN(nn.Module):
                 x = conv((x, x_target), edge_index)
                 x = self.bns[i](x)
                 x = F.relu(x)
-                batch_xs.append(x.cpu())
+                batch_xs.append(x)
             x_all = torch.cat(batch_xs, dim=0)
             xs.append(x_all)
 
         x = self.jump(xs)
         x = self.lin1(x)
         x = F.relu(x)
-        embeddings = x.detach().clone()
+        embeddings = x.detach().cpu().clone()
         x = self.lin2(x)
-        return x, embeddings
+        return x.cpu(), embeddings
 
 
 class ClusterGCNConvNet(nn.Module):
