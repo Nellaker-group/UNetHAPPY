@@ -7,7 +7,6 @@ from sklearn.metrics import (
     accuracy_score,
     top_k_accuracy_score,
     f1_score,
-    confusion_matrix,
     cohen_kappa_score,
     roc_auc_score,
     matthews_corrcoef,
@@ -175,7 +174,6 @@ def main(
         colours=colours,
         width=width,
         height=height,
-        point_size=20,
     )
 
     if x_min is None:

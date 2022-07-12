@@ -103,9 +103,10 @@ def get_tissue_confusion_matrix(
     cm_df = cm_df.drop(columns=empty_row_names)
     cm_df_props = cm_df_props.drop(columns=empty_row_names)
 
-    row_labels = np.array(row_labels)
-    row_labels = row_labels[empty_rows]
-    cm_df_props.set_index(row_labels, drop=True, inplace=True)
+    if proportion_label:
+        row_labels = np.array(row_labels)
+        row_labels = row_labels[empty_rows]
+        cm_df_props.set_index(row_labels, drop=True, inplace=True)
 
     return cm_df, cm_df_props
 

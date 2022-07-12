@@ -21,7 +21,7 @@ def main(
     y_min: int = 0,
     width: int = -1,
     height: int = -1,
-    radius: int = 100,
+    radius: int = 50,
     cut_off_count: int = 3,
     make_tsv: bool = False,
 ):
@@ -128,7 +128,7 @@ def process_knt_cells(
         all_embeddings,
         all_coords,
         all_confidence,
-        unique_inds_to_remove,
+        inds_to_remove_from_total,
     )
 
 

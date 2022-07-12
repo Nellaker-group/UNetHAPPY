@@ -39,13 +39,19 @@ def main(
     )
 
     if group_knts:
-        predictions, embeddings, cell_coords, confidence = process_knt_cells(
+        (
+            predictions,
+            embeddings,
+            cell_coords,
+            confidence,
+            inds_to_remove,
+        ) = process_knt_cells(
             predictions,
             embeddings,
             cell_coords,
             confidence,
             organ,
-            100,
+            50,
             3,
             width,
             height,
@@ -59,6 +65,11 @@ def main(
         unique_cell_labels.append(cell_label_mapping[label])
     unique_cell_counts = dict(zip(unique_cell_labels, cell_counts))
     print(f"Num cell predictions per label: {unique_cell_counts}")
+    cell_proportions = [
+        round((count / sum(cell_counts)) * 100, 2) for count in cell_counts
+    ]
+    unique_cell_proportions = dict(zip(unique_cell_labels, cell_proportions))
+    print(f"Cell proportions per label: {unique_cell_proportions}")
 
     # print tissue predictions from tsv file
     pretrained_path = (
@@ -75,6 +86,11 @@ def main(
     unique_tissues, tissue_counts = np.unique(tissue_df["class"], return_counts=True)
     unique_tissue_counts = dict(zip(unique_tissues, tissue_counts))
     print(f"Num tissue predictions per label: {unique_tissue_counts}")
+    tissue_proportions = [
+        round((count / sum(tissue_counts)) * 100, 2) for count in tissue_counts
+    ]
+    unique_tissue_proportions = dict(zip(unique_tissues, tissue_proportions))
+    print(f"Tissue proportions per label: {unique_tissue_proportions}")
 
     # get number of cell types within each tissue type
     cell_df = pd.DataFrame(
