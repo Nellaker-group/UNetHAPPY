@@ -100,12 +100,14 @@ def main(
     cell_df.sort_values(by=["x", "y"], inplace=True, ignore_index=True)
     tissue_df.sort_values(by=["x", "y"], inplace=True, ignore_index=True)
 
-    get_cells_within_tissues(cell_df, tissue_df, cell_colours_mapping, pretrained_path)
+    get_cells_within_tissues(
+        cell_df, tissue_df, cell_colours_mapping, pretrained_path, villus_only=True
+    )
 
 
 # find cell types within each tissue type and plot as stacked bar chart
 def get_cells_within_tissues(
-    cell_predictions, tissue_predictions, cell_colours_mapping, save_path
+    cell_predictions, tissue_predictions, cell_colours_mapping, save_path, villus_only
 ):
     combined_df = pd.DataFrame(
         {
@@ -126,8 +128,11 @@ def get_cells_within_tissues(
     prop_df = grouped_df.pivot_table(index="Tissues", columns="Cells", values="prop")
     prop_df = prop_df[reversed(prop_df.columns)]
 
-    cell_colours = [cell_colours_mapping[cell] for cell in prop_df.columns]
+    if villus_only:
+        prop_df = prop_df.drop(["Fibrin", "Avascular", "Maternal", "AVilli"], axis=0)
+        prop_df = prop_df.reindex(["Chorion", "SVilli", "MIVilli", "TVilli", "Sprout"])
 
+    cell_colours = [cell_colours_mapping[cell] for cell in prop_df.columns]
     sns.set(style="whitegrid")
     plt.figure(figsize=(16, 16))
     ax = prop_df.plot(kind="bar", stacked=True, color=cell_colours, legend="reverse")

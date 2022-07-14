@@ -51,22 +51,15 @@ def get_cell_confusion_matrix(organ, pred, truth, proportion_label=False):
     return pd.DataFrame(cm, columns=cell_labels, index=row_labels).astype(int)
 
 
-def get_tissue_confusion_matrix(
-    organ, pred, truth, remove_unlabelled=True, proportion_label=False
-):
+def get_tissue_confusion_matrix(organ, pred, truth, proportion_label=False):
     tissue_ids = {tissue.id for tissue in organ.tissues}
-    tissue_labels = {tissue.label for tissue in organ.tissues}
+    tissue_labels = [tissue.label for tissue in organ.tissues]
 
     unique_values_in_pred = set(pred)
     unique_values_in_truth = set(truth)
     unique_values_in_matrix = unique_values_in_pred.union(unique_values_in_truth)
-    missing_tissue_ids = list(set(tissue_ids) - unique_values_in_matrix)
+    missing_tissue_ids = list(tissue_ids - unique_values_in_matrix)
     missing_tissue_ids.sort()
-
-    if remove_unlabelled:
-        if 0 in missing_tissue_ids:
-            missing_tissue_ids.remove(0)
-            tissue_labels = tissue_labels[1:]
 
     cm = confusion_matrix(truth, pred)
 
@@ -96,16 +89,16 @@ def get_tissue_confusion_matrix(
         .astype(float)
     )
 
-    empty_rows = (cm_df.T != 0).any()
-    cm_df = cm_df[empty_rows]
-    cm_df_props = cm_df_props[empty_rows]
-    empty_row_names = empty_rows[empty_rows == False].index.tolist()
+    non_empty_rows = (cm_df.T != 0).any()
+    cm_df = cm_df[non_empty_rows]
+    cm_df_props = cm_df_props[non_empty_rows]
+    empty_row_names = non_empty_rows[non_empty_rows == False].index.tolist()
     cm_df = cm_df.drop(columns=empty_row_names)
     cm_df_props = cm_df_props.drop(columns=empty_row_names)
 
     if proportion_label:
         row_labels = np.array(row_labels)
-        row_labels = row_labels[empty_rows]
+        row_labels = row_labels[non_empty_rows]
         cm_df_props.set_index(row_labels, drop=True, inplace=True)
 
     return cm_df, cm_df_props

@@ -18,6 +18,10 @@ def main(
     model_weights_dir: str = typer.Option(...),
     model_name: str = typer.Option(...),
     model_type: str = "sup_clustergcn",
+    x_min: int = 0,
+    y_min: int = 0,
+    width: int = -1,
+    height: int = -1,
     remove_unlabelled: bool = True,
 ):
     organ = get_organ("placenta")
@@ -26,7 +30,7 @@ def main(
 
     # Get ground truth manually annotated data
     _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, 0, 0, -1, -1, "96_tissue_points.tsv", "full"
+        organ, project_dir, x_min, y_min, width, height, "96_tissue_points.tsv", "full"
     )
 
     # print tissue predictions from tsv file
@@ -41,10 +45,24 @@ def main(
         / model_name
     )
     tissue_df = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")
+    tissue_predictions = np.array(tissue_df["class"])
+    xs = np.array(tissue_df["x"])
+    ys = np.array(tissue_df["y"])
 
-    predictions = [label_id_mapping[tissue] for tissue in np.array(tissue_df['class'])]
+    mask = np.logical_and(
+        (np.logical_and(xs > x_min, (ys > y_min))),
+        (np.logical_and(xs < (x_min + width), (ys < (y_min + height)))),
+    )
+    tissue_predictions = tissue_predictions[mask]
+
+    if remove_unlabelled:
+        labelled_inds = tissue_class.nonzero()[0]
+        tissue_class = tissue_class[labelled_inds]
+        tissue_predictions = tissue_predictions[labelled_inds]
+
+    tissue_predictions = [label_id_mapping[tissue] for tissue in tissue_predictions]
     cm_df, cm_df_props = get_tissue_confusion_matrix(
-        organ, predictions, tissue_class, remove_unlabelled, proportion_label=True
+        organ, tissue_predictions, tissue_class, proportion_label=True
     )
     plt.figure(figsize=(10, 8))
     sns.set(font_scale=1.1)
