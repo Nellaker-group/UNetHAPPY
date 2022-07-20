@@ -101,14 +101,27 @@ def main(
     tissue_df.sort_values(by=["x", "y"], inplace=True, ignore_index=True)
 
     get_cells_within_tissues(
-        cell_df, tissue_df, cell_colours_mapping, pretrained_path, villus_only=True
+        organ,
+        cell_df,
+        tissue_df,
+        cell_colours_mapping,
+        pretrained_path,
+        villus_only=True,
     )
 
 
 # find cell types within each tissue type and plot as stacked bar chart
 def get_cells_within_tissues(
-    cell_predictions, tissue_predictions, cell_colours_mapping, save_path, villus_only
+    organ,
+    cell_predictions,
+    tissue_predictions,
+    cell_colours_mapping,
+    save_path,
+    villus_only,
 ):
+    tissue_label_to_name = {tissue.label: tissue.name for tissue in organ.tissues}
+    cell_label_to_name = {cell.label: cell.name for cell in organ.cells}
+
     combined_df = pd.DataFrame(
         {
             "cell_x": cell_predictions["x"],
@@ -132,12 +145,29 @@ def get_cells_within_tissues(
         prop_df = prop_df.drop(["Fibrin", "Avascular", "Maternal", "AVilli"], axis=0)
         prop_df = prop_df.reindex(["Chorion", "SVilli", "MIVilli", "TVilli", "Sprout"])
 
+    prop_df.index = prop_df.index.map(tissue_label_to_name)
     cell_colours = [cell_colours_mapping[cell] for cell in prop_df.columns]
+    prop_df.columns = prop_df.columns.map(cell_label_to_name)
+
     sns.set(style="whitegrid")
     plt.figure(figsize=(16, 16))
-    ax = prop_df.plot(kind="bar", stacked=True, color=cell_colours, legend="reverse")
+    ax = prop_df.plot(
+        kind="bar", stacked=True, color=cell_colours, legend="reverse", width=0.7
+    )
+    ax.set(xlabel=None)
+    ticks_and_labels = plt.xticks(
+        range(len(prop_df.index)), list(prop_df.index), rotation=0, size=9
+    )
+    for i, label in enumerate(ticks_and_labels[1]):
+        label.set_y(label.get_position()[1] - (i % 2) * 0.05)
     handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles[::-1], labels[::-1], loc="center left", bbox_to_anchor=(1, 0.5))
+    ax.legend(
+        handles[::-1],
+        labels[::-1],
+        loc="center left",
+        bbox_to_anchor=(1, 0.5),
+        prop={"size": 10},
+    )
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
     plt.tight_layout()
