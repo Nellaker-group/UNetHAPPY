@@ -46,17 +46,17 @@ class Organ:
 
 PLACENTA = Organ(
     [
-        Cell("CYT", "Cytotrophoblasts", "#24ff24", "#0d8519", "#00E307", 0, 0),
+        Cell("CYT", "Cytotrophoblast", "#24ff24", "#0d8519", "#00E307", 0, 0),
         Cell("FIB", "Fibroblast", "#920000", "#7b03fc", "#C80B2A", 1, 1),
-        Cell("HOF", "Hofbauer", "#ffff6d", "#979903", "#FFDC3D", 2, 1),
+        Cell("HOF", "Hofbauer Cell", "#ffff6d", "#979903", "#FFDC3D", 2, 1),
         Cell("SYN", "Syncytiotrophoblast", "#6db6ff", "#0f0cad", "#009FFA", 3, 0),
         Cell("VEN", "Vascular Endothelial", "#ff9600", "#734c0e", "#FF6E3A", 4, 2),
         Cell("MAT", "Maternal Decidua", "#008080", "#008080", "#008169", 5, 3),
         Cell("VMY", "Vascular Myocyte", "#cc6633", "#cc6633", "#6A0213", 6, 1),
-        Cell("WBC", "White Blood Cell", "#2f3ec7", "#2f3ec7", "#003C86", 7, 4),
+        Cell("WBC", "Leukocyte", "#2f3ec7", "#2f3ec7", "#003C86", 7, 4),
         Cell("MES", "Mesenchymal Cell", "#ff00ff", "#ff00ff", "#FF71FD", 8, 1),
         Cell("EVT", "Extra Villus Trophoblast", "#b8b0f1", "#b8b0f1", "#FFCFE2", 9, 0),
-        Cell("KNT", "Syncytial Knots", "#00ffff", "#00ffff", "#7CFFFA", 10, 0),
+        Cell("KNT", "Syncytial Knot", "#00ffff", "#00ffff", "#7CFFFA", 10, 0),
     ],
     [
         Tissue("Unlabelled", "Unlabelled", "#000000", 0),
@@ -67,7 +67,7 @@ PLACENTA = Organ(
         Tissue("MIVilli", "Mature Intermediary Villi", "#ffb366", 5),
         Tissue("AVilli", "Anchoring Villi", "#ffe699", 6),
         Tissue("SVilli", "Stem Villi", "#deff00", 7),
-        Tissue("Chorion", "Chorion", "#669966", 8),
+        Tissue("Chorion", "Chorionic Plate", "#669966", 8),
         Tissue("Maternal", "Basal Plate/Septum", "#53bc8d", 9),
         Tissue("Inflam", "Inflammatory Response", "#4d3399", 10),
         Tissue("Fibrin", "Fibrous Region", "#6680e6", 11),

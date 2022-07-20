@@ -23,7 +23,7 @@ import seaborn as sns
 from happy.utils.utils import get_device, get_project_dir
 from happy.train.utils import (
     plot_confusion_matrix,
-    plot_pr_curves,
+    plot_tissue_pr_curves,
     get_tissue_confusion_matrix,
 )
 from happy.organs.organs import get_organ
@@ -184,10 +184,8 @@ def main(
 
 def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled):
     tissue_ids = [tissue.id for tissue in organ.tissues]
-    tissue_labels = [tissue.label for tissue in organ.tissues]
     if remove_unlabelled:
         tissue_ids = tissue_ids[1:]
-        tissue_labels = tissue_labels[1:]
 
     accuracy = accuracy_score(tissue_class, predicted_labels)
     f1_macro = f1_score(tissue_class, predicted_labels, average="macro")
@@ -219,7 +217,7 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
     print("-----------------------")
 
     cm_df, cm_df_props = get_tissue_confusion_matrix(
-        organ, predicted_labels, tissue_class, remove_unlabelled, proportion_label=True
+        organ, predicted_labels, tissue_class, proportion_label=True
     )
     plt.figure(figsize=(10, 8))
     sns.set(font_scale=1.1)
@@ -230,13 +228,13 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
 
     tissue_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
     tissue_colours = {tissue.id: tissue.colour for tissue in organ.tissues}
-    plot_pr_curves(
+    plot_tissue_pr_curves(
         tissue_mapping,
         tissue_colours,
         tissue_class,
+        predicted_labels,
         out,
         run_path / "pr_curves.png",
-        (9, 6),
     )
 
 

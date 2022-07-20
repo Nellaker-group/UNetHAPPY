@@ -20,7 +20,7 @@ from happy.utils.utils import get_device
 from happy.train.utils import (
     get_cell_confusion_matrix,
     plot_confusion_matrix,
-    plot_pr_curves,
+    plot_cell_pr_curves,
 )
 from happy.organs.organs import get_organ
 from happy.train.cell_train import setup_data, setup_model
@@ -139,7 +139,7 @@ def main(
 
         if plot_pr:
             save_path = f"../../analysis/evaluation/plots/{dataset_name}_pr_curves.png"
-            plot_pr_curves(
+            plot_cell_pr_curves(
                 cell_mapping,
                 cell_colours,
                 ground_truth[dataset_name],

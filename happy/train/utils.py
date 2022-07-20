@@ -117,7 +117,9 @@ def plot_confusion_matrix(cm, dataset_name, run_path, fmt="d"):
     plt.clf()
 
 
-def plot_pr_curves(id_to_label, colours, ground_truth, scores, save_path, figsize=None):
+def plot_cell_pr_curves(
+    id_to_label, colours, ground_truth, scores, save_path, figsize=None
+):
     class_ids = np.unique(list(id_to_label.keys()))
 
     ground_truth = label_binarize(ground_truth, classes=class_ids)
@@ -153,6 +155,69 @@ def plot_pr_curves(id_to_label, colours, ground_truth, scores, save_path, figsiz
         color="black",
     )
     for i in class_ids:
+        plt.plot(
+            recall[i],
+            precision[i],
+            label=f"{id_to_label[i]} ({average_precision[i]:0.2f})",
+            color=colours[i],
+        )
+
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    plt.savefig(save_path)
+    plt.clf()
+
+
+def plot_tissue_pr_curves(id_to_label, colours, ground_truth, preds, scores, save_path):
+    unique_values_in_pred = set(preds)
+    unique_values_in_truth = set(ground_truth)
+    unique_values_in_both = list(unique_values_in_pred.union(unique_values_in_truth))
+
+    ground_truth = label_binarize(ground_truth, classes=unique_values_in_both)
+    scores = np.array(scores)
+    scores = softmax(scores, axis=-1)
+
+    ground_truth_label_map = {
+        unique_values_in_both[i]: i for i in list(range(len(unique_values_in_both)))
+    }
+
+    # Compute Precision-Recall and plot curve
+    precision, recall, average_precision = {}, {}, {}
+    for i in list(unique_values_in_truth):
+        precision[i], recall[i], _ = precision_recall_curve(
+            ground_truth[:, ground_truth_label_map[i]], scores[:, i - 1]
+        )
+        average_precision[i] = average_precision_score(
+            ground_truth[:, ground_truth_label_map[i]], scores[:, i - 1]
+        )
+
+    # Compute micro-average ROC curve and ROC area but remove unused classes
+    # if 0 in unique_values_in_both:
+    #     ground_truth = ground_truth[:, 1:]
+    #     scores = scores[:, 1:]
+    # precision["micro"], recall["micro"], _ = precision_recall_curve(
+    #     ground_truth.ravel(), scores.ravel()
+    # )
+    # average_precision["micro"] = average_precision_score(
+    #     ground_truth, scores, average="micro"
+    # )
+
+    # Plot Precision-Recall curve for each class
+    plt.clf()
+    plt.figure(figsize=(9, 6))
+    ax = plt.subplot(111)
+    # plt.plot(
+    #     recall["micro"],
+    #     precision["micro"],
+    #     label=f"mavg ({average_precision['micro']:0.2f})",
+    #     color="black",
+    # )
+    for i in unique_values_in_truth:
         plt.plot(
             recall[i],
             precision[i],
