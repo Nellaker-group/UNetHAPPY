@@ -37,6 +37,9 @@ def main(
     predictions, embeddings, cell_coords, confidence = get_datasets_in_patch(
         embeddings_path, x_min, y_min, width, height
     )
+    sort_args = np.lexsort((cell_coords[:, 1], cell_coords[:, 0]))
+    cell_coords = cell_coords[sort_args]
+    predictions = predictions[sort_args]
 
     if group_knts:
         (
@@ -83,6 +86,9 @@ def main(
         / model_name
     )
     tissue_df = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")
+    # remove rows where knots were removed
+    if group_knts:
+        tissue_df = tissue_df.loc[~tissue_df.index.isin(inds_to_remove)].reset_index(drop=True)
     unique_tissues, tissue_counts = np.unique(tissue_df["class"], return_counts=True)
     unique_tissue_counts = dict(zip(unique_tissues, tissue_counts))
     print(f"Num tissue predictions per label: {unique_tissue_counts}")
