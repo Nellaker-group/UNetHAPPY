@@ -5,7 +5,6 @@ import torch
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.utils import add_self_loops
 
-from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
 from happy.organs.organs import get_organ
 from happy.logger.logger import Logger
@@ -14,6 +13,12 @@ from happy.utils.utils import get_project_dir
 from graphs.graphs.enums import FeatureArg, MethodArg, SupervisedModelsArg
 from graphs.graphs.utils import get_feature, send_graph_to_device, save_model
 from graphs.graphs import graph_supervised
+from graphs.graphs.create_graph import (
+    get_raw_data,
+    setup_graph,
+    get_groundtruth_patch,
+    process_knts,
+)
 
 device = get_device()
 
@@ -29,6 +34,7 @@ def main(
     height: int = -1,
     k: int = 6,
     feature: FeatureArg = FeatureArg.embeddings,
+    group_knts: bool = False,
     pretrained: Optional[str] = None,
     top_conf: bool = False,
     model_type: SupervisedModelsArg = SupervisedModelsArg.sup_graphsage,
@@ -66,13 +72,17 @@ def main(
     predictions, embeddings, coords, confidence = get_raw_data(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
-    feature_data = get_feature(feature.value, predictions, embeddings)
+    # Get ground truth manually annotated data
     _, _, tissue_class = get_groundtruth_patch(
         organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
     )
-    num_classes = len(organ.tissues)
-
-    # Create the graph from the raw data
+    # Covert isolated knts into syn and turn groups into a single knt point
+    if group_knts:
+        predictions, embeddings, coords, confidence, tissue_class = process_knts(
+            organ, predictions, embeddings, coords, confidence, tissue_class
+        )
+    # Covert input cell data into a graph
+    feature_data = get_feature(feature.value, predictions, embeddings)
     data = setup_graph(coords, k, feature_data, graph_method.value, loop=False)
     data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
     data = ToUndirected()(data)
@@ -96,7 +106,7 @@ def main(
 
     # Setup the model
     model = graph_supervised.setup_model(
-        model_type, data, device, layers, num_classes, pretrained_path
+        model_type, data, device, layers, len(organ.tissues), pretrained_path
     )
 
     # Setup training parameters

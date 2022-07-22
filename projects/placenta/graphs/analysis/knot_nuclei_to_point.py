@@ -1,68 +1,8 @@
-import typer
 import sklearn.neighbors as sk
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
-from happy.organs.organs import get_organ
-import happy.db.eval_runs_interface as db
-from happy.hdf5.utils import (
-    get_datasets_in_patch,
-    filter_by_cell_type,
-    get_embeddings_file,
-)
-from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
-
-
-def main(
-    run_id: int = typer.Option(...),
-    project_name: str = "placenta",
-    x_min: int = 0,
-    y_min: int = 0,
-    width: int = -1,
-    height: int = -1,
-    radius: int = 50,
-    cut_off_count: int = 3,
-    make_tsv: bool = False,
-):
-    # Create database connection
-    db.init()
-    organ = get_organ("placenta")
-    cell_label_mapping = {cell.id: cell.label for cell in organ.cells}
-
-    # Get path to embeddings hdf5 files
-    embeddings_path = get_embeddings_file(project_name, run_id)
-    # Get hdf5 datasets contained in specified box/patch of WSI
-    all_predictions, all_embeddings, all_coords, all_confidence = get_datasets_in_patch(
-        embeddings_path, x_min, y_min, width, height
-    )
-
-    (
-        all_predictions,
-        all_embeddings,
-        all_coords,
-        all_confidence,
-        _,
-    ) = process_knt_cells(
-        all_predictions,
-        all_embeddings,
-        all_coords,
-        all_confidence,
-        organ,
-        radius,
-        cut_off_count,
-        width,
-        height,
-        plot=True,
-    )
-
-    if make_tsv:
-        print(f"Making tsv file...")
-        label_predictions = [cell_label_mapping[x] for x in all_predictions]
-        df = pd.DataFrame(
-            {"x": all_coords[:, 0], "y": all_coords[:, 1], "class": label_predictions}
-        )
-        df.to_csv("plots/grouped_knt_cells.tsv", sep="\t", index=False)
+from happy.hdf5.utils import filter_by_cell_type
 
 
 def process_knt_cells(
@@ -73,10 +13,15 @@ def process_knt_cells(
     organ,
     radius,
     cut_off_count,
-    width,
-    height,
     plot=False,
 ):
+    # Sort by coordinates first to match up with any tissue predictions
+    sort_args = np.lexsort((all_coords[:, 1], all_coords[:, 0]))
+    all_coords = all_coords[sort_args]
+    all_embeddings = all_embeddings[sort_args]
+    all_predictions = all_predictions[sort_args]
+    all_confidence = all_confidence[sort_args]
+
     # Filter by KNT cell type
     predictions, embeddings, coords, confidence = filter_by_cell_type(
         all_predictions, all_embeddings, all_coords, all_confidence, "KNT", organ
@@ -104,17 +49,6 @@ def process_knt_cells(
     ) = _cluster_knts_into_point(
         predictions, embeddings, coords, confidence, cut_off_count, unique_indices
     )
-
-    if plot:
-        print(f"Plotting...")
-        visualize_points(
-            organ,
-            "plots/grouped_KNT.png",
-            coords,
-            labels=predictions,
-            width=width,
-            height=height,
-        )
 
     inds_to_remove_from_total = all_knt_inds[unique_inds_to_remove]
     all_predictions = np.delete(all_predictions, inds_to_remove_from_total, axis=0)
@@ -184,7 +118,3 @@ def _cluster_knts_into_point(
     coords = np.delete(coords, unique_inds_to_remove, axis=0)
     confidence = np.delete(confidence, unique_inds_to_remove, axis=0)
     return predictions, embeddings, coords, confidence, unique_inds_to_remove
-
-
-if __name__ == "__main__":
-    typer.run(main)

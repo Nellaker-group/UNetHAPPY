@@ -1,10 +1,9 @@
 import os
 
 import pandas as pd
-from torch_cluster import knn_graph, radius_graph
+from torch_cluster import radius_graph
 from torch_geometric.data import Data
 from torch_geometric.utils.subgraph import subgraph
-from torch_geometric.utils import to_undirected
 from torch_geometric.transforms import Distance, KNNGraph
 from scipy.spatial import Voronoi
 from tqdm import tqdm
@@ -19,6 +18,7 @@ from happy.hdf5.utils import (
     get_datasets_in_patch,
     filter_by_confidence,
 )
+from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
 
 
 def get_groundtruth_patch(
@@ -97,6 +97,22 @@ def get_raw_data(project_name, run_id, x_min, y_min, width, height, top_conf=Fal
     print("Data sorted by x coordinates")
 
     return predictions, embeddings, coords, confidence
+
+def process_knts(organ, predictions, embeddings, coords, confidence, tissues=None):
+    # Turn isolated knts into syn and group large knts into one point
+    (
+        predictions,
+        embeddings,
+        coords,
+        confidence,
+        inds_to_remove,
+    ) = process_knt_cells(
+        predictions, embeddings, coords, confidence, organ, 50, 3, plot=False
+    )
+    # Remove points from tissue ground truth as well
+    if tissues is not None:
+        tissues = np.delete(tissues, inds_to_remove, axis=0)
+    return predictions, embeddings, coords, confidence, tissues
 
 
 def setup_graph(coords, k, feature, graph_method, norm_edges=True, loop=True):

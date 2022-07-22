@@ -27,7 +27,7 @@ from happy.train.utils import (
     get_tissue_confusion_matrix,
 )
 from happy.organs.organs import get_organ
-from graphs.graphs.create_graph import get_raw_data, setup_graph
+from graphs.graphs.create_graph import get_raw_data, setup_graph, process_knts
 from graphs.graphs.embeddings import fit_umap, plot_cell_graph_umap, plot_tissue_umap
 from graphs.graphs.utils import get_feature
 from graphs.graphs.enums import FeatureArg, MethodArg
@@ -51,6 +51,7 @@ def main(
     height: int = -1,
     k: int = 6,
     feature: FeatureArg = FeatureArg.embeddings,
+    group_knts: bool = False,
     top_conf: bool = False,
     model_type: str = "graphsage",
     graph_method: MethodArg = MethodArg.k,
@@ -67,7 +68,16 @@ def main(
     predictions, embeddings, coords, confidence = get_raw_data(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
-
+    # Get ground truth manually annotated data
+    _, _, tissue_class = get_groundtruth_patch(
+        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
+    )
+    # Covert isolated knts into syn and turn groups into a single knt point
+    if group_knts:
+        predictions, embeddings, coords, confidence, tissue_class = process_knts(
+            organ, predictions, embeddings, coords, confidence, tissue_class
+        )
+    # Covert input cell data into a graph
     feature_data = get_feature(feature.value, predictions, embeddings)
     data = setup_graph(coords, k, feature_data, graph_method.value, loop=False)
     data = ToUndirected()(data)
@@ -76,11 +86,6 @@ def main(
     )
     x = data.x.to(device)
     pos = data.pos
-
-    # Get ground truth manually annotated data
-    _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
-    )
 
     # Setup trained model
     pretrained_path = (

@@ -8,7 +8,7 @@ from happy.organs.organs import get_organ
 from happy.utils.utils import get_project_dir
 import happy.db.eval_runs_interface as db
 from happy.hdf5.utils import get_datasets_in_patch, get_embeddings_file
-from knot_nuclei_to_point import process_knt_cells
+from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
 
 
 def main(
@@ -37,9 +37,6 @@ def main(
     predictions, embeddings, cell_coords, confidence = get_datasets_in_patch(
         embeddings_path, x_min, y_min, width, height
     )
-    sort_args = np.lexsort((cell_coords[:, 1], cell_coords[:, 0]))
-    cell_coords = cell_coords[sort_args]
-    predictions = predictions[sort_args]
 
     if group_knts:
         (
