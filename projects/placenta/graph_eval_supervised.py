@@ -181,7 +181,7 @@ def main(
         height=height,
     )
 
-    if x_min is None:
+    if x_min is 0:
         label_dict = {tissue.id: tissue.label for tissue in organ.tissues}
         predicted_labels = [label_dict[label] for label in predicted_labels]
         _save_tissue_preds_as_tsv(predicted_labels, coords, save_path)

@@ -59,6 +59,8 @@ def setup_node_splits(
             f"Graph split into {data.train_mask.sum().item()} train nodes "
             f"and {data.val_mask.sum().item()} validation nodes"
         )
+    else:
+        data.val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
     return data
 
 
@@ -269,7 +271,7 @@ def save_state(
     model,
     organ_name,
     exp_name,
-    run_id,
+    run_ids,
     x_min,
     y_min,
     width,
@@ -291,7 +293,7 @@ def save_state(
         {
             "organ_name": organ_name,
             "exp_name": exp_name,
-            "run_id": run_id,
+            "run_ids": [np.array(run_ids)],
             "x_min": x_min,
             "y_min": y_min,
             "width": width,

@@ -23,6 +23,7 @@ def main(
     width: int = -1,
     height: int = -1,
     group_knts: bool = False,
+    trained_with_grouped_knts: bool = False,
 ):
     # Create database connection
     db.init()
@@ -46,16 +47,7 @@ def main(
             confidence,
             inds_to_remove,
         ) = process_knt_cells(
-            predictions,
-            embeddings,
-            cell_coords,
-            confidence,
-            organ,
-            50,
-            3,
-            width,
-            height,
-            plot=False,
+            predictions, embeddings, cell_coords, confidence, organ, 50, 3
         )
 
     # print cell predictions from hdf5 file
@@ -84,8 +76,10 @@ def main(
     )
     tissue_df = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")
     # remove rows where knots were removed
-    if group_knts:
-        tissue_df = tissue_df.loc[~tissue_df.index.isin(inds_to_remove)].reset_index(drop=True)
+    if group_knts and not trained_with_grouped_knts:
+        tissue_df = tissue_df.loc[~tissue_df.index.isin(inds_to_remove)].reset_index(
+            drop=True
+        )
     unique_tissues, tissue_counts = np.unique(tissue_df["class"], return_counts=True)
     unique_tissue_counts = dict(zip(unique_tissues, tissue_counts))
     print(f"Num tissue predictions per label: {unique_tissue_counts}")

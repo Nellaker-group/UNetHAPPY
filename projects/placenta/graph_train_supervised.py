@@ -1,9 +1,10 @@
-from typing import Optional
+from typing import Optional, List
 
 import typer
 import torch
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.utils import add_self_loops
+from torch_geometric.data import Batch
 
 from happy.utils.utils import get_device
 from happy.organs.organs import get_organ
@@ -27,7 +28,7 @@ def main(
     project_name: str = "placenta",
     organ_name: str = "placenta",
     exp_name: str = typer.Option(...),
-    run_id: int = typer.Option(...),
+    run_ids: List[int] = typer.Option([]),
     x_min: int = 0,
     y_min: int = 0,
     width: int = -1,
@@ -48,7 +49,7 @@ def main(
     use_custom_weights: bool = True,
     vis: bool = True,
     label_type: str = "full",
-    tissue_label_tsv: str = "139_tissue_points.tsv",
+    tissue_label_tsvs: List[str] = typer.Option([]),
     val_x_min: Optional[int] = None,
     val_y_min: Optional[int] = None,
     val_width: Optional[int] = None,
@@ -68,33 +69,46 @@ def main(
         list(["train", "train_inf", "val"]), ["loss", "accuracy"], vis=vis, file=True
     )
 
-    # Get training data from hdf5 files
-    predictions, embeddings, coords, confidence = get_raw_data(
-        project_name, run_id, x_min, y_min, width, height, top_conf
-    )
-    # Get ground truth manually annotated data
-    _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
-    )
-    # Covert isolated knts into syn and turn groups into a single knt point
-    if group_knts:
-        predictions, embeddings, coords, confidence, tissue_class = process_knts(
-            organ, predictions, embeddings, coords, confidence, tissue_class
+    datas = []
+    for i, run_id in enumerate(run_ids):
+        # Get training data from hdf5 files
+        predictions, embeddings, coords, confidence = get_raw_data(
+            project_name, run_id, x_min, y_min, width, height, top_conf
         )
-    # Covert input cell data into a graph
-    feature_data = get_feature(feature.value, predictions, embeddings)
-    data = setup_graph(coords, k, feature_data, graph_method.value, loop=False)
-    data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
-    data = ToUndirected()(data)
-    data.edge_index, data.edge_attr = add_self_loops(
-        data["edge_index"], data["edge_attr"], fill_value="mean"
-    )
+        # Get ground truth manually annotated data
+        _, _, tissue_class = get_groundtruth_patch(
+            organ,
+            project_dir,
+            x_min,
+            y_min,
+            width,
+            height,
+            tissue_label_tsvs[i],
+            label_type,
+        )
+        # Covert isolated knts into syn and turn groups into a single knt point
+        if group_knts:
+            predictions, embeddings, coords, confidence, tissue_class = process_knts(
+                organ, predictions, embeddings, coords, confidence, tissue_class
+            )
+        # Covert input cell data into a graph
+        feature_data = get_feature(feature.value, predictions, embeddings)
+        data = setup_graph(coords, k, feature_data, graph_method.value, loop=False)
+        data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
+        data = ToUndirected()(data)
+        data.edge_index, data.edge_attr = add_self_loops(
+            data["edge_index"], data["edge_attr"], fill_value="mean"
+        )
 
-    # Split nodes into unlabelled, training and validation sets
-    val_patch_coords = (val_x_min, val_y_min, val_width, val_height)
-    data = graph_supervised.setup_node_splits(
-        data, tissue_class, mask_unlabelled, include_validation, val_patch_coords
-    )
+        # Split nodes into unlabelled, training and validation sets
+        val_patch_coords = (val_x_min, val_y_min, val_width, val_height)
+        data = graph_supervised.setup_node_splits(
+            data, tissue_class, mask_unlabelled, include_validation, val_patch_coords
+        )
+        datas.append(data)
+
+    # Combine multiple graphs into a single graph
+    data = Batch.from_data_list(datas)
 
     # Setup the dataloader which minibatches the graph
     train_loader, val_loader = graph_supervised.setup_dataloaders(
@@ -163,7 +177,7 @@ def main(
                 model,
                 organ_name,
                 exp_name,
-                run_id,
+                run_ids,
                 x_min,
                 y_min,
                 width,
@@ -187,7 +201,7 @@ def main(
         model,
         organ_name,
         exp_name,
-        run_id,
+        run_ids,
         x_min,
         y_min,
         width,
