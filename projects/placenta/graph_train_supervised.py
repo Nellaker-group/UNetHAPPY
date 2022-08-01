@@ -102,9 +102,18 @@ def main(
 
         # Split nodes into unlabelled, training and validation sets
         val_patch_coords = (val_x_min, val_y_min, val_width, val_height)
-        data = graph_supervised.setup_node_splits(
-            data, tissue_class, mask_unlabelled, include_validation, val_patch_coords
-        )
+        if run_id == 56:
+            data = graph_supervised.setup_node_splits(
+                data,
+                tissue_class,
+                mask_unlabelled,
+                include_validation,
+                val_patch_coords,
+            )
+        else:
+            data = graph_supervised.setup_node_splits(
+                data, tissue_class, mask_unlabelled, False, val_patch_coords
+            )
         datas.append(data)
 
     # Combine multiple graphs into a single graph

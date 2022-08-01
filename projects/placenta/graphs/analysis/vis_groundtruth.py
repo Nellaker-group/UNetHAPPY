@@ -36,13 +36,13 @@ def main(
     print(dict(zip(unique, counts)))
 
     save_dir = (
-        project_dir / "visualisations" / "graphs" / "lab_1" / slide_name / "groundtruth"
+        project_dir / "visualisations" / "graphs" / "lab_5" / slide_name / "groundtruth"
     )
     save_dir.mkdir(parents=True, exist_ok=True)
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}"
     save_path = save_dir / plot_name
 
-    colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
+    colours_dict = {tissue.id: tissue.colourblind_colour for tissue in organ.tissues}
     colours = [colours_dict[label] for label in tissue_class]
     visualize_points(
         organ,

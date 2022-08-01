@@ -21,6 +21,7 @@ class Tissue:
     label: str
     name: str
     colour: str
+    colourblind_colour: str
     id: int
 
     def __str__(self):
@@ -59,19 +60,19 @@ PLACENTA = Organ(
         Cell("KNT", "Syncytial Knot", "#00ffff", "#00ffff", "#7CFFFA", 10, 0),
     ],
     [
-        Tissue("Unlabelled", "Unlabelled", "#000000", 0),
-        Tissue("Sprout", "Villus Sprout", "#ff00ff", 1),
-        Tissue("MVilli", "Mesenchymal Villi", "#ff0000", 2),
-        Tissue("TVilli", "Terminal Villi", "#ff7800", 3),
-        Tissue("ImIVilli", "Immature Intermediary Villi", "#a53419", 4),
-        Tissue("MIVilli", "Mature Intermediary Villi", "#ffb366", 5),
-        Tissue("AVilli", "Anchoring Villi", "#ffe699", 6),
-        Tissue("SVilli", "Stem Villi", "#deff00", 7),
-        Tissue("Chorion", "Chorionic Plate", "#669966", 8),
-        Tissue("Maternal", "Basal Plate/Septum", "#53bc8d", 9),
-        Tissue("Inflam", "Inflammatory Response", "#4d3399", 10),
-        Tissue("Fibrin", "Fibrous Region", "#6680e6", 11),
-        Tissue("Avascular", "Avascular Villi", "#6d0c67", 12),
+        Tissue("Unlabelled", "Unlabelled", "#000000", "#000000", 0),
+        Tissue("Sprout", "Villus Sprout", "#ff00ff", "#ff3cfe", 1),
+        Tissue("MVilli", "Mesenchymal Villi", "#ff0000", "#f60239", 2),
+        Tissue("TVilli", "Terminal Villi", "#ff7800", "#ff6e3a", 3),
+        Tissue("ImIVilli", "Immature Intermediary Villi", "#a53419", "#5a000f", 4),
+        Tissue("MIVilli", "Mature Intermediary Villi", "#ffb366", "#ffac3b", 5),
+        Tissue("AVilli", "Anchoring Villi", "#ffe699", "#ffcfe2", 6),
+        Tissue("SVilli", "Stem Villi", "#deff00", "#ffdc3d", 7),
+        Tissue("Chorion", "Chorionic Plate", "#669966", "#005a01", 8),
+        Tissue("Maternal", "Basal Plate/Septum", "#53bc8d", "#00cba7", 9),
+        Tissue("Inflam", "Inflammatory Response", "#4d3399", "#7cfffa", 10),
+        Tissue("Fibrin", "Fibrous Region", "#6680e6", "#0079fa", 11),
+        Tissue("Avascular", "Avascular Villi", "#6d0c67", "#450270", 12),
     ],
 )
 PLACENTA_CORD = Organ(

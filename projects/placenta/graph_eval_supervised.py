@@ -170,7 +170,7 @@ def main(
 
     # Visualise cluster labels on graph patch
     print("Generating image")
-    colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
+    colours_dict = {tissue.id: tissue.colourblind_colour for tissue in organ.tissues}
     colours = [colours_dict[label] for label in predicted_labels]
     visualize_points(
         organ,
