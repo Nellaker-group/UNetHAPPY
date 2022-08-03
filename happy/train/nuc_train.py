@@ -32,9 +32,14 @@ def setup_model(init_from_coco, device, frozen=True, pre_trained_path=None):
     return model
 
 
-def setup_data(annotations_path, hp, multiple_val_sets, num_workers, val_batch):
+def setup_data(
+    annotations_path, hp, multiple_val_sets, num_workers, val_batch, test_set=False
+):
     datasets = setup_nuclei_datasets(
-        annotations_path, hp.dataset_names, multiple_val_sets
+        annotations_path,
+        hp.dataset_names,
+        multiple_val_sets,
+        test_set,
     )
     dataloaders = setup_dataloaders(True, datasets, num_workers, hp.batch, val_batch)
     return dataloaders

@@ -35,6 +35,7 @@ def main(
     print_mean_confidence: bool = False,
     plot_pr: bool = True,
     plot_cm: bool = True,
+    use_test_set: bool = False,
 ):
     """Evaluates model performance across validation datasets
 
@@ -47,6 +48,7 @@ def main(
         print_mean_confidence: whether to print confidence confusion matrix
         plot_pr: whether to plot the pr curves
         plot_cm: whether to plot the confusion matrix
+        use_test_set: whether to use the test set for validation
     """
     device = get_device()
 
@@ -59,7 +61,6 @@ def main(
     hp = HPs(dataset_names, 100)
     organ = get_organ(organ_name)
     cell_mapping = {cell.id: cell.label for cell in organ.cells}
-    cell_colours = {cell.id: cell.colourblind_colour for cell in organ.cells}
 
     model, image_size = setup_model(
         "resnet-50", False, len(organ.cells), pre_trained, False, device
@@ -76,8 +77,10 @@ def main(
         multiple_val_sets,
         hp.batch,
         False,
+        use_test_set,
     )
-    dataloaders.pop("train")
+    if not use_test_set:
+        dataloaders.pop("train")
 
     print("Running inference across datasets")
     predictions = {}
@@ -140,8 +143,7 @@ def main(
         if plot_pr:
             save_path = f"../../analysis/evaluation/plots/{dataset_name}_pr_curves.png"
             plot_cell_pr_curves(
-                cell_mapping,
-                cell_colours,
+                organ,
                 ground_truth[dataset_name],
                 outs[dataset_name],
                 save_path,

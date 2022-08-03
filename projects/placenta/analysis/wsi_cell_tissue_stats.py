@@ -146,28 +146,32 @@ def get_cells_within_tissues(
     cell_colours = [cell_colours_mapping[cell] for cell in prop_df.columns]
     prop_df.columns = prop_df.columns.map(cell_label_to_name)
 
-    sns.set(style="whitegrid")
-    plt.figure(figsize=(16, 16))
+    sns.set(style="white")
+    plt.rcParams["figure.dpi"] = 600
     ax = prop_df.plot(
-        kind="bar", stacked=True, color=cell_colours, legend="reverse", width=0.7
+        kind="bar",
+        stacked=True,
+        color=cell_colours,
+        legend="reverse",
+        width=0.8,
+        figsize=(8.5, 6),
     )
     ax.set(xlabel=None)
-    ticks_and_labels = plt.xticks(
-        range(len(prop_df.index)), list(prop_df.index), rotation=0, size=9
-    )
-    for i, label in enumerate(ticks_and_labels[1]):
-        label.set_y(label.get_position()[1] - (i % 2) * 0.05)
+    plt.xticks(range(len(prop_df.index)), list(prop_df.index), rotation=0, size=9)
+    plt.yticks([])
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(
         handles[::-1],
         labels[::-1],
-        loc="center left",
-        bbox_to_anchor=(1, 0.5),
-        prop={"size": 10},
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.15),
+        prop={"size": 9.25},
+        ncol=4,
     )
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
     plt.tight_layout()
+    sns.despine(left=True)
     plt.savefig(save_path / "cells_in_tissues.png")
     print(f"Plot saved to {save_path / 'cells_in_tissues.png'}")
 

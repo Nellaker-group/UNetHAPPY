@@ -48,7 +48,12 @@ def get_cell_confusion_matrix(organ, pred, truth, proportion_label=False):
         for i, label in enumerate(cell_labels):
             row_labels.append(f"{label}\n({label_proportions[i]}%)")
 
-    return pd.DataFrame(cm, columns=cell_labels, index=row_labels).astype(int)
+    cm_df = pd.DataFrame(cm, columns=cell_labels, index=row_labels).astype(int)
+    args_to_sort = np.argsort([cell.structural_id for cell in organ.cells])
+    cm_df = cm_df[cm_df.columns[args_to_sort]]
+    cm_df = cm_df.reindex(cm_df.index[args_to_sort])
+
+    return cm_df
 
 
 def get_tissue_confusion_matrix(organ, pred, truth, proportion_label=False):
@@ -107,6 +112,7 @@ def get_tissue_confusion_matrix(organ, pred, truth, proportion_label=False):
 def plot_confusion_matrix(cm, dataset_name, run_path, fmt="d"):
     save_path = run_path / f"{dataset_name}_confusion_matrix.png"
 
+    plt.rcParams["figure.dpi"] = 600
     sns.heatmap(cm, annot=True, cmap="Blues", square=True, cbar=False, fmt=fmt)
     # plt.title(f"Classification for {dataset_name} Validation")
     plt.ylabel("True Label")
@@ -117,10 +123,10 @@ def plot_confusion_matrix(cm, dataset_name, run_path, fmt="d"):
     plt.clf()
 
 
-def plot_cell_pr_curves(
-    id_to_label, colours, ground_truth, scores, save_path, figsize=None
-):
+def plot_cell_pr_curves(organ, ground_truth, scores, save_path, figsize=None):
+    id_to_label = {cell.id: cell.label for cell in organ.cells}
     class_ids = np.unique(list(id_to_label.keys()))
+    colours = {cell.id: cell.colourblind_colour for cell in organ.cells}
 
     ground_truth = label_binarize(ground_truth, classes=class_ids)
     scores = np.array(scores)
@@ -146,7 +152,7 @@ def plot_cell_pr_curves(
 
     # Plot Precision-Recall curve for each class
     plt.clf()
-    plt.figure(figsize=figsize)
+    plt.figure(figsize=figsize, dpi=600)
     ax = plt.subplot(111)
     plt.plot(
         recall["micro"],
@@ -166,7 +172,16 @@ def plot_cell_pr_curves(
     plt.ylim([0.0, 1.05])
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    args_to_sort = np.insert(
+        np.argsort([cell.structural_id for cell in organ.cells]) + 1, 0, 0
+    )
+    handles, labels = plt.gca().get_legend_handles_labels()
+    plt.legend(
+        [handles[idx] for idx in args_to_sort],
+        [labels[idx] for idx in args_to_sort],
+        loc="center left",
+        bbox_to_anchor=(1, 0.5),
+    )
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     plt.savefig(save_path)

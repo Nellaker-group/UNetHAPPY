@@ -8,42 +8,58 @@ from happy.data.transforms.transforms import Normalizer, Resizer
 from happy.data.transforms.utils.color_conversion import get_rgb_matrices
 
 
-def setup_nuclei_datasets(annot_dir, dataset_names, multiple_val_sets):
-    # Create the datasets from all directories specified in dataset_names
-    dataset_train = get_nuclei_dataset("train", annot_dir, dataset_names)
-    dataset_val = get_nuclei_dataset("val", annot_dir, dataset_names)
-    datasets = {"train": dataset_train, "val_all": dataset_val}
-    # Create validation datasets from all directories specified in dataset_names
-    dataset_val_dict = {}
-    if multiple_val_sets:
-        for dataset_name in dataset_names:
-            dataset_val_dict[dataset_name] = get_nuclei_dataset(
-                "val", annot_dir, dataset_name
-            )
-        datasets.update(dataset_val_dict)
+def setup_nuclei_datasets(annot_dir, dataset_names, multiple_val_sets, test_set=False):
+    if not test_set:
+        # Create the datasets from all directories specified in dataset_names
+        dataset_train = get_nuclei_dataset("train", annot_dir, dataset_names)
+        dataset_val = get_nuclei_dataset("val", annot_dir, dataset_names)
+        datasets = {"train": dataset_train, "val_all": dataset_val}
+        # Create validation datasets from all directories specified in dataset_names
+        dataset_val_dict = {}
+        if multiple_val_sets:
+            for dataset_name in dataset_names:
+                dataset_val_dict[dataset_name] = get_nuclei_dataset(
+                    "val", annot_dir, dataset_name
+                )
+            datasets.update(dataset_val_dict)
+    else:
+        dataset_test = get_nuclei_dataset("test", annot_dir, dataset_names)
+        datasets = {"test": dataset_test}
     print("Dataset configured")
     return datasets
 
 
 def setup_cell_datasets(
-    organ, annot_dir, dataset_names, image_size, multiple_val_sets, oversampled
+    organ,
+    annot_dir,
+    dataset_names,
+    image_size,
+    multiple_val_sets,
+    oversampled,
+    test_set=False,
 ):
-    # Create the datasets from all directories specified in dataset_names
-    dataset_train = get_cell_dataset(
-        organ, "train", annot_dir, dataset_names, image_size, oversampled
-    )
-    dataset_val = get_cell_dataset(
-        organ, "val", annot_dir, dataset_names, image_size, False
-    )
-    datasets = {"train": dataset_train, "val_all": dataset_val}
-    # Create validation datasets from all directories specified in dataset_names
-    dataset_val_dict = {}
-    if multiple_val_sets:
-        for dataset_name in dataset_names:
-            dataset_val_dict[dataset_name] = get_cell_dataset(
-                organ, "val", annot_dir, dataset_name, image_size, False
-            )
-        datasets.update(dataset_val_dict)
+    if not test_set:
+        # Create the datasets from all directories specified in dataset_names
+        dataset_train = get_cell_dataset(
+            organ, "train", annot_dir, dataset_names, image_size, oversampled
+        )
+        dataset_val = get_cell_dataset(
+            organ, "val", annot_dir, dataset_names, image_size, False
+        )
+        datasets = {"train": dataset_train, "val_all": dataset_val}
+        # Create validation datasets from all directories specified in dataset_names
+        dataset_val_dict = {}
+        if multiple_val_sets:
+            for dataset_name in dataset_names:
+                dataset_val_dict[dataset_name] = get_cell_dataset(
+                    organ, "val", annot_dir, dataset_name, image_size, False
+                )
+            datasets.update(dataset_val_dict)
+    else:
+        dataset_test = get_cell_dataset(
+            organ, "test", annot_dir, dataset_names, image_size, False
+        )
+        datasets = {"test": dataset_test}
     print("Dataset configured")
     return datasets
 
