@@ -54,9 +54,14 @@ def main(
     val_y_min: Optional[int] = None,
     val_width: Optional[int] = None,
     val_height: Optional[int] = None,
+    test_x_min: Optional[int] = None,
+    test_y_min: Optional[int] = None,
+    test_width: Optional[int] = None,
+    test_height: Optional[int] = None,
     mask_unlabelled: bool = True,
     include_validation: bool = True,
     validation_step: int = 25,
+    include_chorion: bool = True,
 ):
     model_type = model_type.value
 
@@ -101,18 +106,21 @@ def main(
         )
 
         # Split nodes into unlabelled, training and validation sets
-        val_patch_coords = (val_x_min, val_y_min, val_width, val_height)
         if run_id == 56:
+            val_patch_coords = (val_x_min, val_y_min, val_width, val_height)
+            test_patch_coords = (test_x_min, test_y_min, test_width, test_height)
             data = graph_supervised.setup_node_splits(
                 data,
                 tissue_class,
                 mask_unlabelled,
                 include_validation,
                 val_patch_coords,
+                test_patch_coords,
+                include_chorion,
             )
         else:
             data = graph_supervised.setup_node_splits(
-                data, tissue_class, mask_unlabelled, False, val_patch_coords
+                data, tissue_class, mask_unlabelled, False
             )
         datas.append(data)
 

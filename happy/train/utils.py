@@ -152,6 +152,7 @@ def plot_cell_pr_curves(organ, ground_truth, scores, save_path, figsize=None):
 
     # Plot Precision-Recall curve for each class
     plt.clf()
+    sns.set(style="white")
     plt.figure(figsize=figsize, dpi=600)
     ax = plt.subplot(111)
     plt.plot(
@@ -224,7 +225,8 @@ def plot_tissue_pr_curves(id_to_label, colours, ground_truth, preds, scores, sav
 
     # Plot Precision-Recall curve for each class
     plt.clf()
-    plt.figure(figsize=(9, 6))
+    sns.set(style="white")
+    plt.figure(figsize=(9, 6), dpi=600)
     ax = plt.subplot(111)
     # plt.plot(
     #     recall["micro"],

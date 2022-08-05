@@ -59,6 +59,10 @@ def main(
     remove_unlabelled: bool = True,
     label_type: str = "full",
     tissue_label_tsv: Optional[str] = None,
+    chorion_x_min: Optional[int] = None,
+    chorion_y_min: Optional[int] = None,
+    chorion_width: Optional[int] = None,
+    chorion_height: Optional[int] = None,
 ):
     device = get_device()
     project_dir = get_project_dir(project_name)
@@ -72,6 +76,32 @@ def main(
     _, _, tissue_class = get_groundtruth_patch(
         organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
     )
+
+    # Add the chorion patch to the raw data graph and the ground truth
+    if chorion_x_min is not None:
+        (
+            chorion_predictions,
+            chorion_embeddings,
+            chorion_coords,
+            chorion_confidence,
+        ) = get_raw_data(
+            project_name,
+            run_id,
+            chorion_x_min,
+            chorion_y_min,
+            chorion_width,
+            chorion_height,
+            top_conf,
+        )
+        predictions = np.concatenate((predictions, chorion_predictions))
+        embeddings = np.concatenate((embeddings, chorion_embeddings))
+        coords = np.concatenate((coords, chorion_coords))
+        confidence = np.concatenate((confidence, chorion_confidence))
+        chorion_tissue = np.full(
+            len(chorion_predictions), organ.tissue_by_label("Chorion").id, dtype=int
+        )
+        tissue_class = np.concatenate((tissue_class, chorion_tissue))
+
     # Covert isolated knts into syn and turn groups into a single knt point
     if group_knts:
         predictions, embeddings, coords, confidence, tissue_class = process_knts(
@@ -105,7 +135,9 @@ def main(
     )
 
     # Setup paths
-    save_path = Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs
+    save_path = (
+        Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs / f"run_{run_id}"
+    )
     save_path.mkdir(parents=True, exist_ok=True)
     conf_str = "_top_conf" if top_conf else ""
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"

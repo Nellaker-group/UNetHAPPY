@@ -20,7 +20,13 @@ from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
 
 
 def setup_node_splits(
-    data, tissue_class, mask_unlabelled, include_validation, val_patch_coords
+    data,
+    tissue_class,
+    mask_unlabelled,
+    include_validation,
+    val_patch_coords=(None, None, None, None),
+    test_patch_coords=(None, None, None, None),
+    include_chorion=True,
 ):
     # Mark everything as training data first
     train_mask = torch.ones(data.num_nodes, dtype=torch.bool)
@@ -36,11 +42,11 @@ def setup_node_splits(
         data.train_mask = train_mask
         print(f"{len(unlabelled_inds)} nodes marked as unlabelled")
 
-    # Split the graph by masks into training and validation nodes
+    # Split the graph by masks into training, validation and test nodes
     if include_validation:
         if val_patch_coords[0] is None and not mask_unlabelled:
-            print("No validation patched provided, splitting nodes randomly")
-            data = RandomNodeSplit(num_val=0.3, num_test=0.0)(data)
+            print("No validation patch provided, splitting nodes randomly")
+            data = RandomNodeSplit(num_val=0.15, num_test=0.15)(data)
         else:
             print("Splitting graph by validation patch")
             val_node_inds = get_nodes_within_tiles(
@@ -52,12 +58,48 @@ def setup_node_splits(
             )
             val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
             val_mask[val_node_inds] = True
-            data.val_mask = val_mask
             train_mask[val_node_inds] = False
+            if test_patch_coords[0] is not None:
+                test_node_inds = get_nodes_within_tiles(
+                    (test_patch_coords[0], test_patch_coords[1]),
+                    test_patch_coords[2],
+                    test_patch_coords[3],
+                    data["pos"][:, 0],
+                    data["pos"][:, 1],
+                )
+                test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+                test_mask[test_node_inds] = True
+                train_mask[test_node_inds] = False
+                data.test_mask = test_mask
+
+            # Additionally add the chorion validation and test sections
+            if include_chorion:
+                chorion_val_node_inds = get_nodes_within_tiles(
+                    (21656, 41159),
+                    7000,
+                    7000,
+                    data["pos"][:, 0],
+                    data["pos"][:, 1],
+                )
+                val_mask[chorion_val_node_inds] = True
+                train_mask[chorion_val_node_inds] = False
+                if test_patch_coords[0] is not None:
+                    chorion_test_node_inds = get_nodes_within_tiles(
+                        (27059, 59790),
+                        7000,
+                        7000,
+                        data["pos"][:, 0],
+                        data["pos"][:, 1],
+                    )
+                    test_mask[chorion_test_node_inds] = True
+                    train_mask[chorion_test_node_inds] = False
+                    data.test_mask = test_mask
+            data.val_mask = val_mask
             data.train_mask = train_mask
         print(
             f"Graph split into {data.train_mask.sum().item()} train nodes "
             f"and {data.val_mask.sum().item()} validation nodes"
+            f"and {data.test_mask.sum().item()} test nodes"
         )
     else:
         data.val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
