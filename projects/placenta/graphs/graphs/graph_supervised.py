@@ -103,6 +103,7 @@ def setup_node_splits(
         )
     else:
         data.val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+        data.test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
     return data
 
 

@@ -73,6 +73,7 @@ def main(
         / model_weights_dir
         / "eval"
         / model_name
+        / f"run_{run_id}"
     )
     tissue_df = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")
     # remove rows where knots were removed
