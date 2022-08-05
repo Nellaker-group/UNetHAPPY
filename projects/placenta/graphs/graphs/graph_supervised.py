@@ -83,6 +83,7 @@ def setup_node_splits(
                 )
                 val_mask[chorion_val_node_inds] = True
                 train_mask[chorion_val_node_inds] = False
+                print(f"Adding {len(chorion_val_node_inds)} chorion validation nodes")
                 if test_patch_coords[0] is not None:
                     chorion_test_node_inds = get_nodes_within_tiles(
                         (27059, 59790),
@@ -94,11 +95,12 @@ def setup_node_splits(
                     test_mask[chorion_test_node_inds] = True
                     train_mask[chorion_test_node_inds] = False
                     data.test_mask = test_mask
+                    print(f"Adding {len(chorion_test_node_inds)} chorion test nodes")
             data.val_mask = val_mask
             data.train_mask = train_mask
         print(
             f"Graph split into {data.train_mask.sum().item()} train nodes "
-            f"and {data.val_mask.sum().item()} validation nodes"
+            f"and {data.val_mask.sum().item()} validation nodes "
             f"and {data.test_mask.sum().item()} test nodes"
         )
     else:
