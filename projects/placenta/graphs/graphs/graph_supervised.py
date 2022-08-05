@@ -44,9 +44,13 @@ def setup_node_splits(
 
     # Split the graph by masks into training, validation and test nodes
     if include_validation:
-        if val_patch_coords[0] is None and not mask_unlabelled:
+        if val_patch_coords[0] is None:
             print("No validation patch provided, splitting nodes randomly")
             data = RandomNodeSplit(num_val=0.15, num_test=0.15)(data)
+            if mask_unlabelled:
+                data.val_mask[unlabelled_inds] = False
+                data.train_mask[unlabelled_inds] = False
+                data.test_mask[unlabelled_inds] = False
         else:
             print("Splitting graph by validation patch")
             val_node_inds = get_nodes_within_tiles(

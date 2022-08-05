@@ -119,9 +119,14 @@ def main(
                 include_chorion,
             )
         else:
-            data = graph_supervised.setup_node_splits(
-                data, tissue_class, mask_unlabelled, False
-            )
+            if include_validation and val_x_min == None:
+                data = graph_supervised.setup_node_splits(
+                    data, tissue_class, mask_unlabelled, True
+                )
+            else:
+                data = graph_supervised.setup_node_splits(
+                    data, tissue_class, mask_unlabelled, False
+                )
         datas.append(data)
 
     # Combine multiple graphs into a single graph
