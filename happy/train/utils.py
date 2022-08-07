@@ -40,13 +40,15 @@ def get_cell_confusion_matrix(organ, pred, truth, proportion_label=False):
             row_insert = np.zeros((1, cm.shape[1]))
             cm = np.insert(cm, missing_id, row_insert, 0)
 
-    row_labels = []
     if proportion_label:
+        row_labels = []
         unique_counts = cm.sum(axis=1)
         total_counts = cm.sum()
         label_proportions = ((unique_counts / total_counts) * 100).round(2)
         for i, label in enumerate(cell_labels):
             row_labels.append(f"{label}\n({label_proportions[i]}%)")
+    else:
+        row_labels = cell_labels
 
     cm_df = pd.DataFrame(cm, columns=cell_labels, index=row_labels).astype(int)
     args_to_sort = np.argsort([cell.structural_id for cell in organ.cells])

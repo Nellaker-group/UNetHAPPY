@@ -45,8 +45,38 @@ def setup_node_splits(
     # Split the graph by masks into training, validation and test nodes
     if include_validation:
         if val_patch_coords[0] is None:
-            print("No validation patch provided, splitting nodes randomly")
-            data = RandomNodeSplit(num_val=0.15, num_test=0.15)(data)
+            if test_patch_coords[0] is None:
+                print("No validation patch provided, splitting nodes randomly")
+                data = RandomNodeSplit(num_val=0.15, num_test=0.15)(data)
+            else:
+                print("No validation patch provided, splitting nodes randomly into "
+                      "train and val and using test patch")
+                data = RandomNodeSplit(num_val=0.15, num_test=0)(data)
+                test_node_inds = get_nodes_within_tiles(
+                    (test_patch_coords[0], test_patch_coords[1]),
+                    test_patch_coords[2],
+                    test_patch_coords[3],
+                    data["pos"][:, 0],
+                    data["pos"][:, 1],
+                )
+                test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+                test_mask[test_node_inds] = True
+                data.val_mask[test_node_inds] = False
+                data.train_mask[test_node_inds] = False
+                data.test_mask = test_mask
+                if include_chorion:
+                    chorion_test_node_inds = get_nodes_within_tiles(
+                        (27059, 59790),
+                        7000,
+                        7000,
+                        data["pos"][:, 0],
+                        data["pos"][:, 1],
+                    )
+                    test_mask[chorion_test_node_inds] = True
+                    data.train_mask[chorion_test_node_inds] = False
+                    data.val_mask[chorion_test_node_inds] = False
+                    data.test_mask = test_mask
+                    print(f"Adding {len(chorion_test_node_inds)} chorion test nodes")
             if mask_unlabelled:
                 data.val_mask[unlabelled_inds] = False
                 data.train_mask[unlabelled_inds] = False
