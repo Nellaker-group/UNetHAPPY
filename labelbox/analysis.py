@@ -88,20 +88,35 @@ def main(
     )
     print(f"Original to path kappa: {original_to_path_kappa:.3f}")
 
-    # agreement for each tissue type between paths and between me and paths
     for label in ALL_LABELS:
         label_filtered_df = combined_majority_df[
             combined_majority_df["majority_class"] == label
         ]
         num_images = len(label_filtered_df)
+        # agreement/certainty for each tissue type between pathologists
         if num_images != 0:
             num_predictions = label_filtered_df["num_unique"].sum()
-            certainty = (num_images / num_predictions) * 100
+            other_majority_df = combined_majority_df[
+                combined_majority_df["majority_class"] != label
+            ]
+            other_majority_df_disagreement = other_majority_df[
+                other_majority_df["num_unique"] != 1
+            ]
+            num_label_in_other_majority = (
+                other_majority_df_disagreement["all_preds"]
+                .apply(lambda x: x.count(label))
+                .sum()
+            )
+            certainty = (
+                num_images / (num_predictions + num_label_in_other_majority)
+            ) * 100
             print(
                 f"{label}: images in majority {num_images} | "
-                f"num disagreed {num_predictions - num_images} | "
+                f"num disagreed with majority {num_predictions - num_images} | "
+                f"num labels in other majorities {num_label_in_other_majority} | "
                 f"certainty {certainty:.1f}%"
             )
+            # agreement for each tissue type between me and pathologists
             original_filtered_df = combined_majority_df[
                 combined_majority_df["original_label"] == label
             ]
@@ -184,8 +199,9 @@ def get_majority_labels(df):
     unique_counts_df = (
         df.groupby("image_name")["label"].nunique().reset_index(drop=False)
     )
+    # TODO: figure out what to do now that there can be ties... (picks first right now)
     unique_counts_df["majority_class"] = (
-        df.groupby("image_name")["label"].agg(pd.Series.mode).values
+        df.groupby("image_name")["label"].agg(lambda x: pd.Series.mode(x).iat[0]).values
     )
     unique_counts_df.loc[
         unique_counts_df["majority_class"].apply(lambda x: isinstance(x, np.ndarray)),
