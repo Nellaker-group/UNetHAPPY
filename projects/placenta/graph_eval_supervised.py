@@ -14,6 +14,7 @@ from sklearn.metrics import (
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.utils import add_self_loops
 from torch_geometric.loader import NeighborSampler, NeighborLoader
+from torch_geometric.data import Batch
 from scipy.special import softmax
 import numpy as np
 import pandas as pd
@@ -77,6 +78,20 @@ def main(
         organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
     )
 
+    # Covert isolated knts into syn and turn groups into a single knt point
+    if group_knts:
+        predictions, embeddings, coords, confidence, tissue_class = process_knts(
+            organ, predictions, embeddings, coords, confidence, tissue_class
+        )
+    # Covert input cell data into a graph
+    feature_data = get_feature(feature.value, predictions, embeddings)
+    data = setup_graph(coords, k, feature_data, graph_method.value, loop=False)
+    data = ToUndirected()(data)
+    data.edge_index, data.edge_attr = add_self_loops(
+        data["edge_index"], data["edge_attr"], fill_value="mean"
+    )
+    datas = [data]
+
     # Add the chorion patch to the raw data graph and the ground truth
     if chorion_x_min is not None:
         (
@@ -93,27 +108,24 @@ def main(
             chorion_height,
             top_conf,
         )
-        predictions = np.concatenate((predictions, chorion_predictions))
-        embeddings = np.concatenate((embeddings, chorion_embeddings))
-        coords = np.concatenate((coords, chorion_coords))
-        confidence = np.concatenate((confidence, chorion_confidence))
         chorion_tissue = np.full(
             len(chorion_predictions), organ.tissue_by_label("Chorion").id, dtype=int
         )
         tissue_class = np.concatenate((tissue_class, chorion_tissue))
 
-    # Covert isolated knts into syn and turn groups into a single knt point
-    if group_knts:
-        predictions, embeddings, coords, confidence, tissue_class = process_knts(
-            organ, predictions, embeddings, coords, confidence, tissue_class
+        chorion_feature_data = get_feature(
+            feature.value, chorion_predictions, chorion_embeddings
         )
-    # Covert input cell data into a graph
-    feature_data = get_feature(feature.value, predictions, embeddings)
-    data = setup_graph(coords, k, feature_data, graph_method.value, loop=False)
-    data = ToUndirected()(data)
-    data.edge_index, data.edge_attr = add_self_loops(
-        data["edge_index"], data["edge_attr"], fill_value="mean"
-    )
+        chorion_data = setup_graph(
+            chorion_coords, k, chorion_feature_data, graph_method.value, loop=False
+        )
+        chorion_data = ToUndirected()(chorion_data)
+        chorion_data.edge_index, chorion_data.edge_attr = add_self_loops(
+            chorion_data["edge_index"], chorion_data["edge_attr"], fill_value="mean"
+        )
+        datas = [data, chorion_data]
+
+    data = Batch.from_data_list(datas)
     x = data.x.to(device)
     pos = data.pos
 
@@ -226,7 +238,7 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
 
     accuracy = accuracy_score(tissue_class, predicted_labels)
     f1_macro = f1_score(tissue_class, predicted_labels, average="macro")
-    top_3_accuracy = top_k_accuracy_score(tissue_class, out, k=3, labels=tissue_ids)
+    top_3_accuracy = top_k_accuracy_score(tissue_class, out, k=2, labels=tissue_ids)
     cohen_kappa = cohen_kappa_score(tissue_class, predicted_labels)
     mcc = matthews_corrcoef(tissue_class, predicted_labels)
     roc_auc = roc_auc_score(
@@ -245,7 +257,7 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
     )
     print("-----------------------")
     print(f"Accuracy: {accuracy:.3f}")
-    print(f"Top 3 accuracy: {top_3_accuracy:.3f}")
+    print(f"Top 2 accuracy: {top_3_accuracy:.3f}")
     print(f"F1 macro score: {f1_macro:.3f}")
     print(f"Cohen's Kappa score: {cohen_kappa:.3f}")
     print(f"MCC score: {mcc:.3f}")
