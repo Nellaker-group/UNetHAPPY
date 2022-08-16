@@ -23,11 +23,13 @@ def setup_node_splits(
     data,
     tissue_class,
     mask_unlabelled,
-    include_validation,
-    val_patch_coords=(None, None, None, None),
-    test_patch_coords=(None, None, None, None),
-    include_chorion=True,
+    include_validation=True,
+    val_patch_files=None,
+    test_patch_files=None,
 ):
+    all_xs = data["pos"][:, 0]
+    all_ys = data["pos"][:, 1]
+
     # Mark everything as training data first
     train_mask = torch.ones(data.num_nodes, dtype=torch.bool)
     data.train_mask = train_mask
@@ -44,92 +46,62 @@ def setup_node_splits(
 
     # Split the graph by masks into training, validation and test nodes
     if include_validation:
-        if val_patch_coords[0] is None:
-            if test_patch_coords[0] is None:
+        if val_patch_files is None:
+            if test_patch_files is None:
                 print("No validation patch provided, splitting nodes randomly")
                 data = RandomNodeSplit(num_val=0.15, num_test=0.15)(data)
             else:
-                print("No validation patch provided, splitting nodes randomly into "
-                      "train and val and using test patch")
-                data = RandomNodeSplit(num_val=0.15, num_test=0)(data)
-                test_node_inds = get_nodes_within_tiles(
-                    (test_patch_coords[0], test_patch_coords[1]),
-                    test_patch_coords[2],
-                    test_patch_coords[3],
-                    data["pos"][:, 0],
-                    data["pos"][:, 1],
+                print(
+                    "No validation patch provided, splitting nodes randomly into "
+                    "train and val and using test patch"
                 )
+                data = RandomNodeSplit(num_val=0.15, num_test=0)(data)
+                test_node_inds = []
+                for file in test_patch_files:
+                    patches_df = pd.read_csv(file)
+                    for row in patches_df.itertuples(index=False):
+                        test_node_inds.extend(
+                            get_nodes_within_tiles(
+                                (row.x, row.y), row.width, row.height, all_xs, all_ys
+                            )
+                        )
                 test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
                 test_mask[test_node_inds] = True
                 data.val_mask[test_node_inds] = False
                 data.train_mask[test_node_inds] = False
                 data.test_mask = test_mask
-                if include_chorion:
-                    chorion_test_node_inds = get_nodes_within_tiles(
-                        (27059, 59790),
-                        7000,
-                        7000,
-                        data["pos"][:, 0],
-                        data["pos"][:, 1],
-                    )
-                    test_mask[chorion_test_node_inds] = True
-                    data.train_mask[chorion_test_node_inds] = False
-                    data.val_mask[chorion_test_node_inds] = False
-                    data.test_mask = test_mask
-                    print(f"Adding {len(chorion_test_node_inds)} chorion test nodes")
             if mask_unlabelled:
                 data.val_mask[unlabelled_inds] = False
                 data.train_mask[unlabelled_inds] = False
                 data.test_mask[unlabelled_inds] = False
         else:
             print("Splitting graph by validation patch")
-            val_node_inds = get_nodes_within_tiles(
-                (val_patch_coords[0], val_patch_coords[1]),
-                val_patch_coords[2],
-                val_patch_coords[3],
-                data["pos"][:, 0],
-                data["pos"][:, 1],
-            )
+            val_node_inds = []
+            for file in val_patch_files:
+                patches_df = pd.read_csv(file)
+                for row in patches_df.itertuples(index=False):
+                    val_node_inds.extend(
+                        get_nodes_within_tiles(
+                            (row.x, row.y), row.width, row.height, all_xs, all_ys
+                        )
+                    )
             val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
             val_mask[val_node_inds] = True
             train_mask[val_node_inds] = False
-            if test_patch_coords[0] is not None:
-                test_node_inds = get_nodes_within_tiles(
-                    (test_patch_coords[0], test_patch_coords[1]),
-                    test_patch_coords[2],
-                    test_patch_coords[3],
-                    data["pos"][:, 0],
-                    data["pos"][:, 1],
-                )
+            if test_patch_files is not None:
+                test_node_inds = []
+                for file in test_patch_files:
+                    patches_df = pd.read_csv(file)
+                    for row in patches_df.itertuples(index=False):
+                        test_node_inds.extend(
+                            get_nodes_within_tiles(
+                                (row.x, row.y), row.width, row.height, all_xs, all_ys
+                            )
+                        )
                 test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
                 test_mask[test_node_inds] = True
                 train_mask[test_node_inds] = False
                 data.test_mask = test_mask
-
-            # Additionally add the chorion validation and test sections
-            if include_chorion:
-                chorion_val_node_inds = get_nodes_within_tiles(
-                    (21656, 41159),
-                    7000,
-                    7000,
-                    data["pos"][:, 0],
-                    data["pos"][:, 1],
-                )
-                val_mask[chorion_val_node_inds] = True
-                train_mask[chorion_val_node_inds] = False
-                print(f"Adding {len(chorion_val_node_inds)} chorion validation nodes")
-                if test_patch_coords[0] is not None:
-                    chorion_test_node_inds = get_nodes_within_tiles(
-                        (27059, 59790),
-                        7000,
-                        7000,
-                        data["pos"][:, 0],
-                        data["pos"][:, 1],
-                    )
-                    test_mask[chorion_test_node_inds] = True
-                    train_mask[chorion_test_node_inds] = False
-                    data.test_mask = test_mask
-                    print(f"Adding {len(chorion_test_node_inds)} chorion test nodes")
             data.val_mask = val_mask
             data.train_mask = train_mask
         print(
@@ -378,9 +350,9 @@ def save_state(
             "width": width,
             "height": height,
             "k": k,
-            "feature": feature.value,
+            "feature": feature,
             "top_conf": top_conf,
-            "graph_method": graph_method.value,
+            "graph_method": graph_method,
             "batch_size": batch_size,
             "num_neighbours": num_neighbours,
             "learning_rate": learning_rate,

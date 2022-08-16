@@ -196,6 +196,7 @@ out/
 **/placenta/visualisations
 **/results
 **/trained_models
+**/config
 *.pth
 *.pt
 *.csv

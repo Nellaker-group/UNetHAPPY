@@ -242,11 +242,18 @@ def get_list_of_subgraphs(
 def get_nodes_within_tiles(tile_coords, tile_width, tile_height, all_xs, all_ys):
     tile_min_x, tile_min_y = tile_coords[0], tile_coords[1]
     tile_max_x, tile_max_y = tile_min_x + tile_width, tile_min_y + tile_height
-    mask = torch.logical_and(
-        (torch.logical_and(all_xs > tile_min_x, (all_ys > tile_min_y))),
-        (torch.logical_and(all_xs < tile_max_x, (all_ys < tile_max_y))),
-    )
-    return mask.nonzero()[:, 0].tolist()
+    if isinstance(all_xs, torch.Tensor) and isinstance(all_ys, torch.Tensor):
+        mask = torch.logical_and(
+            (torch.logical_and(all_xs > tile_min_x, (all_ys > tile_min_y))),
+            (torch.logical_and(all_xs < tile_max_x, (all_ys < tile_max_y))),
+        )
+        return mask.nonzero()[:, 0].tolist()
+    else:
+        mask = np.logical_and(
+            (np.logical_and(all_xs > tile_min_x, (all_ys > tile_min_y))),
+            (np.logical_and(all_xs < tile_max_x, (all_ys < tile_max_y))),
+        )
+        return mask.nonzero()[0].tolist()
 
 
 def _plot_nodes_per_tile(tiles, binwidth):
