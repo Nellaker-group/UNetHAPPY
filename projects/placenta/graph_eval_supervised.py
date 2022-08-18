@@ -1,10 +1,11 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import typer
 import torch
 from sklearn.metrics import (
     accuracy_score,
+    balanced_accuracy_score,
     top_k_accuracy_score,
     f1_score,
     cohen_kappa_score,
@@ -46,10 +47,7 @@ def main(
     model_weights_dir: str = typer.Option(...),
     model_name: str = typer.Option(...),
     run_id: int = typer.Option(...),
-    x_min: int = 0,
-    y_min: int = 0,
-    width: int = -1,
-    height: int = -1,
+    val_patch_files: Optional[List[str]] = None,
     k: int = 6,
     feature: FeatureArg = FeatureArg.embeddings,
     group_knts: bool = False,
@@ -60,74 +58,62 @@ def main(
     remove_unlabelled: bool = True,
     label_type: str = "full",
     tissue_label_tsv: Optional[str] = None,
-    chorion_x_min: Optional[int] = None,
-    chorion_y_min: Optional[int] = None,
-    chorion_width: Optional[int] = None,
-    chorion_height: Optional[int] = None,
 ):
     device = get_device()
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
+    patch_files = [project_dir / "config" / file for file in val_patch_files]
 
-    # Get data from hdf5 files
-    predictions, embeddings, coords, confidence = get_raw_data(
-        project_name, run_id, x_min, y_min, width, height, top_conf
-    )
-    # Get ground truth manually annotated data
-    _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
-    )
-
-    # Covert isolated knts into syn and turn groups into a single knt point
-    if group_knts:
-        predictions, embeddings, coords, confidence, tissue_class = process_knts(
-            organ, predictions, embeddings, coords, confidence, tissue_class
-        )
-    # Covert input cell data into a graph
-    feature_data = get_feature(feature.value, predictions, embeddings)
-    data = setup_graph(coords, k, feature_data, graph_method.value, loop=False)
-    data = ToUndirected()(data)
-    data.edge_index, data.edge_attr = add_self_loops(
-        data["edge_index"], data["edge_attr"], fill_value="mean"
-    )
-    datas = [data]
-
-    # Add the chorion patch to the raw data graph and the ground truth
-    if chorion_x_min is not None:
-        (
-            chorion_predictions,
-            chorion_embeddings,
-            chorion_coords,
-            chorion_confidence,
-        ) = get_raw_data(
-            project_name,
-            run_id,
-            chorion_x_min,
-            chorion_y_min,
-            chorion_width,
-            chorion_height,
-            top_conf,
-        )
-        chorion_tissue = np.full(
-            len(chorion_predictions), organ.tissue_by_label("Chorion").id, dtype=int
-        )
-        tissue_class = np.concatenate((tissue_class, chorion_tissue))
-
-        chorion_feature_data = get_feature(
-            feature.value, chorion_predictions, chorion_embeddings
-        )
-        chorion_data = setup_graph(
-            chorion_coords, k, chorion_feature_data, graph_method.value, loop=False
-        )
-        chorion_data = ToUndirected()(chorion_data)
-        chorion_data.edge_index, chorion_data.edge_attr = add_self_loops(
-            chorion_data["edge_index"], chorion_data["edge_attr"], fill_value="mean"
-        )
-        datas = [data, chorion_data]
+    datas = []
+    for file in patch_files:
+        patches_df = pd.read_csv(file)
+        for i, row in enumerate(patches_df.itertuples(index=False)):
+            # Get data from hdf5 files
+            predictions, embeddings, coords, confidence = get_raw_data(
+                project_name, run_id, row.x, row.y, row.width, row.height, top_conf
+            )
+            # Get ground truth manually annotated data
+            _, _, tissue_class = get_groundtruth_patch(
+                organ,
+                project_dir,
+                row.x,
+                row.y,
+                row.width,
+                row.height,
+                tissue_label_tsv,
+                label_type,
+            )
+            # Covert isolated knts into syn and turn groups into a single knt point
+            if group_knts:
+                if organ.cell_by_label("KNT") in tissue_class:
+                    (
+                        predictions,
+                        embeddings,
+                        coords,
+                        confidence,
+                        tissue_class,
+                    ) = process_knts(
+                        organ, predictions, embeddings, coords, confidence, tissue_class
+                    )
+                else:
+                    print("No KNTs found in this patch")
+            # Covert input cell data into a graph
+            data = _make_graph(
+                feature.value,
+                predictions,
+                embeddings,
+                coords,
+                k,
+                graph_method.value,
+                tissue_class,
+            )
+            datas.append(data)
 
     data = Batch.from_data_list(datas)
-    x = data.x.to(device)
+    tissue_class = data.y.numpy()
+    predictions = data.x
     pos = data.pos
+    x = data.x.to(device)
 
     # Setup trained model
     pretrained_path = (
@@ -152,7 +138,7 @@ def main(
     )
     save_path.mkdir(parents=True, exist_ok=True)
     conf_str = "_top_conf" if top_conf else ""
-    plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
+    plot_name = f"{val_patch_files[0].split('.csv')[0]}_{conf_str}"
 
     # Dataloader for eval, feeds in whole graph
     if model_type == "sup_graphsage":
@@ -218,17 +204,17 @@ def main(
     colours = [colours_dict[label] for label in predicted_labels]
     visualize_points(
         organ,
-        save_path / f"patch_{plot_name}.png",
+        save_path / f"{plot_name.split('.png')[0]}.png",
         pos,
         colours=colours,
-        width=width,
-        height=height,
+        width=-1,
+        height=-1,
     )
 
-    if x_min is 0:
+    if row.x is 0:
         label_dict = {tissue.id: tissue.label for tissue in organ.tissues}
         predicted_labels = [label_dict[label] for label in predicted_labels]
-        _save_tissue_preds_as_tsv(predicted_labels, coords, save_path)
+        _save_tissue_preds_as_tsv(predicted_labels, data.pos, save_path)
 
 
 def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled):
@@ -237,8 +223,9 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
         tissue_ids = tissue_ids[1:]
 
     accuracy = accuracy_score(tissue_class, predicted_labels)
+    balanced_accuracy = balanced_accuracy_score(tissue_class, predicted_labels)
+    top_2_accuracy = top_k_accuracy_score(tissue_class, out, k=2, labels=tissue_ids)
     f1_macro = f1_score(tissue_class, predicted_labels, average="macro")
-    top_3_accuracy = top_k_accuracy_score(tissue_class, out, k=2, labels=tissue_ids)
     cohen_kappa = cohen_kappa_score(tissue_class, predicted_labels)
     mcc = matthews_corrcoef(tissue_class, predicted_labels)
     roc_auc = roc_auc_score(
@@ -257,7 +244,8 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
     )
     print("-----------------------")
     print(f"Accuracy: {accuracy:.3f}")
-    print(f"Top 2 accuracy: {top_3_accuracy:.3f}")
+    print(f"Top 2 accuracy: {top_2_accuracy:.3f}")
+    print(f"Balanced accuracy: {balanced_accuracy:.3f}")
     print(f"F1 macro score: {f1_macro:.3f}")
     print(f"Cohen's Kappa score: {cohen_kappa:.3f}")
     print(f"MCC score: {mcc:.3f}")
@@ -265,6 +253,7 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
     print(f"Weighted ROC AUC macro: {weighted_roc_auc:.3f}")
     print("-----------------------")
 
+    print("Plotting confusion matrices")
     cm_df, cm_df_props = get_tissue_confusion_matrix(
         organ, predicted_labels, tissue_class, proportion_label=True
     )
@@ -275,6 +264,7 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
     sns.set(font_scale=1.1)
     plot_confusion_matrix(cm_df_props, "All Tissues Proportion", run_path, ".2f")
 
+    print("Plotting pr curves")
     tissue_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
     tissue_colours = {tissue.id: tissue.colour for tissue in organ.tissues}
     plot_tissue_pr_curves(
@@ -287,8 +277,22 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
     )
 
 
+def _make_graph(
+    feature, predictions, embeddings, coords, k, graph_method, tissue_class
+):
+    # Covert input cell data into a graph
+    feature_data = get_feature(feature, predictions, embeddings)
+    data = setup_graph(coords, k, feature_data, graph_method, loop=False)
+    data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
+    data = ToUndirected()(data)
+    data.edge_index, data.edge_attr = add_self_loops(
+        data["edge_index"], data["edge_attr"], fill_value="mean"
+    )
+    return data
+
+
 def _remove_unlabelled(tissue_class, predicted_labels, pos, out):
-    labelled_inds = tissue_class.nonzero()
+    labelled_inds = tissue_class.nonzero()[0]
     tissue_class = tissue_class[labelled_inds]
     pos = pos[labelled_inds]
     out = out[labelled_inds]

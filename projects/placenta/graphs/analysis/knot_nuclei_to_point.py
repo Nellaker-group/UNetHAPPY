@@ -31,6 +31,8 @@ def process_knt_cells(
     # Get indices of KNT cells in radius
     all_knt_inds = np.nonzero(all_predictions == 10)[0]
     unique_indices = _get_indices_in_radius(coords, radius)
+    if len(unique_indices) <= 1:
+        return all_predictions, all_embeddings, all_coords, all_confidence, np.array([])
     if plot:
         _plot_distances_to_nearest_neighbor([len(x) for x in unique_indices])
 
@@ -103,6 +105,7 @@ def _convert_isolated_knt_into_syn(
 def _cluster_knts_into_point(
     predictions, embeddings, coords, confidence, cut_off_count, unique_indices
 ):
+
     remaining_inds = [x for x in unique_indices if len(x) > cut_off_count]
     # take all elements except the first to be removed from grouped KNT cells
     inds_to_remove = []

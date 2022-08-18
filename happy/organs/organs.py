@@ -38,7 +38,7 @@ class Organ:
         return self.cells[i]
 
     def cell_by_label(self, label):
-        labels = {cell.id: cell.label for cell in self.cells}
+        labels = {cell.label: cell.id for cell in self.cells}
         return self.cells[labels[label]]
 
     def tissue_by_label(self, label):

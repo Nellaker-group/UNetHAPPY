@@ -110,7 +110,7 @@ def process_knts(organ, predictions, embeddings, coords, confidence, tissues=Non
         predictions, embeddings, coords, confidence, organ, 50, 3, plot=False
     )
     # Remove points from tissue ground truth as well
-    if tissues is not None:
+    if tissues is not None and len(inds_to_remove) > 0:
         tissues = np.delete(tissues, inds_to_remove, axis=0)
     return predictions, embeddings, coords, confidence, tissues
 
@@ -176,8 +176,15 @@ def make_intersection_graph(data, k, norm_edges=True):
     knn_edge_index = knn_graph.edge_index.T
     knn_edge_index = np.array(knn_edge_index.tolist())
     print(f"Generating delaunay graph")
-    triang = tri.Triangulation(data.pos[:, 0], data.pos[:, 1])
-    delaunay_edge_index = triang.edges.astype("int64")
+    try:
+        triang = tri.Triangulation(data.pos[:, 0], data.pos[:, 1])
+        delaunay_edge_index = triang.edges.astype("int64")
+    except ValueError:
+        print("Too few points to make a triangulation, returning knn graph")
+        get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
+        knn_graph = get_edge_distance_weights(knn_graph)
+        print(f"Graph made with {len(knn_graph.edge_index[0])} edges!")
+        return knn_graph
 
     print(f"Generating intersection of both graphs")
     _, ncols = knn_edge_index.shape
