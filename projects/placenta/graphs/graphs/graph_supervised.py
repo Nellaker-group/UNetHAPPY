@@ -35,7 +35,7 @@ def setup_node_splits(
     data.train_mask = train_mask
 
     # Mask unlabelled data to ignore during training
-    if mask_unlabelled:
+    if mask_unlabelled and tissue_class is not None:
         unlabelled_inds = (tissue_class == 0).nonzero()[0]
         unlabelled_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
         unlabelled_mask[unlabelled_inds] = True
@@ -70,7 +70,7 @@ def setup_node_splits(
                 data.val_mask[test_node_inds] = False
                 data.train_mask[test_node_inds] = False
                 data.test_mask = test_mask
-            if mask_unlabelled:
+            if mask_unlabelled and tissue_class is not None:
                 data.val_mask[unlabelled_inds] = False
                 data.train_mask[unlabelled_inds] = False
                 data.test_mask[unlabelled_inds] = False
@@ -80,6 +80,17 @@ def setup_node_splits(
             for file in val_patch_files:
                 patches_df = pd.read_csv(file)
                 for row in patches_df.itertuples(index=False):
+                    if (
+                        row.x == 0
+                        and row.y == 0
+                        and row.width == -1
+                        and row.height == -1
+                    ):
+                        data.val_mask = torch.ones(data.num_nodes, dtype=torch.bool)
+                        data.train_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+                        data.test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+                        print("All nodes marked as validation")
+                        return data
                     val_node_inds.extend(
                         get_nodes_within_tiles(
                             (row.x, row.y), row.width, row.height, all_xs, all_ys
@@ -102,6 +113,8 @@ def setup_node_splits(
                 test_mask[test_node_inds] = True
                 train_mask[test_node_inds] = False
                 data.test_mask = test_mask
+            else:
+                data.test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
             data.val_mask = val_mask
             data.train_mask = train_mask
         print(

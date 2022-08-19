@@ -15,7 +15,6 @@ from sklearn.metrics import (
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.utils import add_self_loops
 from torch_geometric.loader import NeighborSampler, NeighborLoader
-from torch_geometric.data import Batch
 from scipy.special import softmax
 import numpy as np
 import pandas as pd
@@ -35,7 +34,7 @@ from graphs.graphs.utils import get_feature
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
 from graphs.graphs.create_graph import get_groundtruth_patch
-from graphs.graphs.graph_supervised import inference
+from graphs.graphs.graph_supervised import inference, setup_node_splits
 
 np.random.seed(2)
 
@@ -47,6 +46,10 @@ def main(
     model_weights_dir: str = typer.Option(...),
     model_name: str = typer.Option(...),
     run_id: int = typer.Option(...),
+    x_min: int = 0,
+    y_min: int = 0,
+    width: int = -1,
+    height: int = -1,
     val_patch_files: Optional[List[str]] = None,
     k: int = 6,
     feature: FeatureArg = FeatureArg.embeddings,
@@ -64,56 +67,36 @@ def main(
     organ = get_organ(organ_name)
     patch_files = [project_dir / "config" / file for file in val_patch_files]
 
-    datas = []
-    for file in patch_files:
-        patches_df = pd.read_csv(file)
-        for i, row in enumerate(patches_df.itertuples(index=False)):
-            # Get data from hdf5 files
-            predictions, embeddings, coords, confidence = get_raw_data(
-                project_name, run_id, row.x, row.y, row.width, row.height, top_conf
-            )
-            # Get ground truth manually annotated data
-            _, _, tissue_class = get_groundtruth_patch(
-                organ,
-                project_dir,
-                row.x,
-                row.y,
-                row.width,
-                row.height,
-                tissue_label_tsv,
-                label_type,
-            )
-            # Covert isolated knts into syn and turn groups into a single knt point
-            if group_knts:
-                if organ.cell_by_label("KNT") in tissue_class:
-                    (
-                        predictions,
-                        embeddings,
-                        coords,
-                        confidence,
-                        tissue_class,
-                    ) = process_knts(
-                        organ, predictions, embeddings, coords, confidence, tissue_class
-                    )
-                else:
-                    print("No KNTs found in this patch")
-            # Covert input cell data into a graph
-            data = _make_graph(
-                feature.value,
-                predictions,
-                embeddings,
-                coords,
-                k,
-                graph_method.value,
-                tissue_class,
-            )
-            datas.append(data)
-
-    data = Batch.from_data_list(datas)
-    tissue_class = data.y.numpy()
-    predictions = data.x
+    predictions, embeddings, coords, confidence = get_raw_data(
+        project_name, run_id, x_min, y_min, width, height, top_conf
+    )
+    # Get ground truth manually annotated data
+    _, _, tissue_class = get_groundtruth_patch(
+        organ,
+        project_dir,
+        x_min,
+        y_min,
+        width,
+        height,
+        tissue_label_tsv,
+        label_type,
+    )
+    # Covert isolated knts into syn and turn groups into a single knt point
+    if group_knts:
+        predictions, embeddings, coords, confidence, tissue_class = process_knts(
+            organ, predictions, embeddings, coords, confidence, tissue_class
+        )
+    # Covert input cell data into a graph
+    feature_data = get_feature(feature, predictions, embeddings)
+    data = setup_graph(coords, k, feature_data, graph_method, loop=False)
+    data = ToUndirected()(data)
+    data.edge_index, data.edge_attr = add_self_loops(
+        data["edge_index"], data["edge_attr"], fill_value="mean"
+    )
     pos = data.pos
     x = data.x.to(device)
+
+    data = setup_node_splits(data, tissue_class, remove_unlabelled, True, patch_files)
 
     # Setup trained model
     pretrained_path = (
@@ -162,6 +145,16 @@ def main(
     # Run inference and get predicted labels for nodes
     out, graph_embeddings, predicted_labels = inference(model, x, eval_loader, device)
 
+    # restrict to only data in patch_files using val_mask
+    val_nodes = data.val_mask
+    predicted_labels = predicted_labels[val_nodes]
+    graph_embeddings = graph_embeddings[val_nodes]
+    out = out[val_nodes]
+    pos = pos[val_nodes]
+    tissue_class = (
+        tissue_class[val_nodes] if tissue_label_tsv is not None else tissue_class
+    )
+
     # Remove unlabelled (class 0) ground truth points
     if remove_unlabelled and tissue_label_tsv is not None:
         unlabelled_inds, tissue_class, predicted_labels, pos, out = _remove_unlabelled(
@@ -207,14 +200,15 @@ def main(
         save_path / f"{plot_name.split('.png')[0]}.png",
         pos,
         colours=colours,
-        width=-1,
-        height=-1,
+        width=int(data.pos[:, 0].max()) - int(data.pos[:, 0].min()),
+        height=int(data.pos[:, 1].max()) - int(data.pos[:, 1].min()),
     )
 
-    if row.x is 0:
+    # make tsv if the whole graph was used
+    if len(data.pos) == len(data.pos[data.val_mask]):
         label_dict = {tissue.id: tissue.label for tissue in organ.tissues}
         predicted_labels = [label_dict[label] for label in predicted_labels]
-        _save_tissue_preds_as_tsv(predicted_labels, data.pos, save_path)
+        _save_tissue_preds_as_tsv(predicted_labels, pos, save_path)
 
 
 def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled):
@@ -277,20 +271,6 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
     )
 
 
-def _make_graph(
-    feature, predictions, embeddings, coords, k, graph_method, tissue_class
-):
-    # Covert input cell data into a graph
-    feature_data = get_feature(feature, predictions, embeddings)
-    data = setup_graph(coords, k, feature_data, graph_method, loop=False)
-    data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
-    data = ToUndirected()(data)
-    data.edge_index, data.edge_attr = add_self_loops(
-        data["edge_index"], data["edge_attr"], fill_value="mean"
-    )
-    return data
-
-
 def _remove_unlabelled(tissue_class, predicted_labels, pos, out):
     labelled_inds = tissue_class.nonzero()[0]
     tissue_class = tissue_class[labelled_inds]
@@ -312,7 +292,11 @@ def _print_prediction_stats(predicted_labels, tissue_label_mapping):
 
 def _save_tissue_preds_as_tsv(predicted_labels, coords, save_path):
     tissue_preds_df = pd.DataFrame(
-        {"x": coords[:, 0], "y": coords[:, 1], "class": predicted_labels}
+        {
+            "x": coords[:, 0].numpy().astype(int),
+            "y": coords[:, 1].numpy().astype(int),
+            "class": predicted_labels,
+        }
     )
     tissue_preds_df.to_csv(save_path / "tissue_preds.tsv", sep="\t", index=False)
 
