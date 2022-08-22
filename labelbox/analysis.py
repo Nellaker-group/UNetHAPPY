@@ -242,8 +242,8 @@ def pathologist_confusion(combined_majority_df):
     )
     ax.hlines([9], *ax.get_xlim())
     ax.vlines([9], *ax.get_ylim())
-    plt.ylabel("Majority Vote")
-    plt.xlabel("Proportion of Votes")
+    plt.ylabel("Majority Label")
+    plt.xlabel("Proportion of Labels")
     plt.tight_layout()
     plt.savefig("pathologist_confusion.png")
 
@@ -266,7 +266,7 @@ def original_to_path_confusion(combined_majority_df):
     sns.heatmap(cm_df, annot=True, cmap="Blues", square=True, cbar=False, fmt="g")
     plt.yticks(rotation=0)
     plt.ylabel("Original Tissue Structure Annotation")
-    plt.xlabel("Number of Pathologist Votes")
+    plt.xlabel("Number of Pathologist Labels")
     plt.tight_layout()
     plt.savefig("original_vs_pathologist_confusion.png")
 
