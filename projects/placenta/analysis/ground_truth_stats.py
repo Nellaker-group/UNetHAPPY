@@ -56,15 +56,12 @@ def main(
         for file in patch_files:
             patches_df = pd.read_csv(file)
             for row in patches_df.itertuples(index=False):
-                patch_node_inds.extend(
-                    get_nodes_within_tiles(
+                node_inds = get_nodes_within_tiles(
                         (row.x, row.y), row.width, row.height, xs_tissue, ys_tissue
                     )
-                )
+                patch_node_inds.extend(node_inds)
                 if use_path_class:
-                    path_class.append(row.path_class)
-        # sort_args = np.lexsort((ys_tissue, xs_tissue))
-
+                    path_class.extend([row.path_class] * len(node_inds))
     # Otherwise, use all tissue nodes and remove unlabelled
     else:
         patch_node_inds = tissue_class.nonzero()[0]
@@ -103,8 +100,12 @@ def main(
     print(f"Cell proportions per label: {unique_cell_proportions}")
 
     # # print tissue ground truth
-    tissue_df = pd.DataFrame({"x": xs_tissue, "y": ys_tissue, "Tissues": tissue_class})
-    tissue_df['Tissues'] = tissue_df['Tissues'].map(tissue_label_mapping)
+    if not use_path_class:
+        tissue_df = pd.DataFrame({"x": xs_tissue, "y": ys_tissue, "Tissues": tissue_class})
+        tissue_df['Tissues'] = tissue_df['Tissues'].map(tissue_label_mapping)
+    else:
+        tissue_df = pd.DataFrame(
+            {"x": xs_tissue, "y": ys_tissue, "Tissues": path_class})
     # remove rows where knots were removed
     if group_knts:
         tissue_df = tissue_df.loc[~tissue_df.index.isin(inds_to_remove)].reset_index(
