@@ -48,7 +48,6 @@ def main(
     cell_coords = cell_coords[sort_args]
     confidence = confidence[sort_args]
 
-    # TODO: get the tissue pathologist 'ground truth' from patches
     # Get patch of interest from patch file
     if len(patch_files) != 0:
         patch_node_inds = []

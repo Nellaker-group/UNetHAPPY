@@ -3,30 +3,13 @@ from typing import Optional, List
 
 import typer
 import torch
-from sklearn.metrics import (
-    accuracy_score,
-    balanced_accuracy_score,
-    top_k_accuracy_score,
-    f1_score,
-    cohen_kappa_score,
-    roc_auc_score,
-    matthews_corrcoef,
-)
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.utils import add_self_loops
 from torch_geometric.loader import NeighborSampler, NeighborLoader
-from scipy.special import softmax
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 from happy.utils.utils import get_device, get_project_dir
-from happy.train.utils import (
-    plot_confusion_matrix,
-    plot_tissue_pr_curves,
-    get_tissue_confusion_matrix,
-)
 from happy.organs.organs import get_organ
 from graphs.graphs.create_graph import get_raw_data, setup_graph, process_knts
 from graphs.graphs.embeddings import fit_umap, plot_cell_graph_umap, plot_tissue_umap
@@ -34,7 +17,7 @@ from graphs.graphs.utils import get_feature
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
 from graphs.graphs.create_graph import get_groundtruth_patch
-from graphs.graphs.graph_supervised import inference, setup_node_splits
+from graphs.graphs.graph_supervised import inference, setup_node_splits, evaluate
 
 np.random.seed(2)
 
@@ -209,66 +192,6 @@ def main(
         label_dict = {tissue.id: tissue.label for tissue in organ.tissues}
         predicted_labels = [label_dict[label] for label in predicted_labels]
         _save_tissue_preds_as_tsv(predicted_labels, pos, save_path)
-
-
-def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled):
-    tissue_ids = [tissue.id for tissue in organ.tissues]
-    if remove_unlabelled:
-        tissue_ids = tissue_ids[1:]
-
-    accuracy = accuracy_score(tissue_class, predicted_labels)
-    balanced_accuracy = balanced_accuracy_score(tissue_class, predicted_labels)
-    top_2_accuracy = top_k_accuracy_score(tissue_class, out, k=2, labels=tissue_ids)
-    f1_macro = f1_score(tissue_class, predicted_labels, average="macro")
-    cohen_kappa = cohen_kappa_score(tissue_class, predicted_labels)
-    mcc = matthews_corrcoef(tissue_class, predicted_labels)
-    roc_auc = roc_auc_score(
-        tissue_class,
-        softmax(out, axis=-1),
-        average="macro",
-        multi_class="ovo",
-        labels=tissue_ids,
-    )
-    weighted_roc_auc = roc_auc_score(
-        tissue_class,
-        softmax(out, axis=-1),
-        average="weighted",
-        multi_class="ovo",
-        labels=tissue_ids,
-    )
-    print("-----------------------")
-    print(f"Accuracy: {accuracy:.3f}")
-    print(f"Top 2 accuracy: {top_2_accuracy:.3f}")
-    print(f"Balanced accuracy: {balanced_accuracy:.3f}")
-    print(f"F1 macro score: {f1_macro:.3f}")
-    print(f"Cohen's Kappa score: {cohen_kappa:.3f}")
-    print(f"MCC score: {mcc:.3f}")
-    print(f"ROC AUC macro: {roc_auc:.3f}")
-    print(f"Weighted ROC AUC macro: {weighted_roc_auc:.3f}")
-    print("-----------------------")
-
-    print("Plotting confusion matrices")
-    cm_df, cm_df_props = get_tissue_confusion_matrix(
-        organ, predicted_labels, tissue_class, proportion_label=True
-    )
-    plt.figure(figsize=(10, 8))
-    sns.set(font_scale=1.1)
-    plot_confusion_matrix(cm_df, "All Tissues", run_path, "d")
-    plt.figure(figsize=(10, 8))
-    sns.set(font_scale=1.1)
-    plot_confusion_matrix(cm_df_props, "All Tissues Proportion", run_path, ".2f")
-
-    print("Plotting pr curves")
-    tissue_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
-    tissue_colours = {tissue.id: tissue.colour for tissue in organ.tissues}
-    plot_tissue_pr_curves(
-        tissue_mapping,
-        tissue_colours,
-        tissue_class,
-        predicted_labels,
-        out,
-        run_path / "pr_curves.png",
-    )
 
 
 def _remove_unlabelled(tissue_class, predicted_labels, pos, out):
