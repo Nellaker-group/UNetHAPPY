@@ -40,6 +40,7 @@ def main(
     file_name: str = typer.Option(...),
     original_file_name: str = typer.Option(...),
     original_subregion_file_name: str = typer.Option(...),
+    path_to_patches_file: str = None,
 ):
     # Process labelbox json file
     project_dir = get_project_dir("placenta")
@@ -58,7 +59,7 @@ def main(
     with open(path_to_original_subregion_file, "r") as f:
         original_subregion_data = json.load(f)
     original_df = _process_original_data(original_data, original_subregion_data)
-    original_df = _map_to_labelbox_classes(original_df)
+    original_df.label = _map_to_labelbox_classes(original_df.label)
 
     # Setup datastructures for analysis bellow
     path_df = df[df["is_pathologist"] == 1]
@@ -67,6 +68,21 @@ def main(
     nonpath_predictions = get_images_and_labels_by_person(df, pathologist_only=False)
     path_majority_df = get_majority_labels(path_df)
     combined_majority_df = combine_path_with_original(path_majority_df, original_df)
+
+    if path_to_patches_file is not None:
+        all_new_annots = pd.read_csv(project_dir / "config" / path_to_patches_file)
+        all_new_annots.new_annot = _map_to_labelbox_classes(all_new_annots.new_annot)
+        xs = []
+        ys = []
+        for image_name in combined_majority_df["image_name"]:
+            image_splits = image_name.split("_")
+            xs.append(int(image_splits[1].split("x")[1]))
+            ys.append(int(image_splits[2].split("y")[1]))
+        combined_majority_df["x"] = xs
+        combined_majority_df["y"] = ys
+        merged_df = pd.merge(combined_majority_df, all_new_annots)
+        merged_df.drop(["x", "y", "width", "height"], axis=1, inplace=True)
+        combined_majority_df = merged_df
 
     # total average time per tissue type
     time_per_tissue = time_per_tissue_type(df)
@@ -100,6 +116,13 @@ def main(
     )
     print(f"Original to path majority kappa: {original_to_path_kappa:.3f}")
 
+    if path_to_patches_file is not None:
+        new_to_path_kappa = cohen_kappa_score(
+            filtered_combined_df["majority_class"],
+            filtered_combined_df["new_annot"],
+        )
+        print(f"New to path majority kappa: {new_to_path_kappa:.3f}")
+
     for label in ALL_LABELBOX_LABELS:
         # kappa per tissue type as one vs rest per pathologist combination average
         mean_label_kappa = kappa_for_one_tissue(path_predictions, label)
@@ -131,6 +154,9 @@ def main(
 
     # Pathologist votes against original 'ground truth' confusion matrix
     original_to_path_confusion(combined_majority_df)
+
+    # Pathologist votes against new 'ground truth' confusion matrix
+    original_to_path_confusion(combined_majority_df, new_labels=True)
 
 
 def kappa_for_one_tissue(path_predictions, label):
@@ -243,15 +269,18 @@ def pathologist_confusion(combined_majority_df):
     ax.hlines([9], *ax.get_xlim())
     ax.vlines([9], *ax.get_ylim())
     plt.ylabel("Majority Label")
-    plt.xlabel("Proportion of Labels")
+    plt.xlabel("Proportion of All Labels")
     plt.tight_layout()
     plt.savefig("pathologist_confusion.png")
 
 
-def original_to_path_confusion(combined_majority_df):
+def original_to_path_confusion(combined_majority_df, new_labels=False, prop=True):
     cm = np.empty((len(ALL_LABELBOX_LABELS), len(ALL_LABELBOX_LABELS)))
     for i, label in enumerate(ALL_LABELBOX_LABELS):
-        label_original_mask = combined_majority_df["original_label"] == label
+        if new_labels:
+            label_original_mask = combined_majority_df["new_annot"] == label
+        else:
+            label_original_mask = combined_majority_df["original_label"] == label
         label_filtered_df = combined_majority_df[label_original_mask]
         for j, other_label in enumerate(ALL_LABELBOX_LABELS):
             num_matching = (
@@ -260,15 +289,36 @@ def original_to_path_confusion(combined_majority_df):
                 .sum()
             )
             cm[i, j] = num_matching
-    cm_df = pd.DataFrame(cm, columns=MODEL_LABELS, index=MODEL_LABELS)
+    if prop:
+        fmt = ".2f"
+        row_labels = []
+        unique_counts = cm.sum(axis=1)
+        total_counts = cm.sum()
+        label_proportions = ((unique_counts / total_counts) * 100).round(2)
+        for i, label in enumerate(MODEL_LABELS):
+            row_labels.append(f"{label} ({label_proportions[i]}%)")
+        unique_counts = cm.sum(axis=1)
+        cm_df = (
+            pd.DataFrame(
+                cm / unique_counts[:, None], columns=MODEL_LABELS, index=MODEL_LABELS
+            )
+            .fillna(0)
+            .astype(float)
+        )
+    else:
+        fmt = "g"
+        cm_df = pd.DataFrame(cm, columns=MODEL_LABELS, index=MODEL_LABELS)
     plt.figure(figsize=(10, 8))
     plt.rcParams["figure.dpi"] = 600
-    sns.heatmap(cm_df, annot=True, cmap="Blues", square=True, cbar=False, fmt="g")
+    sns.heatmap(cm_df, annot=True, cmap="Blues", square=True, cbar=False, fmt=fmt)
     plt.yticks(rotation=0)
     plt.ylabel("Original Tissue Structure Annotation")
-    plt.xlabel("Number of Pathologist Labels")
+    plt.xlabel("Proportion of All Pathologist Labels")
     plt.tight_layout()
-    plt.savefig("original_vs_pathologist_confusion.png")
+    if new_labels:
+        plt.savefig("original_to_pathologist_confusion_new.png")
+    else:
+        plt.savefig("original_vs_pathologist_confusion.png")
 
 
 def time_per_tissue_type(df):
@@ -370,7 +420,7 @@ def _process_original_data(original_raw_data, original_subset_raw_data):
     return pd.concat([original_df, original_subregion_df])
 
 
-def _map_to_labelbox_classes(df):
+def _map_to_labelbox_classes(df_column):
     label_mapping = {
         "Sprout": "villus_sprout",
         "TVilli": "terminal_villi",
@@ -382,8 +432,8 @@ def _map_to_labelbox_classes(df):
         "Fibrin": "fibrin",
         "Avascular": "avascular_villi",
     }
-    df.label = df.label.map(label_mapping)
-    return df
+    df_column = df_column.map(label_mapping)
+    return df_column
 
 
 if __name__ == "__main__":

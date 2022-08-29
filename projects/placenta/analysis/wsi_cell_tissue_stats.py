@@ -75,13 +75,15 @@ def main(
         / model_name
         / f"run_{run_id}"
     )
-    tissue_df = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")
+    tissue_df = pd.read_csv(
+        pretrained_path / "tissue_preds.tsv", sep="\t", names=["x", "y", "Tissues"]
+    )
     # remove rows where knots were removed
     if group_knts and not trained_with_grouped_knts:
         tissue_df = tissue_df.loc[~tissue_df.index.isin(inds_to_remove)].reset_index(
             drop=True
         )
-    unique_tissues, tissue_counts = np.unique(tissue_df["class"], return_counts=True)
+    unique_tissues, tissue_counts = np.unique(tissue_df["Tissues"], return_counts=True)
     unique_tissue_counts = dict(zip(unique_tissues, tissue_counts))
     print(f"Num tissue predictions per label: {unique_tissue_counts}")
     tissue_proportions = [
@@ -92,9 +94,9 @@ def main(
 
     # get number of cell types within each tissue type
     cell_df = pd.DataFrame(
-        {"x": cell_coords[:, 0], "y": cell_coords[:, 1], "cells": predictions}
+        {"x": cell_coords[:, 0], "y": cell_coords[:, 1], "Cells": predictions}
     )
-    cell_df["cells"] = cell_df.cells.map(cell_label_mapping)
+    cell_df["Cells"] = cell_df["Cells"].map(cell_label_mapping)
     cell_df.sort_values(by=["x", "y"], inplace=True, ignore_index=True)
     tissue_df.sort_values(by=["x", "y"], inplace=True, ignore_index=True)
 
@@ -120,16 +122,8 @@ def get_cells_within_tissues(
     tissue_label_to_name = {tissue.label: tissue.name for tissue in organ.tissues}
     cell_label_to_name = {cell.label: cell.name for cell in organ.cells}
 
-    combined_df = pd.DataFrame(
-        {
-            "cell_x": cell_predictions["x"],
-            "cell_y": cell_predictions["y"],
-            "Cells": cell_predictions["cells"],
-            "tissue_x": tissue_predictions["x"],
-            "tissue_y": tissue_predictions["y"],
-            "Tissues": tissue_predictions["class"],
-        }
-    )
+    combined_df = pd.merge(cell_predictions, tissue_predictions)
+
     grouped_df = (
         combined_df.groupby(["Tissues", "Cells"]).size().reset_index(name="count")
     )
@@ -142,6 +136,11 @@ def get_cells_within_tissues(
     if villus_only:
         prop_df = prop_df.drop(["Fibrin", "Avascular", "Maternal", "AVilli"], axis=0)
         prop_df = prop_df.reindex(["Chorion", "SVilli", "MIVilli", "TVilli", "Sprout"])
+
+    # Reorder the stacked cells for clarity
+    prop_df = prop_df[
+        ["MES", "MAT", "EVT", "KNT", "HOF", "WBC", "FIB", "VMY", "VEN", "CYT", "SYN"]
+    ]
 
     prop_df.index = prop_df.index.map(tissue_label_to_name)
     cell_colours = [cell_colours_mapping[cell] for cell in prop_df.columns]

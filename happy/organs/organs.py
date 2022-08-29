@@ -74,7 +74,7 @@ PLACENTA = Organ(
         Tissue("Chorion", "Chorionic Plate", "#669966", "#005a01", 8),
         Tissue("Maternal", "Basal Plate/Septum", "#53bc8d", "#00cba7", 9),
         Tissue("Inflam", "Inflammatory Response", "#4d3399", "#7cfffa", 10),
-        Tissue("Fibrin", "Fibrous Region", "#6680e6", "#0079fa", 11),
+        Tissue("Fibrin", "Fibrin", "#6680e6", "#0079fa", 11),
         Tissue("Avascular", "Avascular Villi", "#6d0c67", "#450270", 12),
     ],
 )
