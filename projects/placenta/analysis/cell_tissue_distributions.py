@@ -136,6 +136,7 @@ def plot_box_and_whisker(df, save_path, entity, colours, expectation=None):
     plt.subplots(figsize=(10, 8), dpi=400)
     ax = sns.boxplot(data=df, palette=colours, whis=[0, 100])
     sns.swarmplot(data=df, color=".25")
+    plt.ylim(top=0.62)
     ax.set(ylabel=f"Proportion of {entity}s Across WSIs")
     ax.set(xlabel=f"{entity} Labels")
     plt.tight_layout()
