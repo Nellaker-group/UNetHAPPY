@@ -1,34 +1,23 @@
 from pathlib import Path
+from typing import Optional, List
 
 import typer
 import torch
-from sklearn.metrics import (
-    accuracy_score,
-    top_k_accuracy_score,
-    f1_score,
-    confusion_matrix,
-    cohen_kappa_score,
-    roc_auc_score,
-    matthews_corrcoef,
-)
-from sklearn.metrics import precision_recall_fscore_support as score
+from torch_geometric.transforms import ToUndirected
+from torch_geometric.utils import add_self_loops
 from torch_geometric.loader import NeighborSampler, NeighborLoader
-from scipy.special import softmax
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 from happy.utils.utils import get_device, get_project_dir
-from happy.train.utils import plot_confusion_matrix
 from happy.organs.organs import get_organ
-from graphs.graphs.create_graph import get_raw_data, setup_graph
+from graphs.graphs.create_graph import get_raw_data, setup_graph, process_knts
 from graphs.graphs.embeddings import fit_umap, plot_cell_graph_umap, plot_tissue_umap
 from graphs.graphs.utils import get_feature
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
 from graphs.graphs.create_graph import get_groundtruth_patch
-from graphs.graphs.graph_supervised import inference
+from graphs.graphs.graph_supervised import inference, setup_node_splits, evaluate
 
 np.random.seed(2)
 
@@ -44,34 +33,53 @@ def main(
     y_min: int = 0,
     width: int = -1,
     height: int = -1,
+    val_patch_files: Optional[List[str]] = None,
     k: int = 6,
     feature: FeatureArg = FeatureArg.embeddings,
+    group_knts: bool = False,
     top_conf: bool = False,
     model_type: str = "graphsage",
     graph_method: MethodArg = MethodArg.k,
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
     label_type: str = "full",
-    tissue_label_tsv: str = "139_tissue_points.tsv",
+    tissue_label_tsv: Optional[str] = None,
 ):
     device = get_device()
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
+    patch_files = [project_dir / "config" / file for file in val_patch_files]
 
-    # Get data from hdf5 files
     predictions, embeddings, coords, confidence = get_raw_data(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
-
-    feature_data = get_feature(feature.value, predictions, embeddings)
-    data = setup_graph(coords, k, feature_data, graph_method.value)
-    x = data.x.to(device)
-    pos = data.pos
-
     # Get ground truth manually annotated data
     _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
+        organ,
+        project_dir,
+        x_min,
+        y_min,
+        width,
+        height,
+        tissue_label_tsv,
+        label_type,
     )
+    # Covert isolated knts into syn and turn groups into a single knt point
+    if group_knts:
+        predictions, embeddings, coords, confidence, tissue_class = process_knts(
+            organ, predictions, embeddings, coords, confidence, tissue_class
+        )
+    # Covert input cell data into a graph
+    feature_data = get_feature(feature, predictions, embeddings)
+    data = setup_graph(coords, k, feature_data, graph_method, loop=False)
+    data = ToUndirected()(data)
+    data.edge_index, data.edge_attr = add_self_loops(
+        data["edge_index"], data["edge_attr"], fill_value="mean"
+    )
+    pos = data.pos
+    x = data.x.to(device)
+
+    data = setup_node_splits(data, tissue_class, remove_unlabelled, True, patch_files)
 
     # Setup trained model
     pretrained_path = (
@@ -91,10 +99,12 @@ def main(
     )
 
     # Setup paths
-    save_path = Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs
+    save_path = (
+        Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs / f"run_{run_id}"
+    )
     save_path.mkdir(parents=True, exist_ok=True)
     conf_str = "_top_conf" if top_conf else ""
-    plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}{conf_str}"
+    plot_name = f"{val_patch_files[0].split('.csv')[0]}_{conf_str}"
 
     # Dataloader for eval, feeds in whole graph
     if model_type == "sup_graphsage":
@@ -118,6 +128,16 @@ def main(
     # Run inference and get predicted labels for nodes
     out, graph_embeddings, predicted_labels = inference(model, x, eval_loader, device)
 
+    # restrict to only data in patch_files using val_mask
+    val_nodes = data.val_mask
+    predicted_labels = predicted_labels[val_nodes]
+    graph_embeddings = graph_embeddings[val_nodes]
+    out = out[val_nodes]
+    pos = pos[val_nodes]
+    tissue_class = (
+        tissue_class[val_nodes] if tissue_label_tsv is not None else tissue_class
+    )
+
     # Remove unlabelled (class 0) ground truth points
     if remove_unlabelled and tissue_label_tsv is not None:
         unlabelled_inds, tissue_class, predicted_labels, pos, out = _remove_unlabelled(
@@ -140,7 +160,8 @@ def main(
                 )
 
     # Print some prediction count info
-    _print_prediction_stats(predicted_labels)
+    tissue_label_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
+    _print_prediction_stats(predicted_labels, tissue_label_mapping)
 
     # Evaluate against ground truth tissue annotations
     if tissue_label_tsv is not None:
@@ -155,103 +176,26 @@ def main(
 
     # Visualise cluster labels on graph patch
     print("Generating image")
-    colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
+    colours_dict = {tissue.id: tissue.colourblind_colour for tissue in organ.tissues}
     colours = [colours_dict[label] for label in predicted_labels]
     visualize_points(
         organ,
-        save_path / f"patch_{plot_name}.png",
+        save_path / f"{plot_name.split('.png')[0]}.png",
         pos,
         colours=colours,
-        width=width,
-        height=height,
+        width=int(data.pos[:, 0].max()) - int(data.pos[:, 0].min()),
+        height=int(data.pos[:, 1].max()) - int(data.pos[:, 1].min()),
     )
 
-
-def evaluate(
-    tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled
-):
-    tissue_ids = [tissue.id for tissue in organ.tissues]
-    tissue_labels = [tissue.label for tissue in organ.tissues]
-    if remove_unlabelled:
-        tissue_ids = tissue_ids[1:]
-        tissue_labels = tissue_labels[1:]
-
-    accuracy = accuracy_score(tissue_class, predicted_labels)
-    f1_macro = f1_score(tissue_class, predicted_labels, average="macro")
-    top_3_accuracy = top_k_accuracy_score(tissue_class, out, k=3, labels=tissue_ids)
-    cohen_kappa = cohen_kappa_score(tissue_class, predicted_labels)
-    mcc = matthews_corrcoef(tissue_class, predicted_labels)
-    roc_auc = roc_auc_score(
-        tissue_class,
-        softmax(out, axis=-1),
-        average="macro",
-        multi_class="ovo",
-        labels=tissue_ids,
-    )
-    weighted_roc_auc = roc_auc_score(
-        tissue_class,
-        softmax(out, axis=-1),
-        average="weighted",
-        multi_class="ovo",
-        labels=tissue_ids,
-    )
-    print("-----------------------")
-    print(f"Accuracy: {accuracy:.3f}")
-    print(f"Top 3 accuracy: {top_3_accuracy:.3f}")
-    print(f"F1 macro score: {f1_macro:.3f}")
-    print(f"Cohen's Kappa score: {cohen_kappa:.3f}")
-    print(f"MCC score: {mcc:.3f}")
-    print(f"ROC AUC macro: {roc_auc:.3f}")
-    print(f"Weighted ROC AUC macro: {weighted_roc_auc:.3f}")
-    print("-----------------------")
-
-    unique_values_in_pred = set(predicted_labels)
-    unique_values_in_truth = set(tissue_class)
-    unique_values_in_matrix = unique_values_in_pred.union(unique_values_in_truth)
-    missing_tissue_ids = list(set(tissue_ids) - unique_values_in_matrix)
-    missing_tissue_ids.sort()
-
-    if remove_unlabelled:
-        if 0 in missing_tissue_ids:
-            missing_tissue_ids.remove(0)
-
-    cm = confusion_matrix(tissue_class, predicted_labels)
-
-    if len(missing_tissue_ids) > 0:
-        for missing_id in missing_tissue_ids:
-            column_insert = np.zeros((cm.shape[0], 1))
-            cm = np.hstack((cm[:, :missing_id], column_insert, cm[:, missing_id:]))
-            row_insert = np.zeros((1, cm.shape[1]))
-            cm = np.insert(cm, missing_id, row_insert, 0)
-
-
-    cm_df = pd.DataFrame(cm, columns=tissue_labels, index=tissue_labels).astype(int)
-    unique_counts = cm.sum(axis=1)
-    cm_df_props = (
-        pd.DataFrame(
-            cm / unique_counts[:, None], columns=tissue_labels, index=tissue_labels
-        )
-        .fillna(0)
-        .astype(float)
-    )
-
-    empty_rows = (cm_df.T != 0).any()
-    cm_df = cm_df[empty_rows]
-    cm_df_props = cm_df_props[empty_rows]
-    empty_row_names = empty_rows[empty_rows == False].index.tolist()
-    cm_df = cm_df.drop(columns=empty_row_names)
-    cm_df_props = cm_df_props.drop(columns=empty_row_names)
-
-    plt.figure(figsize=(10, 8))
-    sns.set(font_scale=1.1)
-    plot_confusion_matrix(cm_df, "All Tissues", run_path, "d")
-    plt.figure(figsize=(10, 8))
-    sns.set(font_scale=1.1)
-    plot_confusion_matrix(cm_df_props, "All Tissues Proportion", run_path, ".2f")
+    # make tsv if the whole graph was used
+    if len(data.pos) == len(data.pos[data.val_mask]):
+        label_dict = {tissue.id: tissue.label for tissue in organ.tissues}
+        predicted_labels = [label_dict[label] for label in predicted_labels]
+        _save_tissue_preds_as_tsv(predicted_labels, pos, save_path)
 
 
 def _remove_unlabelled(tissue_class, predicted_labels, pos, out):
-    labelled_inds = tissue_class.nonzero()
+    labelled_inds = tissue_class.nonzero()[0]
     tissue_class = tissue_class[labelled_inds]
     pos = pos[labelled_inds]
     out = out[labelled_inds]
@@ -260,10 +204,24 @@ def _remove_unlabelled(tissue_class, predicted_labels, pos, out):
     return labelled_inds, tissue_class, predicted_labels, pos, out
 
 
-def _print_prediction_stats(predicted_labels):
+def _print_prediction_stats(predicted_labels, tissue_label_mapping):
     unique, counts = np.unique(predicted_labels, return_counts=True)
-    unique_counts = dict(zip(unique, counts))
+    unique_labels = []
+    for label in unique:
+        unique_labels.append(tissue_label_mapping[label])
+    unique_counts = dict(zip(unique_labels, counts))
     print(f"Predictions per label: {unique_counts}")
+
+
+def _save_tissue_preds_as_tsv(predicted_labels, coords, save_path):
+    tissue_preds_df = pd.DataFrame(
+        {
+            "x": coords[:, 0].numpy().astype(int),
+            "y": coords[:, 1].numpy().astype(int),
+            "class": predicted_labels,
+        }
+    )
+    tissue_preds_df.to_csv(save_path / "tissue_preds.tsv", sep="\t", index=False)
 
 
 if __name__ == "__main__":

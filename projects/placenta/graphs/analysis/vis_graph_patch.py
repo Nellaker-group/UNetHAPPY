@@ -1,5 +1,6 @@
 from enum import Enum
 from pathlib import Path
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +14,7 @@ from happy.organs.organs import get_organ
 from happy.hdf5.utils import (
     get_datasets_in_patch,
     filter_by_confidence,
+    filter_by_cell_type,
     get_embeddings_file,
 )
 from happy.utils.utils import get_project_dir
@@ -21,6 +23,7 @@ from projects.placenta.graphs.graphs.create_graph import (
     make_radius_k_graph,
     make_voronoi,
     make_delaunay_triangulation,
+    make_intersection_graph,
 )
 
 
@@ -29,6 +32,7 @@ class MethodArg(str, Enum):
     radius = "radius"
     voronoi = "voronoi"
     delaunay = "delaunay"
+    intersection = "intersection"
     all = "all"
 
 
@@ -43,6 +47,7 @@ def main(
     height: int = -1,
     top_conf: bool = False,
     plot_edges: bool = False,
+    single_cell: Optional[str] = None,
 ):
     """Generates a graph and saves it's visualisation. Node are coloured by cell type
 
@@ -78,6 +83,11 @@ def main(
             predictions, embeddings, coords, confidence, 0.9, 1.0
         )
 
+    if single_cell:
+        predictions, embeddings, coords, confidence = filter_by_cell_type(
+            predictions, embeddings, coords, confidence, single_cell, organ
+        )
+
     # Make graph data object
     data = Data(x=predictions, pos=torch.Tensor(coords.astype("int32")))
 
@@ -86,6 +96,7 @@ def main(
         project_dir / "visualisations" / "graphs" / save_dirs / f"w{width}_h{height}"
     )
     plot_name = f"x{x_min}_y{y_min}_top_conf" if top_conf else f"x{x_min}_y{y_min}"
+    plot_name = f"{plot_name}_{single_cell}" if single_cell else plot_name
 
     method = method.value
     if method == "k":
@@ -97,13 +108,15 @@ def main(
     elif method == "voronoi":
         vis_voronoi(data, plot_name, save_dir, organ)
     elif method == "delaunay":
-        vis_delaunay(data, plot_name, save_dir, organ)
+        vis_delaunay(data, plot_name, save_dir, organ, width, height)
+    elif method == "intersection":
+        vis_intersection(data, 6, plot_name, save_dir, organ, width, height)
     elif method == "all":
         vis_for_range_k(
             6, 7, data, plot_name, save_dir, organ, width, height, plot_edges
         )
         vis_voronoi(data, plot_name, save_dir, organ)
-        vis_delaunay(data, plot_name, save_dir, organ)
+        vis_delaunay(data, plot_name, save_dir, organ, width, height)
     else:
         raise ValueError(f"no such method: {method}")
 
@@ -214,8 +227,8 @@ def vis_voronoi(data, plot_name, save_dir, organ, show_points=False):
     print(f"Plot saved to {save_path / plot_name}")
 
 
-def vis_delaunay(data, plot_name, save_dir, organ):
-    colours_dict = {cell.id: cell.colour for cell in organ.cells}
+def vis_delaunay(data, plot_name, save_dir, organ, width, height):
+    colours_dict = {cell.id: cell.colourblind_colour for cell in organ.cells}
     colours = [colours_dict[label] for label in data.x]
 
     # Specify save graph vis location
@@ -227,8 +240,9 @@ def vis_delaunay(data, plot_name, save_dir, organ):
 
     point_size = 1 if len(delaunay.edges) >= 10000 else 2
 
-    fig = plt.figure(figsize=(8, 8), dpi=150)
-    plt.triplot(delaunay, linewidth=0.3, color="black")
+    figsize = _calc_figsize(data.pos, width, height)
+    fig = plt.figure(figsize=figsize, dpi=150)
+    plt.triplot(delaunay, linewidth=0.5, color="black")
     plt.scatter(
         data.pos[:, 0], data.pos[:, 1], marker=".", s=point_size, zorder=1000, c=colours
     )
@@ -238,6 +252,30 @@ def vis_delaunay(data, plot_name, save_dir, organ):
 
     plot_name = f"{plot_name}.png"
     plt.savefig(save_path / plot_name)
+    print(f"Plot saved to {save_path / plot_name}")
+
+
+def vis_intersection(data, k, plot_name, save_dir, organ, width, height):
+    # Specify save graph vis location
+    save_path = save_dir / "intersection"
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    intersection_graph = make_intersection_graph(data, k)
+    edge_index = intersection_graph.edge_index
+    edge_weight = intersection_graph.edge_attr
+
+    plot_name = f"k{k}_{plot_name}.png"
+    print(f"Plotting...")
+    visualize_points(
+        organ,
+        save_path / plot_name,
+        data.pos,
+        labels=data.x,
+        edge_index=edge_index,
+        edge_weight=edge_weight,
+        width=width,
+        height=height,
+    )
     print(f"Plot saved to {save_path / plot_name}")
 
 
@@ -254,7 +292,7 @@ def visualize_points(
     point_size=None,
 ):
     if colours is None:
-        colours_dict = {cell.id: cell.colour for cell in organ.cells}
+        colours_dict = {cell.id: cell.colourblind_colour for cell in organ.cells}
         colours = [colours_dict[label] for label in labels]
 
     if point_size is None:

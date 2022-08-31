@@ -1,10 +1,10 @@
 import os
 
 import pandas as pd
-from torch_cluster import knn_graph, radius_graph
+from torch_cluster import radius_graph
 from torch_geometric.data import Data
 from torch_geometric.utils.subgraph import subgraph
-from torch_geometric.transforms import Distance
+from torch_geometric.transforms import Distance, KNNGraph
 from scipy.spatial import Voronoi
 from tqdm import tqdm
 import matplotlib.tri as tri
@@ -18,6 +18,7 @@ from happy.hdf5.utils import (
     get_datasets_in_patch,
     filter_by_confidence,
 )
+from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
 
 
 def get_groundtruth_patch(
@@ -97,6 +98,22 @@ def get_raw_data(project_name, run_id, x_min, y_min, width, height, top_conf=Fal
 
     return predictions, embeddings, coords, confidence
 
+def process_knts(organ, predictions, embeddings, coords, confidence, tissues=None):
+    # Turn isolated knts into syn and group large knts into one point
+    (
+        predictions,
+        embeddings,
+        coords,
+        confidence,
+        inds_to_remove,
+    ) = process_knt_cells(
+        predictions, embeddings, coords, confidence, organ, 50, 3, plot=False
+    )
+    # Remove points from tissue ground truth as well
+    if tissues is not None and len(inds_to_remove) > 0:
+        tissues = np.delete(tissues, inds_to_remove, axis=0)
+    return predictions, embeddings, coords, confidence, tissues
+
 
 def setup_graph(coords, k, feature, graph_method, norm_edges=True, loop=True):
     data = Data(x=torch.Tensor(feature), pos=torch.Tensor(coords.astype("int32")))
@@ -104,6 +121,8 @@ def setup_graph(coords, k, feature, graph_method, norm_edges=True, loop=True):
         graph = make_k_graph(data, k, norm_edges, loop)
     elif graph_method == "delaunay":
         graph = make_delaunay_graph(data, norm_edges)
+    elif graph_method == "intersection":
+        graph = make_intersection_graph(data, k, norm_edges)
     else:
         raise ValueError(f"No such graph method: {graph_method}")
     if graph.x.ndim == 1:
@@ -113,7 +132,7 @@ def setup_graph(coords, k, feature, graph_method, norm_edges=True, loop=True):
 
 def make_k_graph(data, k, norm_edges=True, loop=True):
     print(f"Generating graph for k={k}")
-    data.edge_index = knn_graph(data.pos, k=k + 1, loop=loop)
+    data = KNNGraph(k=k + 1, loop=loop, force_undirected=True)(data)
     get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
     data = get_edge_distance_weights(data)
     print(f"Graph made with {len(data.edge_index[0])} edges!")
@@ -147,7 +166,39 @@ def make_delaunay_graph(data, norm_edges=True):
     data.edge_index = torch.tensor(triang.edges.astype("int64"), dtype=torch.long).T
     get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
     data = get_edge_distance_weights(data)
-    print("Graph made!")
+    print(f"Graph made with {len(data.edge_index[0])} edges!")
+    return data
+
+
+def make_intersection_graph(data, k, norm_edges=True):
+    print(f"Generating graph for k={k}")
+    knn_graph = KNNGraph(k=k + 1, loop=False, force_undirected=True)(data)
+    knn_edge_index = knn_graph.edge_index.T
+    knn_edge_index = np.array(knn_edge_index.tolist())
+    print(f"Generating delaunay graph")
+    try:
+        triang = tri.Triangulation(data.pos[:, 0], data.pos[:, 1])
+        delaunay_edge_index = triang.edges.astype("int64")
+    except ValueError:
+        print("Too few points to make a triangulation, returning knn graph")
+        get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
+        knn_graph = get_edge_distance_weights(knn_graph)
+        print(f"Graph made with {len(knn_graph.edge_index[0])} edges!")
+        return knn_graph
+
+    print(f"Generating intersection of both graphs")
+    _, ncols = knn_edge_index.shape
+    dtype = ", ".join([str(knn_edge_index.dtype)] * ncols)
+    intersection = np.intersect1d(
+        knn_edge_index.view(dtype), delaunay_edge_index.view(dtype)
+    )
+    intersection = intersection.view(knn_edge_index.dtype).reshape(-1, ncols)
+    intersection = torch.tensor(intersection, dtype=torch.long).T
+    data.edge_index = intersection
+
+    get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
+    data = get_edge_distance_weights(data)
+    print(f"Graph made with {len(data.edge_index[0])} edges!")
     return data
 
 
@@ -198,11 +249,18 @@ def get_list_of_subgraphs(
 def get_nodes_within_tiles(tile_coords, tile_width, tile_height, all_xs, all_ys):
     tile_min_x, tile_min_y = tile_coords[0], tile_coords[1]
     tile_max_x, tile_max_y = tile_min_x + tile_width, tile_min_y + tile_height
-    mask = torch.logical_and(
-        (torch.logical_and(all_xs > tile_min_x, (all_ys > tile_min_y))),
-        (torch.logical_and(all_xs < tile_max_x, (all_ys < tile_max_y))),
-    )
-    return mask.nonzero()[:, 0].tolist()
+    if isinstance(all_xs, torch.Tensor) and isinstance(all_ys, torch.Tensor):
+        mask = torch.logical_and(
+            (torch.logical_and(all_xs > tile_min_x, (all_ys > tile_min_y))),
+            (torch.logical_and(all_xs < tile_max_x, (all_ys < tile_max_y))),
+        )
+        return mask.nonzero()[:, 0].tolist()
+    else:
+        mask = np.logical_and(
+            (np.logical_and(all_xs > tile_min_x, (all_ys > tile_min_y))),
+            (np.logical_and(all_xs < tile_max_x, (all_ys < tile_max_y))),
+        )
+        return mask.nonzero()[0].tolist()
 
 
 def _plot_nodes_per_tile(tiles, binwidth):

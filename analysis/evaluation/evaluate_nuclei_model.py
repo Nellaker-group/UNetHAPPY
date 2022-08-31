@@ -18,6 +18,7 @@ def main(
     score_threshold: float = 0.4,
     max_detections: int = 500,
     valid_distance: int = 30,
+    use_test_set: bool = False,
 ):
     """Evaluates model performance across validation datasets
 
@@ -29,6 +30,7 @@ def main(
         score_threshold: the confidence threshold below which to discard predictions
         max_detections: number of maximum detections to save, ordered by score
         valid_distance: distance to gt in pixels for which a prediction is valid
+        use_test_set: whether to use the test set for validation
     """
     device = get_device()
 
@@ -41,8 +43,11 @@ def main(
     hp = HPs(dataset_names, 3)
 
     multiple_val_sets = True if len(dataset_names) > 1 else False
-    dataloaders = setup_data(project_dir / annot_dir, hp, multiple_val_sets, 3, 1)
-    dataloaders.pop("train")
+    dataloaders = setup_data(
+        project_dir / annot_dir, hp, multiple_val_sets, 3, 1, use_test_set
+    )
+    if not use_test_set:
+        dataloaders.pop("train")
     model = setup_model(False, device, False, pre_trained)
     model.eval()
 
@@ -70,9 +75,11 @@ def main(
 
     try:
         print(
-            f"Number of Predictions in empty images: {num_empty_predictions['empty']}")
+            f"Number of Predictions in empty images: {num_empty_predictions['empty']}"
+        )
     except KeyError:
         pass
+
 
 if __name__ == "__main__":
     typer.run(main)

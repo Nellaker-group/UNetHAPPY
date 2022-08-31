@@ -1,18 +1,25 @@
-from typing import Optional
+from typing import Optional, List
 
 import typer
 import torch
 from torch_geometric.transforms import ToUndirected
+from torch_geometric.utils import add_self_loops
+from torch_geometric.data import Batch
 
-from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
 from happy.organs.organs import get_organ
 from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
-from graphs.graphs.enums import FeatureArg, MethodArg
+from graphs.graphs.enums import FeatureArg, MethodArg, SupervisedModelsArg
 from graphs.graphs.utils import get_feature, send_graph_to_device, save_model
 from graphs.graphs import graph_supervised
+from graphs.graphs.create_graph import (
+    get_raw_data,
+    setup_graph,
+    get_groundtruth_patch,
+    process_knts,
+)
 
 device = get_device()
 
@@ -21,62 +28,110 @@ def main(
     project_name: str = "placenta",
     organ_name: str = "placenta",
     exp_name: str = typer.Option(...),
-    run_id: int = typer.Option(...),
+    run_ids: List[int] = typer.Option([]),
     x_min: int = 0,
     y_min: int = 0,
     width: int = -1,
     height: int = -1,
     k: int = 6,
     feature: FeatureArg = FeatureArg.embeddings,
+    group_knts: bool = False,
     pretrained: Optional[str] = None,
     top_conf: bool = False,
-    model_type: str = "sup_graphsage",
+    model_type: SupervisedModelsArg = SupervisedModelsArg.sup_graphsage,
     graph_method: MethodArg = MethodArg.k,
     batch_size: int = 51200,
     num_neighbours: int = 10,
     epochs: int = 50,
     layers: int = typer.Option(...),
     learning_rate: float = 0.001,
+    weighted_loss: bool = False,
+    use_custom_weights: bool = True,
     vis: bool = True,
     label_type: str = "full",
-    tissue_label_tsv: str = "139_tissue_points.tsv",
-    val_x_min: Optional[int] = None,
-    val_y_min: Optional[int] = None,
-    val_width: Optional[int] = None,
-    val_height: Optional[int] = None,
+    tissue_label_tsvs: List[str] = typer.Option([]),
+    val_patch_files: Optional[List[str]] = None,
+    test_patch_files: Optional[List[str]] = None,
     mask_unlabelled: bool = True,
     include_validation: bool = True,
+    validation_step: int = 25,
 ):
+    model_type = model_type.value
+    graph_method = graph_method.value
+    feature = feature.value
+
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
     organ = get_organ(organ_name)
+
+    if val_patch_files is not None:
+        val_patch_files = [
+            project_dir / "config" / file for file in val_patch_files
+        ]
+    if test_patch_files is not None:
+        test_patch_files = [
+            project_dir / "config" / file for file in test_patch_files
+        ]
 
     # Setup recording of stats per batch and epoch
     logger = Logger(
         list(["train", "train_inf", "val"]), ["loss", "accuracy"], vis=vis, file=True
     )
 
-    # Get training data from hdf5 files
-    predictions, embeddings, coords, confidence = get_raw_data(
-        project_name, run_id, x_min, y_min, width, height, top_conf
-    )
-    feature_data = get_feature(feature.value, predictions, embeddings)
-    _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
-    )
-    num_classes = len(organ.tissues)
-
-    # Create the graph from the raw data
-    data = setup_graph(coords, k, feature_data, graph_method.value)
-    data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
-    if model_type == "sup_clustergcn":
+    datas = []
+    for i, run_id in enumerate(run_ids):
+        # Get training data from hdf5 files
+        predictions, embeddings, coords, confidence = get_raw_data(
+            project_name, run_id, x_min, y_min, width, height, top_conf
+        )
+        # Get ground truth manually annotated data
+        _, _, tissue_class = get_groundtruth_patch(
+            organ,
+            project_dir,
+            x_min,
+            y_min,
+            width,
+            height,
+            tissue_label_tsvs[i],
+            label_type,
+        )
+        # Covert isolated knts into syn and turn groups into a single knt point
+        if group_knts:
+            predictions, embeddings, coords, confidence, tissue_class = process_knts(
+                organ, predictions, embeddings, coords, confidence, tissue_class
+            )
+        # Covert input cell data into a graph
+        feature_data = get_feature(feature, predictions, embeddings)
+        data = setup_graph(coords, k, feature_data, graph_method, loop=False)
+        data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
         data = ToUndirected()(data)
+        data.edge_index, data.edge_attr = add_self_loops(
+            data["edge_index"], data["edge_attr"], fill_value="mean"
+        )
 
-    # Split nodes into unlabelled, training and validation sets
-    val_patch_coords = (val_x_min, val_y_min, val_width, val_height)
-    data = graph_supervised.setup_node_splits(
-        data, tissue_class, mask_unlabelled, include_validation, val_patch_coords
-    )
+        # Split nodes into unlabelled, training and validation sets
+        if run_id == 56:
+            data = graph_supervised.setup_node_splits(
+                data,
+                tissue_class,
+                mask_unlabelled,
+                include_validation,
+                val_patch_files,
+                test_patch_files,
+            )
+        else:
+            if include_validation and val_patch_files == None:
+                data = graph_supervised.setup_node_splits(
+                    data, tissue_class, mask_unlabelled, include_validation=True
+                )
+            else:
+                data = graph_supervised.setup_node_splits(
+                    data, tissue_class, mask_unlabelled, include_validation=False
+                )
+        datas.append(data)
+
+    # Combine multiple graphs into a single graph
+    data = Batch.from_data_list(datas)
 
     # Setup the dataloader which minibatches the graph
     train_loader, val_loader = graph_supervised.setup_dataloaders(
@@ -88,9 +143,20 @@ def main(
 
     # Setup the model
     model = graph_supervised.setup_model(
-        model_type, data, device, layers, pretrained_path, num_classes
+        model_type, data, device, layers, len(organ.tissues), pretrained_path
     )
-    optimiser = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    # Setup training parameters
+    optimiser, criterion = graph_supervised.setup_training_params(
+        model,
+        model_type,
+        organ,
+        learning_rate,
+        train_loader,
+        device,
+        weighted_loss,
+        use_custom_weights,
+    )
 
     # Saves each run by its timestamp
     run_path = setup_run(project_dir, f"{model_type}/{exp_name}", "graph")
@@ -104,13 +170,14 @@ def main(
                 model_type,
                 model,
                 optimiser,
+                criterion,
                 train_loader,
                 device,
             )
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
 
-            if include_validation and (epoch % 10 == 0 or epoch == 1):
+            if include_validation and (epoch % validation_step == 0 or epoch == 1):
                 train_accuracy, val_accuracy = graph_supervised.validate(
                     model, data, val_loader, device
                 )
@@ -133,7 +200,7 @@ def main(
                 model,
                 organ_name,
                 exp_name,
-                run_id,
+                run_ids,
                 x_min,
                 y_min,
                 width,
@@ -157,7 +224,7 @@ def main(
         model,
         organ_name,
         exp_name,
-        run_id,
+        run_ids,
         x_min,
         y_min,
         width,

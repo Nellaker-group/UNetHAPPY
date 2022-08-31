@@ -196,6 +196,7 @@ out/
 **/placenta/visualisations
 **/results
 **/trained_models
+**/config
 *.pth
 *.pt
 *.csv
@@ -216,6 +217,7 @@ happy/db/migrate.py
 **/readme_resources
 *.html
 labelbox/*.json
+labelbox/*.png
 analysis/stats/histograms
 analysis/evaluation/plots
 **/analysis/plots

@@ -21,6 +21,7 @@ def setup_data(
     multiple_val_sets,
     val_batch,
     oversampled=True,
+    test_set=False,
 ):
     datasets = setup_cell_datasets(
         organ,
@@ -29,6 +30,7 @@ def setup_data(
         image_size,
         multiple_val_sets,
         oversampled,
+        test_set,
     )
     dataloaders = setup_dataloaders(False, datasets, num_workers, hp.batch, val_batch)
     return dataloaders
