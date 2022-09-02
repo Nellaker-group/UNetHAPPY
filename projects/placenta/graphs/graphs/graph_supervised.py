@@ -190,14 +190,14 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
     if model_type == "sup_graphsage":
         model = SupervisedSAGE(
             data.num_node_features,
-            hidden_channels=64,
+            hidden_channels=256,
             out_channels=num_classes,
             num_layers=layers,
         )
     elif model_type == "sup_gat":
         model = GAT(
             data.num_node_features,
-            hidden_channels=128,
+            hidden_channels=256,
             out_channels=num_classes,
             heads=1,
             num_layers=layers,
