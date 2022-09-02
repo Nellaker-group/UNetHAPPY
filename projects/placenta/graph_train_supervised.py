@@ -50,8 +50,8 @@ def main(
     vis: bool = False,
     label_type: str = "full",
     tissue_label_tsvs: List[str] = typer.Option([]),
-    val_patch_files: Optional[List[str]] = [],
-    test_patch_files: Optional[List[str]] = [],
+    val_patch_files: Optional[List[str]] = None,
+    test_patch_files: Optional[List[str]] = None,
     mask_unlabelled: bool = True,
     include_validation: bool = True,
     validation_step: int = 25,
@@ -64,9 +64,9 @@ def main(
     pretrained_path = project_dir / pretrained if pretrained else None
     organ = get_organ(organ_name)
 
-    if len(val_patch_files) > 0:
+    if val_patch_files is not None:
         val_patch_files = [project_dir / "config" / file for file in val_patch_files]
-    if len(test_patch_files) > 0:
+    if test_patch_files is not None:
         test_patch_files = [project_dir / "config" / file for file in test_patch_files]
 
     # Setup recording of stats per batch and epoch
@@ -116,7 +116,7 @@ def main(
                 test_patch_files,
             )
         else:
-            if include_validation and len(val_patch_files) == 0:
+            if include_validation and val_patch_files is None:
                 data = graph_supervised.setup_node_splits(
                     data, tissue_class, mask_unlabelled, include_validation=True
                 )
