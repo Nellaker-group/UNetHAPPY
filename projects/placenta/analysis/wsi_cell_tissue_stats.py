@@ -105,7 +105,7 @@ def main(
         cell_df,
         tissue_df,
         cell_colours_mapping,
-        pretrained_path,
+        pretrained_path / "cells_in_tissues.png",
         villus_only=True,
     )
 
@@ -136,13 +136,27 @@ def get_cells_within_tissues(
     if villus_only:
         prop_df = prop_df.drop(["Fibrin", "Avascular", "Maternal", "AVilli"], axis=0)
         prop_df = prop_df.reindex(["Chorion", "SVilli", "MIVilli", "TVilli", "Sprout"])
+        prop_df.index = prop_df.index.map(tissue_label_to_name)
+    else:
+        prop_df = prop_df.reindex(
+            [
+                "Chorion",
+                "SVilli",
+                "MIVilli",
+                "TVilli",
+                "Sprout",
+                "AVilli",
+                "Avascular",
+                "Fibrin",
+                "Maternal",
+            ]
+        )
 
     # Reorder the stacked cells for clarity
     prop_df = prop_df[
         ["MES", "MAT", "EVT", "KNT", "HOF", "WBC", "FIB", "VMY", "VEN", "CYT", "SYN"]
     ]
 
-    prop_df.index = prop_df.index.map(tissue_label_to_name)
     cell_colours = [cell_colours_mapping[cell] for cell in prop_df.columns]
     prop_df.columns = prop_df.columns.map(cell_label_to_name)
 
@@ -172,8 +186,8 @@ def get_cells_within_tissues(
     ax.set_position([box.x0, box.y0, box.width, box.height])
     plt.tight_layout()
     sns.despine(left=True)
-    plt.savefig(save_path / "cells_in_tissues.png")
-    print(f"Plot saved to {save_path / 'cells_in_tissues.png'}")
+    plt.savefig(save_path)
+    print(f"Plot saved to {save_path}")
 
 
 if __name__ == "__main__":
