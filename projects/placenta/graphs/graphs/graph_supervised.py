@@ -106,7 +106,12 @@ def setup_node_splits(
                         data.val_mask = torch.ones(data.num_nodes, dtype=torch.bool)
                         data.train_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
                         data.test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
-                        print("All nodes marked as validation")
+                        if mask_unlabelled and tissue_class is not None:
+                            data.val_mask[unlabelled_inds] = False
+                            data.train_mask[unlabelled_inds] = False
+                            data.test_mask[unlabelled_inds] = False
+                        print(f"All nodes marked as validation: "
+                              f"{data.val_mask.sum().item()}")
                         return data
                     val_node_inds.extend(
                         get_nodes_within_tiles(
