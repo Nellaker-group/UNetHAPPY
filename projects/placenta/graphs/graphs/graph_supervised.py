@@ -63,8 +63,8 @@ def setup_node_splits(
 
     # Split the graph by masks into training, validation and test nodes
     if include_validation:
-        if val_patch_files is None:
-            if test_patch_files is None:
+        if len(val_patch_files) == 0:
+            if len(test_patch_files) == 0:
                 print("No validation patch provided, splitting nodes randomly")
                 data = RandomNodeSplit(num_val=0.15, num_test=0.15)(data)
             else:
@@ -121,7 +121,7 @@ def setup_node_splits(
             val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
             val_mask[val_node_inds] = True
             train_mask[val_node_inds] = False
-            if test_patch_files is not None:
+            if len(test_patch_files) > 0:
                 test_node_inds = []
                 for file in test_patch_files:
                     patches_df = pd.read_csv(file)
