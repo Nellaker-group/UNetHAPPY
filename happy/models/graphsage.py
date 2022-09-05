@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from torch_geometric.nn import SAGEConv, dense_diff_pool, GraphConv, TopKPooling
+from torch_geometric.nn import SAGEConv, dense_diff_pool, GraphConv, TopKPooling, norm
 
 
 class SAGE(nn.Module):
@@ -36,16 +36,19 @@ class SupervisedSAGE(nn.Module):
         super(SupervisedSAGE, self).__init__()
         self.num_layers = num_layers
         self.convs = nn.ModuleList()
+        self.bns = nn.ModuleList()
 
         for i in range(num_layers):
             in_channels = in_channels if i == 0 else hidden_channels
             hidden_channels = out_channels if i == num_layers - 1 else hidden_channels
             self.convs.append(SAGEConv(in_channels, hidden_channels))
+            self.bns.append(norm.BatchNorm(hidden_channels))
 
     def forward(self, x, edge_index):
         for i, conv in enumerate(self.convs):
             x = conv(x, edge_index)
             if i < len(self.convs) - 1:
+                x = self.bns[i](x)
                 x = x.relu_()
                 x = F.dropout(x, p=0.5, training=self.training)
         return x
@@ -60,6 +63,7 @@ class SupervisedSAGE(nn.Module):
                 x = x_all[batch.n_id.to(x_all.device)].to(device)
                 x = conv(x, batch.edge_index.to(device))
                 if i < len(self.convs) - 1:
+                    x = self.bns[i](x)
                     x = x.relu_()
                 xs.append(x[:batch.batch_size].cpu())
             x_all = torch.cat(xs, dim=0)

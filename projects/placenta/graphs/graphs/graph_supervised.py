@@ -63,8 +63,8 @@ def setup_node_splits(
 
     # Split the graph by masks into training, validation and test nodes
     if include_validation:
-        if val_patch_files is None:
-            if test_patch_files is None:
+        if len(val_patch_files) == 0:
+            if len(test_patch_files) == 0:
                 print("No validation patch provided, splitting nodes randomly")
                 data = RandomNodeSplit(num_val=0.15, num_test=0.15)(data)
             else:
@@ -106,7 +106,12 @@ def setup_node_splits(
                         data.val_mask = torch.ones(data.num_nodes, dtype=torch.bool)
                         data.train_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
                         data.test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
-                        print("All nodes marked as validation")
+                        if mask_unlabelled and tissue_class is not None:
+                            data.val_mask[unlabelled_inds] = False
+                            data.train_mask[unlabelled_inds] = False
+                            data.test_mask[unlabelled_inds] = False
+                        print(f"All nodes marked as validation: "
+                              f"{data.val_mask.sum().item()}")
                         return data
                     val_node_inds.extend(
                         get_nodes_within_tiles(
@@ -116,7 +121,7 @@ def setup_node_splits(
             val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
             val_mask[val_node_inds] = True
             train_mask[val_node_inds] = False
-            if test_patch_files is not None:
+            if len(test_patch_files) > 0:
                 test_node_inds = []
                 for file in test_patch_files:
                     patches_df = pd.read_csv(file)
@@ -190,14 +195,14 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
     if model_type == "sup_graphsage":
         model = SupervisedSAGE(
             data.num_node_features,
-            hidden_channels=64,
+            hidden_channels=256,
             out_channels=num_classes,
             num_layers=layers,
         )
     elif model_type == "sup_gat":
         model = GAT(
             data.num_node_features,
-            hidden_channels=128,
+            hidden_channels=256,
             out_channels=num_classes,
             heads=1,
             num_layers=layers,
@@ -406,10 +411,7 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
     )
 
 
-def save_state(
-    run_path,
-    logger,
-    model,
+def collect_params(
     organ_name,
     exp_name,
     run_ids,
@@ -419,18 +421,16 @@ def save_state(
     height,
     k,
     feature,
-    top_conf,
     graph_method,
     batch_size,
     num_neighbours,
     learning_rate,
     epochs,
     layers,
-    label_type,
+    weighted_loss,
+    custom_weights,
 ):
-    torch.save(model, run_path / "graph_model.pt")
-
-    params_df = pd.DataFrame(
+    return pd.DataFrame(
         {
             "organ_name": organ_name,
             "exp_name": exp_name,
@@ -441,19 +441,21 @@ def save_state(
             "height": height,
             "k": k,
             "feature": feature,
-            "top_conf": top_conf,
             "graph_method": graph_method,
             "batch_size": batch_size,
             "num_neighbours": num_neighbours,
             "learning_rate": learning_rate,
+            "weighted_loss": weighted_loss,
+            "custom_weights": custom_weights,
             "epochs": epochs,
             "layers": layers,
-            "label_type": label_type,
         },
         index=[0],
     )
-    params_df.to_csv(run_path / "params.csv", index=False)
 
+
+def save_state(run_path, logger, model, epoch):
+    torch.save(model, run_path / f"{epoch}_graph_model.pt")
     logger.to_csv(run_path / "graph_train_stats.csv")
 
 

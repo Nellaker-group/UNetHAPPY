@@ -33,9 +33,9 @@ def main(
     y_min: int = 0,
     width: int = -1,
     height: int = -1,
-    k: int = 6,
+    k: int = 5,
     feature: FeatureArg = FeatureArg.embeddings,
-    group_knts: bool = False,
+    group_knts: bool = True,
     pretrained: Optional[str] = None,
     top_conf: bool = False,
     model_type: SupervisedModelsArg = SupervisedModelsArg.sup_graphsage,
@@ -45,13 +45,13 @@ def main(
     epochs: int = 50,
     layers: int = typer.Option(...),
     learning_rate: float = 0.001,
-    weighted_loss: bool = False,
+    weighted_loss: bool = True,
     use_custom_weights: bool = True,
-    vis: bool = True,
+    vis: bool = False,
     label_type: str = "full",
     tissue_label_tsvs: List[str] = typer.Option([]),
-    val_patch_files: Optional[List[str]] = None,
-    test_patch_files: Optional[List[str]] = None,
+    val_patch_files: Optional[List[str]] = typer.Option([]),
+    test_patch_files: Optional[List[str]] = typer.Option([]),
     mask_unlabelled: bool = True,
     include_validation: bool = True,
     validation_step: int = 25,
@@ -64,14 +64,10 @@ def main(
     pretrained_path = project_dir / pretrained if pretrained else None
     organ = get_organ(organ_name)
 
-    if val_patch_files is not None:
-        val_patch_files = [
-            project_dir / "config" / file for file in val_patch_files
-        ]
-    if test_patch_files is not None:
-        test_patch_files = [
-            project_dir / "config" / file for file in test_patch_files
-        ]
+    if len(val_patch_files) > 0:
+        val_patch_files = [project_dir / "config" / file for file in val_patch_files]
+    if len(test_patch_files) > 0:
+        test_patch_files = [project_dir / "config" / file for file in test_patch_files]
 
     # Setup recording of stats per batch and epoch
     logger = Logger(
@@ -120,7 +116,7 @@ def main(
                 test_patch_files,
             )
         else:
-            if include_validation and val_patch_files == None:
+            if include_validation and len(val_patch_files) == 0:
                 data = graph_supervised.setup_node_splits(
                     data, tissue_class, mask_unlabelled, include_validation=True
                 )
@@ -158,8 +154,28 @@ def main(
         use_custom_weights,
     )
 
-    # Saves each run by its timestamp
+    # Saves each run by its timestamp and record params for the run
     run_path = setup_run(project_dir, f"{model_type}/{exp_name}", "graph")
+    params = graph_supervised.collect_params(
+        organ_name,
+        exp_name,
+        run_ids,
+        x_min,
+        y_min,
+        width,
+        height,
+        k,
+        feature,
+        graph_method,
+        batch_size,
+        num_neighbours,
+        learning_rate,
+        epochs,
+        layers,
+        weighted_loss,
+        use_custom_weights,
+    )
+    params.to_csv(run_path / "params.csv", index=False)
 
     # Train!
     try:
@@ -186,60 +202,19 @@ def main(
 
                 # Save new best model
                 if val_accuracy >= prev_best_val:
-                    save_model(model, run_path / f"{epoch}_graph_model.pt")
+                    graph_supervised.save_state(run_path, logger, model, epoch)
                     print("Saved best model")
                     prev_best_val = val_accuracy
 
     except KeyboardInterrupt:
-        save_hp = input("Would you like to save the hyperparameters anyway? y/n: ")
+        save_hp = input("Would you like to save anyway? y/n: ")
         if save_hp == "y":
             # Save the fully trained model
-            graph_supervised.save_state(
-                run_path,
-                logger,
-                model,
-                organ_name,
-                exp_name,
-                run_ids,
-                x_min,
-                y_min,
-                width,
-                height,
-                k,
-                feature,
-                top_conf,
-                graph_method,
-                batch_size,
-                num_neighbours,
-                learning_rate,
-                epochs,
-                layers,
-                label_type,
-            )
+            graph_supervised.save_state(run_path, logger, model, epoch)
 
     # Save the fully trained model
-    graph_supervised.save_state(
-        run_path,
-        logger,
-        model,
-        organ_name,
-        exp_name,
-        run_ids,
-        x_min,
-        y_min,
-        width,
-        height,
-        k,
-        feature,
-        top_conf,
-        graph_method,
-        batch_size,
-        num_neighbours,
-        learning_rate,
-        epochs,
-        layers,
-        label_type,
-    )
+    graph_supervised.save_state(run_path, logger, model, "final")
+    print("Saved final model")
 
 
 if __name__ == "__main__":
