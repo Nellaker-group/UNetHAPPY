@@ -160,6 +160,7 @@ def setup_dataloaders(
     if (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
+        or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
     ):
         cluster_data = ClusterData(
@@ -201,6 +202,14 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
         )
     elif model_type == "sup_gat":
         model = GAT(
+            data.num_node_features,
+            hidden_channels=256,
+            out_channels=num_classes,
+            heads=1,
+            num_layers=layers,
+        )
+    elif model_type == "sup_gatv2":
+        model = GATv2(
             data.num_node_features,
             hidden_channels=256,
             out_channels=num_classes,
