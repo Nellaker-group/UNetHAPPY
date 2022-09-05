@@ -152,6 +152,7 @@ def main(
         device,
         weighted_loss,
         use_custom_weights,
+        data=data, # So that the SIGN dataloader can be used
     )
 
     # Saves each run by its timestamp and record params for the run
@@ -189,6 +190,7 @@ def main(
                 criterion,
                 train_loader,
                 device,
+                data=data, # So that the SIGN dataloader can be used
             )
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)

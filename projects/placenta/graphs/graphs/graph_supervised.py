@@ -33,6 +33,7 @@ from happy.train.utils import (
 from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
 from happy.models.clustergcn import ClusterGCN, ClusterGCNConvNet, JumpingClusterGCN
 from happy.models.gat import GAT, GATv2
+from happy.models.sign import SIGN
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
 
 
@@ -167,12 +168,14 @@ def setup_dataloaders(
             data, num_parts=int(data.x.size()[0] / num_neighbors), recursive=False
         )
         train_loader = ClusterLoader(
-            cluster_data, batch_size=batch_size, shuffle=True, num_workers=0
+            cluster_data, batch_size=batch_size, shuffle=True, num_workers=12
         )
         val_loader = NeighborSampler(
-            data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=0
+            data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
         )
-    else:
+    elif (
+        model_type == "sup_graphsage"
+    ):
         train_loader = NeighborLoader(
             data,
             input_nodes=data.train_mask,
@@ -186,6 +189,14 @@ def setup_dataloaders(
         )
         val_loader.data.num_nodes = data.num_nodes
         val_loader.data.n_id = torch.arange(data.num_nodes)
+    elif (
+        model_type == "sup_sign"
+    ):
+        train_idx = data.train_mask.nonzero(as_tuple=False).view(-1)
+        val_idx = data.val_mask.nonzero(as_tuple=False).view(-1)
+
+        train_loader = DataLoader(train_idx, batch_size=batch_size, shuffle=True, num_workers=12)
+        val_loader = DataLoader(val_idx, batch_size=batch_size, shuffle=False)
 
     return train_loader, val_loader
 
@@ -230,6 +241,13 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             out_channels=num_classes,
             num_layers=layers,
         )
+    elif model_type == "sup_sign":
+        model = SIGN(
+            data.num_node_features,
+            hidden_channels=256,
+            out_channels=num_classes,
+            num_layers=layers,
+        )
     else:
         return ValueError(f"No such model type implemented: {model_type}")
     model = model.to(device)
@@ -245,8 +263,11 @@ def setup_training_params(
     device,
     weighted_loss,
     use_custom_weights,
+    data=None,
 ):
-    if model_type == "sup_graphsage":
+    if (
+        model_type == "sup_graphsage"
+    ):
         if weighted_loss:
             data_classes = train_dataloader.data.y[
                 train_dataloader.data.train_mask
@@ -260,8 +281,22 @@ def setup_training_params(
         else:
             criterion = torch.nn.CrossEntropyLoss()
     elif (
+        model_type == "sup_sign"
+    ):
+        if weighted_loss:
+            data_classes = data.y[data.train_mask].numpy()
+            class_weights = _compute_tissue_weights(
+                data_classes, organ, use_custom_weights
+            )
+            class_weights = torch.FloatTensor(class_weights)
+            class_weights = class_weights.to(device)
+            criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
+        else:
+            criterion = torch.nn.CrossEntropyLoss()
+    elif (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
+        or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
     ):
         if weighted_loss:
@@ -289,6 +324,7 @@ def train(
     criterion,
     train_loader,
     device,
+    data,
 ):
     model.train()
 
@@ -299,6 +335,7 @@ def train(
     if (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
+        or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
     ):
         for batch in train_loader:
@@ -315,7 +352,9 @@ def train(
             total_loss += loss.item() * nodes
             total_correct += int(train_out.argmax(dim=-1).eq(train_y).sum().item())
             total_examples += nodes
-    else:
+    elif (
+        model_type == "sup_graphsage"
+    ):
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
@@ -330,6 +369,24 @@ def train(
             total_loss += float(loss) * nodes
             total_correct += int((train_out.argmax(dim=-1).eq(train_y)).sum())
             total_examples += nodes
+    elif (
+        model_type == "sup_sign"
+    ):
+        for idx in train_loader:
+            optimiser.zero_grad()
+            train_x = data.x[idx].to(device)
+            train_y = data.y[idx].to(device)
+            out = model(train_x)
+            loss = criterion(out, train_y)
+            loss.backward()
+            optimiser.step()
+
+            nodes = batch.train_mask[idx].sum().item()
+            total_loss += float(loss) * nodes
+            total_correct += int((out.argmax(dim=-1).eq(train_y)).sum())
+            total_examples += nodes
+    else:
+        raise ValueError(f"No such model type {model_type}")
 
     return total_loss / total_examples, total_correct / total_examples
 

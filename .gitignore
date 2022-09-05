@@ -221,3 +221,6 @@ labelbox/*.png
 analysis/stats/histograms
 analysis/evaluation/plots
 **/analysis/plots
+*.sh
+.vscode
+qsub_logs
