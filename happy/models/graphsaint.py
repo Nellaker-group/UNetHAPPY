@@ -30,15 +30,22 @@ class GraphSAINT(torch.nn.Module):
         x = self.lin(x)
         return x.log_softmax(dim=-1)
 
-    def inference(self, x, subgraph_loader, device):
-        x = x.to(device)
-        edge_index = subgraph_loader.data.edge_index.to(device)
-        xs = []
+
+    def inference(self, x_all, subgraph_loader, device):
+        # Compute representations of nodes layer by layer, using *all*
+        # available edges. This leads to faster computation in contrast to
+        # immediately computing the final representations of each batch:
+        all_xs = []
         for i, conv in enumerate(self.convs):
-            x = F.relu(self.convs[i](x, edge_index))
-            x = F.dropout(x, p=0.5, training=self.training)
-            xs.append(x)
-        x = torch.cat(xs, dim=-1)
+            xs = []
+            for batch in subgraph_loader:
+                x = x_all[batch.n_id.to(x_all.device)].to(device)
+                x = F.relu(self.convs[i](x, batch.edge_index.to(device)))
+                x = F.dropout(x, p=0.5, training=self.training)
+                xs.append(x[:batch.batch_size])
+            x_all = torch.cat(xs, dim=0)
+            all_xs.append(x_all)
+        x = torch.cat(all_xs, dim=-1)
         embeddings = x.detach().clone()
         x = self.lin(x)
         return x, embeddings

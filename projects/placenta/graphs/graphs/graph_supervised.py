@@ -181,11 +181,15 @@ def setup_dataloaders(
             data,
             batch_size=batch_size,
             walk_length=num_layers,
-            num_steps=50,
+            num_steps=5,
             sample_coverage=num_neighbors,
-            num_workers=12
+            num_workers=0
         )
-        val_loader = train_loader
+        val_loader = NeighborLoader(
+            copy.copy(data), num_neighbors=[-1], shuffle=False, batch_size=512
+        )
+        val_loader.data.num_nodes = data.num_nodes
+        val_loader.data.n_id = torch.arange(data.num_nodes)
     else:
         train_loader = NeighborLoader(
             data,
