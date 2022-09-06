@@ -7,7 +7,10 @@ from torch_geometric.loader import (
     NeighborSampler,
     NeighborLoader,
     DataLoader,
+    GraphSAINTNodeSampler,
+    GraphSAINTRandomWalkSampler,
 )
+from torch_geometric.nn.models.basic_gnn import GAT as GATPYG
 from torch_geometric.transforms import RandomNodeSplit
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import (
@@ -33,6 +36,7 @@ from happy.train.utils import (
 from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
 from happy.models.clustergcn import ClusterGCN, ClusterGCNConvNet, JumpingClusterGCN
 from happy.models.gat import GAT, GATv2
+from happy.models.graphsaint import GraphSAINT
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
 
 
@@ -41,8 +45,8 @@ def setup_node_splits(
     tissue_class,
     mask_unlabelled,
     include_validation=True,
-    val_patch_files=None,
-    test_patch_files=None,
+    val_patch_files=[],
+    test_patch_files=[],
 ):
     all_xs = data["pos"][:, 0]
     all_ys = data["pos"][:, 1]
@@ -160,17 +164,28 @@ def setup_dataloaders(
     if (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
+        or model_type == "sup_gat_pyg"
         or model_type == "sup_jumping"
     ):
         cluster_data = ClusterData(
             data, num_parts=int(data.x.size()[0] / num_neighbors), recursive=False
         )
         train_loader = ClusterLoader(
-            cluster_data, batch_size=batch_size, shuffle=True, num_workers=0
+            cluster_data, batch_size=batch_size, shuffle=True, num_workers=12
         )
         val_loader = NeighborSampler(
-            data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=0
+            data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
         )
+    elif model_type == "sup_graphsaint":
+        train_loader = GraphSAINTRandomWalkSampler(
+            data,
+            batch_size=batch_size,
+            walk_length=num_layers,
+            num_steps=50,
+            sample_coverage=num_neighbors,
+            num_workers=12
+        )
+        val_loader = train_loader
     else:
         train_loader = NeighborLoader(
             data,
@@ -207,6 +222,17 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             heads=1,
             num_layers=layers,
         )
+    elif model_type == "sup_gat_pyg":
+        model = GATPYG(
+            in_channels=data.num_node_features,
+            hidden_channels=256,
+            num_layers=layers,
+            out_channels=num_classes,
+            dropout=0.5,
+            # norm="batch",
+            # jk='None',
+            heads=1,
+        )
     elif model_type == "sup_clustergcn":
         model = ClusterGCN(
             data.num_node_features,
@@ -216,6 +242,13 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
         )
     elif model_type == "sup_jumping":
         model = JumpingClusterGCN(
+            data.num_node_features,
+            hidden_channels=256,
+            out_channels=num_classes,
+            num_layers=layers,
+        )
+    elif model_type == "sup_graphsaint":
+        model = GraphSAINT(
             data.num_node_features,
             hidden_channels=256,
             out_channels=num_classes,
@@ -253,11 +286,25 @@ def setup_training_params(
     elif (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
+        or model_type == "sup_gat_pyg"
         or model_type == "sup_jumping"
     ):
         if weighted_loss:
             data_classes = train_dataloader.cluster_data.data.y[
                 train_dataloader.cluster_data.data.train_mask
+            ].numpy()
+            class_weights = _compute_tissue_weights(
+                data_classes, organ, use_custom_weights
+            )
+            class_weights = torch.FloatTensor(class_weights)
+            class_weights = class_weights.to(device)
+            criterion = torch.nn.NLLLoss(weight=class_weights)
+        else:
+            criterion = torch.nn.NLLLoss()
+    elif model_type == "sup_graphsaint":
+        if weighted_loss:
+            data_classes = train_dataloader.data.y[
+                train_dataloader.data.train_mask
             ].numpy()
             class_weights = _compute_tissue_weights(
                 data_classes, organ, use_custom_weights
@@ -290,7 +337,9 @@ def train(
     if (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
+        or model_type == "sup_gat_pyg"
         or model_type == "sup_jumping"
+        or model_type == "sup_graphsaint"
     ):
         for batch in train_loader:
             batch = batch.to(device)
