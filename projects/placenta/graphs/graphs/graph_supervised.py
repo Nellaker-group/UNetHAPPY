@@ -374,14 +374,16 @@ def train(
     ):
         for idx in train_loader:
             optimiser.zero_grad()
-            train_x = data.x[idx].to(device)
+            train_x = [data.x[idx].to(device)]
+            sign_K = 16 # TODO: check that this is correct
+            train_x += [data[f'x{i}'][idx].to(device) for i in range(1, sign_K + 1)]
             train_y = data.y[idx].to(device)
             out = model(train_x)
             loss = criterion(out, train_y)
             loss.backward()
             optimiser.step()
 
-            nodes = batch.train_mask[idx].sum().item()
+            nodes = data.train_mask[idx].sum().item()
             total_loss += float(loss) * nodes
             total_correct += int((out.argmax(dim=-1).eq(train_y)).sum())
             total_examples += nodes
@@ -407,6 +409,36 @@ def validate(model, data, eval_loader, device):
 
 
 @torch.no_grad()
+def validate_sign(model, data, eval_loader, device):
+    print("Running inference")
+    model.eval()
+    out = []
+    pred = []
+    lab = []
+
+    for idx in eval_loader:
+        eval_x = [data.x[idx].to(device)]
+        sign_K = 16 # TODO: check that this is correct
+        eval_x += [data[f'x{i}'][idx].to(device) for i in range(1, sign_K + 1)]
+        eval_y = data.y[idx]
+        out_i, _ = model.inference(eval_x)
+        pred_i = out_i.argmax(dim=-1, keepdim=True).squeeze()
+        out_i = out_i.cpu().detach().numpy()
+        pred_i = pred_i.cpu().numpy()
+        lab_i = eval_y.cpu().numpy()
+        out.append(out_i)
+        pred.append(pred_i)
+        lab.append(lab_i)
+
+    out = np.concatenate(out, axis=0)
+    pred = np.concatenate(pred, axis=0)
+    lab = np.concatenate(lab, axis=0)
+    acc = np.mean(pred == lab)
+
+    return acc
+
+
+@torch.no_grad()
 def inference(model, x, eval_loader, device):
     print("Running inference")
     model.eval()
@@ -415,6 +447,34 @@ def inference(model, x, eval_loader, device):
     predicted_labels = predicted_labels.cpu().numpy()
     out = out.cpu().detach().numpy()
     return out, graph_embeddings, predicted_labels
+
+
+@torch.no_grad()
+def inference_sign(model, x, eval_loader, device, data):
+    print("Running inference")
+    model.eval()
+    out = []
+    emb = []
+    pred = []
+
+    for idx in eval_loader:
+        eval_x = [data.x[idx].to(device)]
+        sign_K = 16 # TODO: check that this is correct
+        eval_x += [data[f'x{i}'][idx].to(device) for i in range(1, sign_K + 1)]
+        out_i, emb_i = model.inference(eval_x)
+        pred_i = out.argmax(dim=-1, keepdim=True).squeeze()
+        pred_i = pred_i.cpu().numpy()
+        out_i = out_i.cpu().detach().numpy()
+        emb_i = emb_i.cpu().detach().numpy()
+        out.append(out_i)
+        emb.append(emb_i)
+        pred.append(pred_i)
+
+    out = np.concatenate(out, axis=0)
+    emb = np.concatenate(emb, axis=0)
+    pred = np.concatenate(pred, axis=0)
+
+    return out, emb, pred
 
 
 def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled):

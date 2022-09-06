@@ -20,5 +20,15 @@ class SIGN(nn.Module):
             h = F.dropout(h, p=0.5, training=self.training)
             hs.append(h)
         h = torch.cat(hs, dim=-1)
-        h = self.lin(h)
-        return h.log_softmax(dim=-1)
+        o = self.lin(h)
+        return o.log_softmax(dim=-1)
+
+    def inference(self, xs):
+        hs = []
+        for x, lin in zip(xs, self.lins):
+            h = lin(x).relu()
+            h = F.dropout(h, p=0.5, training=self.training)
+            hs.append(h)
+        h = torch.cat(hs, dim=-1)
+        o = self.lin(h)
+        return o, h
