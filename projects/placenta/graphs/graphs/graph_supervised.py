@@ -11,6 +11,7 @@ from torch_geometric.loader import (
     GraphSAINTRandomWalkSampler,
 )
 from torch_geometric.nn.models.basic_gnn import GAT as GATPYG
+from torch_geometric.nn.models.basic_gnn import BasicGNN
 from torch_geometric.transforms import RandomNodeSplit
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import (
@@ -182,14 +183,12 @@ def setup_dataloaders(
             batch_size=batch_size,
             walk_length=num_layers,
             num_steps=5,
-            sample_coverage=num_neighbors,
+            sample_coverage=0,
             num_workers=0
         )
-        val_loader = NeighborLoader(
-            copy.copy(data), num_neighbors=[-1], shuffle=False, batch_size=512
+        val_loader = NeighborSampler(
+            data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
         )
-        val_loader.data.num_nodes = data.num_nodes
-        val_loader.data.n_id = torch.arange(data.num_nodes)
     else:
         train_loader = NeighborLoader(
             data,
