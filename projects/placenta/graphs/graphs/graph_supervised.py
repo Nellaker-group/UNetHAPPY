@@ -184,7 +184,7 @@ def setup_dataloaders(
             walk_length=num_layers,
             num_steps=5,
             sample_coverage=0,
-            num_workers=0
+            num_workers=12
         )
         val_loader = NeighborSampler(
             data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
