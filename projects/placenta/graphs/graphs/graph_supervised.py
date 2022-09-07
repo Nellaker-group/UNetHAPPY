@@ -216,7 +216,7 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             data.num_node_features,
             hidden_channels=256,
             out_channels=num_classes,
-            heads=1,
+            heads=4,
             num_layers=layers,
         )
     elif model_type == "sup_gatv2":
@@ -224,7 +224,7 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             data.num_node_features,
             hidden_channels=256,
             out_channels=num_classes,
-            heads=1,
+            heads=4,
             num_layers=layers,
         )
     elif model_type == "sup_clustergcn":
