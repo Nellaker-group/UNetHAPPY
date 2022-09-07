@@ -16,5 +16,5 @@ class SupervisedModelsArg(str, Enum):
     sup_clustergcn = "sup_clustergcn"
     sup_jumping = "sup_jumping"
     sup_gat = "sup_gat"
-    sup_gat_pyg = "sup_gat_pyg"
     sup_graphsaint = "sup_graphsaint"
+    sup_shadow = "sup_shadow"
