@@ -11,7 +11,6 @@ from torch_geometric.loader import (
     GraphSAINTRandomWalkSampler,
     ShaDowKHopSampler,
 )
-from torch_geometric.nn.models.basic_gnn import BasicGNN
 from torch_geometric.transforms import RandomNodeSplit
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import (
@@ -185,7 +184,7 @@ def setup_dataloaders(
             batch_size=batch_size,
             walk_length=num_layers,
             num_steps=5,
-            sample_coverage=num_neighbors,
+            sample_coverage=0,
             num_workers=12,
         )
         val_loader = NeighborSampler(
