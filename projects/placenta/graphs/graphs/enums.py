@@ -20,3 +20,4 @@ class SupervisedModelsArg(str, Enum):
     sup_graphsaint = "sup_graphsaint"
     sup_gatv2 = "sup_gatv2"
     sup_sign = "sup_sign"
+    sup_sgc = "sup_sgc"

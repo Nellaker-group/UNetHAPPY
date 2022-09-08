@@ -11,7 +11,7 @@ from torch_geometric.loader import (
     GraphSAINTRandomWalkSampler,
 )
 from torch_geometric.nn.models.basic_gnn import GAT as GATPYG
-from torch_geometric.transforms import RandomNodeSplit
+from torch_geometric.transforms import RandomNodeSplit, SIGN
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import (
     accuracy_score,
@@ -37,7 +37,8 @@ from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
 from happy.models.clustergcn import ClusterGCN, ClusterGCNConvNet, JumpingClusterGCN
 from happy.models.gat import GAT, GATv2
 from happy.models.graphsaint import GraphSAINT
-from happy.models.sign import SIGN
+from happy.models.sign import SIGN as SIGN_Net
+from happy.models.sgc import SGC
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
 
 
@@ -206,9 +207,7 @@ def setup_dataloaders(
         )
         val_loader.data.num_nodes = data.num_nodes
         val_loader.data.n_id = torch.arange(data.num_nodes)
-    elif (
-        model_type == "sup_sign"
-    ):
+    elif model_type == "sup_sign":
         train_idx = data.train_mask.nonzero(as_tuple=False).view(-1)
         val_idx = data.val_mask.nonzero(as_tuple=False).view(-1)
 
@@ -233,7 +232,7 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             data.num_node_features,
             hidden_channels=256,
             out_channels=num_classes,
-            heads=4,
+            heads=8,
             num_layers=layers,
         )
     elif model_type == "sup_gatv2":
@@ -241,7 +240,7 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             data.num_node_features,
             hidden_channels=256,
             out_channels=num_classes,
-            heads=4,
+            heads=8,
             num_layers=layers,
         )
     elif model_type == "sup_gat_pyg":
@@ -277,9 +276,15 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             num_layers=layers,
         )
     elif model_type == "sup_sign":
-        model = SIGN(
+        model = SIGN_Net(
             data.num_node_features,
             hidden_channels=256,
+            out_channels=num_classes,
+            num_layers=layers,
+        )
+    elif model_type == "sup_sgc":
+        model = SGC(
+            data.num_node_features,
             out_channels=num_classes,
             num_layers=layers,
         )
@@ -466,10 +471,12 @@ def validate_sign(model, data, eval_loader, device):
     out = []
     pred = []
     lab = []
+    sign_K = 16 # TODO: check that this is correct
+    sign_tform = SIGN(sign_K)
+    data = sign_tform(data)
 
     for idx in eval_loader:
         eval_x = [data.x[idx].to(device)]
-        sign_K = 16 # TODO: check that this is correct
         eval_x += [data[f'x{i}'][idx].to(device) for i in range(1, sign_K + 1)]
         eval_y = data.y[idx]
         out_i, _ = model.inference(eval_x)
@@ -501,19 +508,21 @@ def inference(model, x, eval_loader, device):
 
 
 @torch.no_grad()
-def inference_sign(model, x, eval_loader, device, data):
+def inference_sign(model, data, eval_loader, device):
     print("Running inference")
     model.eval()
     out = []
     emb = []
     pred = []
+    sign_K = 16 # TODO: check that this is correct
+    sign_tform = SIGN(sign_K)
+    data = sign_tform(data)
 
     for idx in eval_loader:
         eval_x = [data.x[idx].to(device)]
-        sign_K = 16 # TODO: check that this is correct
         eval_x += [data[f'x{i}'][idx].to(device) for i in range(1, sign_K + 1)]
         out_i, emb_i = model.inference(eval_x)
-        pred_i = out.argmax(dim=-1, keepdim=True).squeeze()
+        pred_i = out_i.argmax(dim=-1, keepdim=True).squeeze()
         pred_i = pred_i.cpu().numpy()
         out_i = out_i.cpu().detach().numpy()
         emb_i = emb_i.cpu().detach().numpy()

@@ -7,6 +7,7 @@ import torch
 class SIGN(nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
         super(SIGN, self).__init__()
+        self.num_layers = num_layers
 
         self.lins = torch.nn.ModuleList()
         for _ in range(num_layers + 1):

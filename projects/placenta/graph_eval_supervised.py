@@ -5,7 +5,7 @@ import typer
 import torch
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.utils import add_self_loops
-from torch_geometric.loader import NeighborSampler, NeighborLoader
+from torch_geometric.loader import NeighborSampler, NeighborLoader, DataLoader
 import numpy as np
 import pandas as pd
 
@@ -17,7 +17,7 @@ from graphs.graphs.utils import get_feature
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
 from graphs.graphs.create_graph import get_groundtruth_patch
-from graphs.graphs.graph_supervised import inference, setup_node_splits, evaluate
+from graphs.graphs.graph_supervised import inference, setup_node_splits, evaluate, inference_sign
 
 np.random.seed(2)
 
@@ -116,6 +116,9 @@ def main(
         )
         eval_loader.data.num_nodes = data.num_nodes
         eval_loader.data.n_id = torch.arange(data.num_nodes)
+    elif model_type == "sup_sign":
+        # eval_idx = data.val_mask.nonzero(as_tuple=False).view(-1)
+        eval_loader = DataLoader(range(data.num_nodes), batch_size=512, shuffle=False)
     else:
         eval_loader = NeighborSampler(
             data.edge_index,
@@ -126,7 +129,10 @@ def main(
         )
 
     # Run inference and get predicted labels for nodes
-    out, graph_embeddings, predicted_labels = inference(model, x, eval_loader, device)
+    if model_type == "sup_sign":
+        out, graph_embeddings, predicted_labels = inference_sign(model, data, eval_loader, device)
+    else:
+        out, graph_embeddings, predicted_labels = inference(model, x, eval_loader, device)
 
     # restrict to only data in patch_files using val_mask
     val_nodes = data.val_mask
@@ -140,7 +146,6 @@ def main(
 
     # Remove unlabelled (class 0) ground truth points
     if remove_unlabelled and tissue_label_tsv is not None:
-        unlabelled_inds, tissue_class, predicted_labels, pos, out = _remove_unlabelled(
             tissue_class, predicted_labels, pos, out
         )
 
