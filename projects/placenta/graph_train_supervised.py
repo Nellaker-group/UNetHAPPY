@@ -12,7 +12,7 @@ from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
 from graphs.graphs.enums import FeatureArg, MethodArg, SupervisedModelsArg
-from graphs.graphs.utils import get_feature, send_graph_to_device, save_model
+from graphs.graphs.utils import get_feature, send_graph_to_device
 from graphs.graphs import graph_supervised
 from graphs.graphs.create_graph import (
     get_raw_data,
@@ -104,6 +104,7 @@ def main(
         data.edge_index, data.edge_attr = add_self_loops(
             data["edge_index"], data["edge_attr"], fill_value="mean"
         )
+        data["edge_weight"] = data["edge_attr"][:, 0]
 
         # Split nodes into unlabelled, training and validation sets
         if run_id == 56:

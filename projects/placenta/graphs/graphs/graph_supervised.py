@@ -6,12 +6,10 @@ from torch_geometric.loader import (
     ClusterLoader,
     NeighborSampler,
     NeighborLoader,
-    DataLoader,
     GraphSAINTNodeSampler,
+    GraphSAINTEdgeSampler,
     GraphSAINTRandomWalkSampler,
 )
-from torch_geometric.nn.models.basic_gnn import GAT as GATPYG
-from torch_geometric.nn.models.basic_gnn import BasicGNN
 from torch_geometric.transforms import RandomNodeSplit
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import (
@@ -34,8 +32,8 @@ from happy.train.utils import (
     plot_tissue_pr_curves,
     get_tissue_confusion_matrix,
 )
-from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
-from happy.models.clustergcn import ClusterGCN, ClusterGCNConvNet, JumpingClusterGCN
+from happy.models.graphsage import SupervisedSAGE
+from happy.models.clustergcn import ClusterGCN, JumpingClusterGCN
 from happy.models.gat import GAT, GATv2
 from happy.models.graphsaint import GraphSAINT
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
@@ -115,8 +113,10 @@ def setup_node_splits(
                             data.val_mask[unlabelled_inds] = False
                             data.train_mask[unlabelled_inds] = False
                             data.test_mask[unlabelled_inds] = False
-                        print(f"All nodes marked as validation: "
-                              f"{data.val_mask.sum().item()}")
+                        print(
+                            f"All nodes marked as validation: "
+                            f"{data.val_mask.sum().item()}"
+                        )
                         return data
                     val_node_inds.extend(
                         get_nodes_within_tiles(
@@ -165,7 +165,6 @@ def setup_dataloaders(
     if (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
-        or model_type == "sup_gat_pyg"
         or model_type == "sup_jumping"
     ):
         cluster_data = ClusterData(
@@ -177,15 +176,35 @@ def setup_dataloaders(
         val_loader = NeighborSampler(
             data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
         )
-    elif model_type == "sup_graphsaint":
-        train_loader = GraphSAINTRandomWalkSampler(
-            data,
-            batch_size=batch_size,
-            walk_length=num_layers,
-            num_steps=5,
-            sample_coverage=0,
-            num_workers=12
-        )
+    elif model_type.split('_')[1] == "graphsaint":
+        sampler_type = model_type.split('_')[2]
+        if sampler_type == "rw":
+            train_loader = GraphSAINTRandomWalkSampler(
+                data,
+                batch_size=batch_size,
+                walk_length=num_layers,
+                num_steps=5,
+                sample_coverage=num_neighbors,
+                num_workers=12,
+            )
+        elif sampler_type == "node":
+            train_loader = GraphSAINTNodeSampler(
+                data,
+                batch_size=batch_size,
+                shuffle=True,
+                num_steps=5,
+                sample_coverage=num_neighbors,
+                num_workers=12,
+            )
+        elif sampler_type == "edge":
+            train_loader = GraphSAINTEdgeSampler(
+                data,
+                batch_size=batch_size,
+                shuffle=True,
+                num_steps=5,
+                sample_coverage=num_neighbors,
+                num_workers=12,
+            )
         val_loader = NeighborSampler(
             data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
         )
@@ -225,17 +244,6 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             heads=1,
             num_layers=layers,
         )
-    elif model_type == "sup_gat_pyg":
-        model = GATPYG(
-            in_channels=data.num_node_features,
-            hidden_channels=256,
-            num_layers=layers,
-            out_channels=num_classes,
-            dropout=0.5,
-            # norm="batch",
-            # jk='None',
-            heads=1,
-        )
     elif model_type == "sup_clustergcn":
         model = ClusterGCN(
             data.num_node_features,
@@ -250,7 +258,7 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             out_channels=num_classes,
             num_layers=layers,
         )
-    elif model_type == "sup_graphsaint":
+    elif model_type.split('_')[1] == "graphsaint":
         model = GraphSAINT(
             data.num_node_features,
             hidden_channels=256,
@@ -289,7 +297,6 @@ def setup_training_params(
     elif (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
-        or model_type == "sup_gat_pyg"
         or model_type == "sup_jumping"
     ):
         if weighted_loss:
@@ -304,7 +311,7 @@ def setup_training_params(
             criterion = torch.nn.NLLLoss(weight=class_weights)
         else:
             criterion = torch.nn.NLLLoss()
-    elif model_type == "sup_graphsaint":
+    elif model_type.split('_')[1] == "graphsaint":
         if weighted_loss:
             data_classes = train_dataloader.data.y[
                 train_dataloader.data.train_mask
@@ -314,7 +321,7 @@ def setup_training_params(
             )
             class_weights = torch.FloatTensor(class_weights)
             class_weights = class_weights.to(device)
-            criterion = torch.nn.NLLLoss(weight=class_weights)
+            criterion = torch.nn.NLLLoss(weight=class_weights, reduction="none")
         else:
             criterion = torch.nn.NLLLoss()
     else:
@@ -340,9 +347,7 @@ def train(
     if (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
-        or model_type == "sup_gat_pyg"
         or model_type == "sup_jumping"
-        or model_type == "sup_graphsaint"
     ):
         for batch in train_loader:
             batch = batch.to(device)
@@ -357,6 +362,26 @@ def train(
             nodes = batch.train_mask.sum().item()
             total_loss += loss.item() * nodes
             total_correct += int(train_out.argmax(dim=-1).eq(train_y).sum().item())
+            total_examples += nodes
+    elif model_type.split('_')[1] == "graphsaint":
+        for batch in train_loader:
+            batch = batch.to(device)
+            optimiser.zero_grad()
+            edge_weight = batch.edge_norm * batch.edge_weight
+            out = model(batch.x, batch.edge_index, edge_weight)
+            loss = criterion(out, batch.y)
+            loss = (loss * batch.node_norm)[batch.train_mask].sum()
+            loss.backward()
+            optimiser.step()
+            nodes = batch.train_mask.sum().item()
+            total_loss += loss.item() * nodes
+            total_correct += int(
+                out[batch.train_mask]
+                .argmax(dim=-1)
+                .eq(batch.y[batch.train_mask])
+                .sum()
+                .item()
+            )
             total_examples += nodes
     else:
         for batch in train_loader:

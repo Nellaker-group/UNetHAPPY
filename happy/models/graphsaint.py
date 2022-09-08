@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import SAGEConv
+from torch_geometric.nn import GraphConv
 
 
 class GraphSAINT(torch.nn.Module):
@@ -13,7 +13,7 @@ class GraphSAINT(torch.nn.Module):
         for i in range(num_layers):
             in_channels = in_channels if i == 0 else hidden_channels
             hidden_channels = out_channels if i == num_layers - 1 else hidden_channels
-            self.convs.append(SAGEConv(in_channels, hidden_channels))
+            self.convs.append(GraphConv(in_channels, hidden_channels))
 
     def forward(self, x, edge_index, edge_weight=None):
         for conv in self.convs[:-1]:
