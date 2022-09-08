@@ -19,3 +19,4 @@ class SupervisedModelsArg(str, Enum):
     sup_graphsaint_rw = "sup_graphsaint_rw"
     sup_graphsaint_edge = "sup_graphsaint_edge"
     sup_graphsaint_node = "sup_graphsaint_node"
+    sup_shadow = "sup_shadow"

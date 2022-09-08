@@ -9,6 +9,7 @@ from torch_geometric.loader import (
     GraphSAINTNodeSampler,
     GraphSAINTEdgeSampler,
     GraphSAINTRandomWalkSampler,
+    ShaDowKHopSampler,
 )
 from torch_geometric.transforms import RandomNodeSplit
 from sklearn.utils.class_weight import compute_class_weight
@@ -36,6 +37,7 @@ from happy.models.graphsage import SupervisedSAGE
 from happy.models.clustergcn import ClusterGCN, JumpingClusterGCN
 from happy.models.gat import GAT, GATv2
 from happy.models.graphsaint import GraphSAINT
+from happy.models.shadow import ShaDowGCN
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
 
 
@@ -208,6 +210,23 @@ def setup_dataloaders(
         val_loader = NeighborSampler(
             data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
         )
+    elif model_type == "sup_shadow":
+        train_loader = ShaDowKHopSampler(
+            data,
+            depth=num_layers,
+            num_neighbors=num_neighbors,
+            node_idx=data.train_mask,
+            batch_size=batch_size,
+            num_workers=0,
+        )
+        val_loader = ShaDowKHopSampler(
+            data,
+            depth=num_layers,
+            num_neighbors=num_neighbors,
+            node_idx=data.val_mask,
+            batch_size=512,
+            num_workers=0,
+        )
     else:
         train_loader = NeighborLoader(
             data,
@@ -265,6 +284,13 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             out_channels=num_classes,
             num_layers=layers,
         )
+    elif model_type == "sup_shadow":
+        model = ShaDowGCN(
+            data.num_node_features,
+            hidden_channels=256,
+            out_channels=num_classes,
+            num_layers=layers,
+        )
     else:
         return ValueError(f"No such model type implemented: {model_type}")
     model = model.to(device)
@@ -311,7 +337,7 @@ def setup_training_params(
             criterion = torch.nn.NLLLoss(weight=class_weights)
         else:
             criterion = torch.nn.NLLLoss()
-    elif model_type.split('_')[1] == "graphsaint":
+    elif model_type.split('_')[1] == "graphsaint" or model_type == "sup_shadow":
         if weighted_loss:
             data_classes = train_dataloader.data.y[
                 train_dataloader.data.train_mask
@@ -373,6 +399,7 @@ def train(
             loss = (loss * batch.node_norm)[batch.train_mask].sum()
             loss.backward()
             optimiser.step()
+
             nodes = batch.train_mask.sum().item()
             total_loss += loss.item() * nodes
             total_correct += int(
@@ -382,6 +409,21 @@ def train(
                 .sum()
                 .item()
             )
+            total_examples += nodes
+    elif model_type == "sup_shadow":
+        for batch in train_loader:
+            batch = batch.to(device)
+            optimiser.zero_grad()
+            out = model(batch.x, batch.edge_index, batch.batch, batch.root_n_id)
+            # train_out = out[batch.train_mask]
+            # train_y = batch.y[batch.train_mask]
+            loss = criterion(out, batch.y)
+            loss.backward()
+            optimiser.step()
+
+            nodes = batch.train_mask.sum().item()
+            total_loss += loss.item() * nodes
+            total_correct += int(out.argmax(dim=-1).eq(batch.y).sum().item())
             total_examples += nodes
     else:
         for batch in train_loader:
@@ -405,7 +447,15 @@ def train(
 @torch.no_grad()
 def validate(model, data, eval_loader, device):
     model.eval()
-    out, _ = model.inference(data.x, eval_loader, device)
+    if not isinstance(model, ShaDowGCN):
+        out, _ = model.inference(data.x, eval_loader, device)
+    else:
+        out = []
+        for batch in eval_loader:
+            batch = batch.to(device)
+            out = model(batch.x, batch.edge_index, batch.batch, batch.root_n_id)
+            out.append(out)
+        out = torch.cat(out, dim=0)
     out = out.argmax(dim=-1)
     y = data.y.to(out.device)
     train_accuracy = int((out[data.train_mask].eq(y[data.train_mask])).sum()) / int(
