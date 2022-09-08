@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GraphConv
+from torch_geometric.nn import GraphConv, norm
 
 
 class GraphSAINT(torch.nn.Module):
@@ -9,15 +9,18 @@ class GraphSAINT(torch.nn.Module):
         super().__init__()
         self.num_layers = num_layers
         self.convs = nn.ModuleList()
+        self.bns = nn.ModuleList()
 
         for i in range(num_layers):
             in_channels = in_channels if i == 0 else hidden_channels
             hidden_channels = out_channels if i == num_layers - 1 else hidden_channels
             self.convs.append(GraphConv(in_channels, hidden_channels))
+            self.bns.append(norm.BatchNorm(hidden_channels))
 
     def forward(self, x, edge_index, edge_weight=None):
-        for conv in self.convs[:-1]:
+        for i, conv in enumerate(self.convs[:-1]):
             x = conv(x, edge_index, edge_weight)
+            x = self.bns[i](x)
             x = F.relu(x)
             x = F.dropout(x, p=0.5, training=self.training)
         x = self.convs[-1](x, edge_index, edge_weight)
@@ -32,6 +35,7 @@ class GraphSAINT(torch.nn.Module):
                 x_target = x[:size[1]]
                 x = conv((x, x_target), edge_index)
                 if i != len(self.convs) - 1:
+                    x = self.bns[i](x)
                     x = F.relu(x)
                 xs.append(x.cpu())
             x_all = torch.cat(xs, dim=0)

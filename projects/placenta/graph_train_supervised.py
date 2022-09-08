@@ -1,10 +1,12 @@
 from typing import Optional, List
+import random
 
 import typer
 import torch
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.utils import add_self_loops
 from torch_geometric.data import Batch
+import numpy as np
 
 from happy.utils.utils import get_device
 from happy.organs.organs import get_organ
@@ -20,6 +22,11 @@ from graphs.graphs.create_graph import (
     get_groundtruth_patch,
     process_knts,
 )
+
+seed = 0
+torch.manual_seed(seed)
+random.seed(seed)
+np.random.seed(seed)
 
 device = get_device()
 
