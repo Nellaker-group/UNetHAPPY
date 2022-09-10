@@ -12,7 +12,7 @@ from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
 from graphs.graphs.enums import FeatureArg, MethodArg, SupervisedModelsArg
-from graphs.graphs.utils import get_feature, send_graph_to_device
+from graphs.graphs.utils import get_feature, send_graph_to_device, set_seed
 from graphs.graphs import graph_supervised
 from graphs.graphs.create_graph import (
     get_raw_data,
@@ -61,6 +61,7 @@ def main(
     model_type = model_type.value
     graph_method = graph_method.value
     feature = feature.value
+    set_seed(seed)
 
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
