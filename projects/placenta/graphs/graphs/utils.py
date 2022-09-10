@@ -1,9 +1,17 @@
+import random
+
 import torch
 from torch_geometric.utils.isolated import (
     contains_isolated_nodes,
     remove_isolated_nodes,
 )
 import numpy as np
+
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
 
 
 def get_feature(feature, predictions, embeddings):

@@ -1,12 +1,10 @@
 from typing import Optional, List
-import random
 
 import typer
 import torch
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.utils import add_self_loops
 from torch_geometric.data import Batch
-import numpy as np
 
 from happy.utils.utils import get_device
 from happy.organs.organs import get_organ
@@ -23,15 +21,12 @@ from graphs.graphs.create_graph import (
     process_knts,
 )
 
-seed = 0
-torch.manual_seed(seed)
-random.seed(seed)
-np.random.seed(seed)
 
 device = get_device()
 
 
 def main(
+    seed: int = 0,
     project_name: str = "placenta",
     organ_name: str = "placenta",
     exp_name: str = typer.Option(...),
@@ -165,6 +160,7 @@ def main(
     # Saves each run by its timestamp and record params for the run
     run_path = setup_run(project_dir, f"{model_type}/{exp_name}", "graph")
     params = graph_supervised.collect_params(
+        seed,
         organ_name,
         exp_name,
         run_ids,

@@ -539,6 +539,7 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
 
 
 def collect_params(
+    seed,
     organ_name,
     exp_name,
     run_ids,
@@ -559,6 +560,7 @@ def collect_params(
 ):
     return pd.DataFrame(
         {
+            "seed": seed,
             "organ_name": organ_name,
             "exp_name": exp_name,
             "run_ids": [np.array(run_ids)],
