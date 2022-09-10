@@ -213,7 +213,7 @@ def setup_dataloaders(
     elif model_type == "sup_shadow":
         train_loader = ShaDowKHopSampler(
             data,
-            depth=num_layers,
+            depth=4,
             num_neighbors=num_neighbors,
             node_idx=data.train_mask,
             batch_size=batch_size,
@@ -221,7 +221,7 @@ def setup_dataloaders(
         )
         val_loader = ShaDowKHopSampler(
             data,
-            depth=num_layers,
+            depth=4,
             num_neighbors=num_neighbors,
             node_idx=None,
             batch_size=batch_size,
@@ -424,7 +424,7 @@ def train(
             loss.backward()
             optimiser.step()
 
-            nodes = batch.num_graphs
+            nodes = out.size()[0]
             total_loss += loss.item() * nodes
             total_correct += int(out.argmax(dim=-1).eq(batch.y).sum().item())
             total_examples += nodes

@@ -131,11 +131,9 @@ def main(
         datas.append(data)
 
     # Combine multiple graphs into a single graph
-    if not model_type == "sup_shadow":
-        data = Batch.from_data_list(datas)
-    else:
-        # Note: shadow model does not support multiple graphs as a Batch (bug in pyg)
-        data = datas[0]
+    data = Batch.from_data_list(datas)
+    if model_type == "sup_shadow":
+        del data.batch  # bug in pyg when using shadow model and Batch
 
     # Setup the dataloader which minibatches the graph
     train_loader, val_loader = graph_supervised.setup_dataloaders(
