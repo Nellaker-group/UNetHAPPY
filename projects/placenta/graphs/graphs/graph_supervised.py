@@ -217,15 +217,16 @@ def setup_dataloaders(
             num_neighbors=num_neighbors,
             node_idx=data.train_mask,
             batch_size=batch_size,
-            num_workers=0,
+            num_workers=12,
         )
         val_loader = ShaDowKHopSampler(
             data,
             depth=num_layers,
             num_neighbors=num_neighbors,
-            node_idx=data.val_mask,
-            batch_size=512,
-            num_workers=0,
+            node_idx=None,
+            batch_size=batch_size,
+            num_workers=12,
+            shuffle=False,
         )
     else:
         train_loader = NeighborLoader(
@@ -338,6 +339,10 @@ def setup_training_params(
         else:
             criterion = torch.nn.NLLLoss()
     elif model_type.split('_')[1] == "graphsaint" or model_type == "sup_shadow":
+        if model_type.split('_')[1] == "graphsaint":
+            reduction = "none"
+        else:
+            reduction = "mean"
         if weighted_loss:
             data_classes = train_dataloader.data.y[
                 train_dataloader.data.train_mask
@@ -347,9 +352,9 @@ def setup_training_params(
             )
             class_weights = torch.FloatTensor(class_weights)
             class_weights = class_weights.to(device)
-            criterion = torch.nn.NLLLoss(weight=class_weights, reduction="none")
+            criterion = torch.nn.NLLLoss(weight=class_weights, reduction=reduction)
         else:
-            criterion = torch.nn.NLLLoss()
+            criterion = torch.nn.NLLLoss(reduction=reduction)
     else:
         raise ValueError(f"No such model type {model_type}")
     optimiser = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -415,13 +420,11 @@ def train(
             batch = batch.to(device)
             optimiser.zero_grad()
             out = model(batch.x, batch.edge_index, batch.batch, batch.root_n_id)
-            # train_out = out[batch.train_mask]
-            # train_y = batch.y[batch.train_mask]
             loss = criterion(out, batch.y)
             loss.backward()
             optimiser.step()
 
-            nodes = batch.train_mask.sum().item()
+            nodes = batch.num_graphs
             total_loss += loss.item() * nodes
             total_correct += int(out.argmax(dim=-1).eq(batch.y).sum().item())
             total_examples += nodes
@@ -453,8 +456,8 @@ def validate(model, data, eval_loader, device):
         out = []
         for batch in eval_loader:
             batch = batch.to(device)
-            out = model(batch.x, batch.edge_index, batch.batch, batch.root_n_id)
-            out.append(out)
+            batch_out = model(batch.x, batch.edge_index, batch.batch, batch.root_n_id)
+            out.append(batch_out)
         out = torch.cat(out, dim=0)
     out = out.argmax(dim=-1)
     y = data.y.to(out.device)

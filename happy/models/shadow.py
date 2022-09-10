@@ -13,8 +13,7 @@ class ShaDowGCN(torch.nn.Module):
         for i in range(num_layers):
             in_channels = in_channels if i == 0 else hidden_channels
             self.convs.append(SAGEConv(in_channels, hidden_channels))
-
-        self.lin = torch.nn.Linear(num_layers * hidden_channels, out_channels)
+        self.lin = torch.nn.Linear(2 * hidden_channels, out_channels)
 
     def forward(self, x, edge_index, batch, root_n_id):
         for i, conv in enumerate(self.convs):
