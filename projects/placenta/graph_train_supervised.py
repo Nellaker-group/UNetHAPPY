@@ -46,6 +46,7 @@ def main(
     num_neighbours: int = 10,
     epochs: int = 50,
     layers: int = typer.Option(...),
+    hidden_units: int = 256,
     learning_rate: float = 0.001,
     weighted_loss: bool = True,
     use_custom_weights: bool = True,
@@ -145,7 +146,13 @@ def main(
 
     # Setup the model
     model = graph_supervised.setup_model(
-        model_type, data, device, layers, len(organ.tissues), pretrained_path
+        model_type,
+        data,
+        device,
+        layers,
+        len(organ.tissues),
+        hidden_units,
+        pretrained_path,
     )
 
     # Setup training parameters

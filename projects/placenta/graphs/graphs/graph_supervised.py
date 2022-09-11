@@ -178,8 +178,8 @@ def setup_dataloaders(
         val_loader = NeighborSampler(
             data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
         )
-    elif model_type.split('_')[1] == "graphsaint":
-        sampler_type = model_type.split('_')[2]
+    elif model_type.split("_")[1] == "graphsaint":
+        sampler_type = model_type.split("_")[2]
         if sampler_type == "rw":
             train_loader = GraphSAINTRandomWalkSampler(
                 data,
@@ -246,20 +246,22 @@ def setup_dataloaders(
     return train_loader, val_loader
 
 
-def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
+def setup_model(
+    model_type, data, device, layers, num_classes, hidden_units, pretrained=None
+):
     if pretrained:
         return torch.load(pretrained / "graph_model.pt", map_location=device)
     if model_type == "sup_graphsage":
         model = SupervisedSAGE(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             num_layers=layers,
         )
     elif model_type == "sup_gat":
         model = GAT(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             heads=1,
             num_layers=layers,
@@ -267,28 +269,28 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
     elif model_type == "sup_clustergcn":
         model = ClusterGCN(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             num_layers=layers,
         )
     elif model_type == "sup_jumping":
         model = JumpingClusterGCN(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             num_layers=layers,
         )
-    elif model_type.split('_')[1] == "graphsaint":
+    elif model_type.split("_")[1] == "graphsaint":
         model = GraphSAINT(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             num_layers=layers,
         )
     elif model_type == "sup_shadow":
         model = ShaDowGCN(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             num_layers=layers,
         )
@@ -338,8 +340,8 @@ def setup_training_params(
             criterion = torch.nn.NLLLoss(weight=class_weights)
         else:
             criterion = torch.nn.NLLLoss()
-    elif model_type.split('_')[1] == "graphsaint" or model_type == "sup_shadow":
-        if model_type.split('_')[1] == "graphsaint":
+    elif model_type.split("_")[1] == "graphsaint" or model_type == "sup_shadow":
+        if model_type.split("_")[1] == "graphsaint":
             reduction = "none"
         else:
             reduction = "mean"
@@ -394,7 +396,7 @@ def train(
             total_loss += loss.item() * nodes
             total_correct += int(train_out.argmax(dim=-1).eq(train_y).sum().item())
             total_examples += nodes
-    elif model_type.split('_')[1] == "graphsaint":
+    elif model_type.split("_")[1] == "graphsaint":
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
