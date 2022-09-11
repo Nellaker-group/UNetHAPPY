@@ -213,7 +213,7 @@ def setup_dataloaders(
     elif model_type == "sup_shadow":
         train_loader = ShaDowKHopSampler(
             data,
-            depth=4,
+            depth=6,
             num_neighbors=num_neighbors,
             node_idx=data.train_mask,
             batch_size=batch_size,
@@ -221,7 +221,7 @@ def setup_dataloaders(
         )
         val_loader = ShaDowKHopSampler(
             data,
-            depth=4,
+            depth=6,
             num_neighbors=num_neighbors,
             node_idx=None,
             batch_size=batch_size,
