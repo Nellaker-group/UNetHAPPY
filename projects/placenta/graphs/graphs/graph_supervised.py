@@ -185,7 +185,7 @@ def setup_dataloaders(
                 data,
                 batch_size=batch_size,
                 walk_length=num_layers,
-                num_steps=5,
+                num_steps=30,
                 sample_coverage=num_neighbors,
                 num_workers=12,
             )
@@ -194,7 +194,7 @@ def setup_dataloaders(
                 data,
                 batch_size=batch_size,
                 shuffle=True,
-                num_steps=5,
+                num_steps=30,
                 sample_coverage=num_neighbors,
                 num_workers=12,
             )
@@ -203,7 +203,7 @@ def setup_dataloaders(
                 data,
                 batch_size=batch_size,
                 shuffle=True,
-                num_steps=5,
+                num_steps=30,
                 sample_coverage=num_neighbors,
                 num_workers=12,
             )
@@ -397,6 +397,7 @@ def train(
             total_correct += int(train_out.argmax(dim=-1).eq(train_y).sum().item())
             total_examples += nodes
     elif model_type.split("_")[1] == "graphsaint":
+        model.set_aggr('add')
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
@@ -453,6 +454,8 @@ def train(
 def validate(model, data, eval_loader, device):
     model.eval()
     if not isinstance(model, ShaDowGCN):
+        if isinstance(model, GraphSAINT):
+            model.set_aggr('mean')
         out, _ = model.inference(data.x, eval_loader, device)
     else:
         out = []
@@ -477,6 +480,8 @@ def inference(model, x, eval_loader, device):
     print("Running inference")
     model.eval()
     if not isinstance(model, ShaDowGCN):
+        if isinstance(model, GraphSAINT):
+            model.set_aggr('mean')
         out, graph_embeddings = model.inference(x, eval_loader, device)
     else:
         out = []

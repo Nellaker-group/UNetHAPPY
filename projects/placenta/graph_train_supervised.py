@@ -3,7 +3,7 @@ from typing import Optional, List
 import typer
 import torch
 from torch_geometric.transforms import ToUndirected
-from torch_geometric.utils import add_self_loops
+from torch_geometric.utils import add_self_loops, degree
 from torch_geometric.data import Batch
 
 from happy.utils.utils import get_device
@@ -108,7 +108,9 @@ def main(
         data.edge_index, data.edge_attr = add_self_loops(
             data["edge_index"], data["edge_attr"], fill_value="mean"
         )
-        data["edge_weight"] = data["edge_attr"][:, 0]
+        if model_type.split("_")[1] == "graphsaint":
+            row, col = data.edge_index
+            data.edge_weight = 1. / degree(col, data.num_nodes)[col]
 
         # Split nodes into unlabelled, training and validation sets
         if run_id == 56:

@@ -17,6 +17,10 @@ class GraphSAINT(torch.nn.Module):
             self.convs.append(GraphConv(in_channels, hidden_channels))
             self.bns.append(norm.BatchNorm(hidden_channels))
 
+    def set_aggr(self, aggr):
+        for conv in self.convs:
+            conv.aggr = aggr
+
     def forward(self, x, edge_index, edge_weight=None):
         for i, conv in enumerate(self.convs[:-1]):
             x = conv(x, edge_index, edge_weight)
