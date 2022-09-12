@@ -3,7 +3,7 @@ from typing import Optional, List
 import typer
 import torch
 from torch_geometric.transforms import ToUndirected, SIGN
-from torch_geometric.utils import add_self_loops
+from torch_geometric.utils import add_self_loops, degree
 from torch_geometric.data import Batch
 
 from happy.utils.utils import get_device
@@ -12,7 +12,7 @@ from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
 from graphs.graphs.enums import FeatureArg, MethodArg, SupervisedModelsArg
-from graphs.graphs.utils import get_feature, send_graph_to_device, save_model
+from graphs.graphs.utils import get_feature, send_graph_to_device, set_seed
 from graphs.graphs import graph_supervised
 from graphs.graphs.create_graph import (
     get_raw_data,
@@ -21,10 +21,12 @@ from graphs.graphs.create_graph import (
     process_knts,
 )
 
+
 device = get_device()
 
 
 def main(
+    seed: int = 0,
     project_name: str = "placenta",
     organ_name: str = "placenta",
     exp_name: str = typer.Option(...),
@@ -44,6 +46,7 @@ def main(
     num_neighbours: int = 10,
     epochs: int = 50,
     layers: int = typer.Option(...),
+    hidden_units: int = 256,
     learning_rate: float = 0.001,
     weighted_loss: bool = True,
     use_custom_weights: bool = True,
@@ -59,6 +62,7 @@ def main(
     model_type = model_type.value
     graph_method = graph_method.value
     feature = feature.value
+    set_seed(seed)
 
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
@@ -97,13 +101,16 @@ def main(
                 organ, predictions, embeddings, coords, confidence, tissue_class
             )
         # Covert input cell data into a graph
-        feature_data = get_feature(feature, predictions, embeddings)
+        feature_data = get_feature(feature, predictions, embeddings, organ)
         data = setup_graph(coords, k, feature_data, graph_method, loop=False)
         data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
         data = ToUndirected()(data)
         data.edge_index, data.edge_attr = add_self_loops(
             data["edge_index"], data["edge_attr"], fill_value="mean"
         )
+        if model_type.split("_")[1] == "graphsaint":
+            row, col = data.edge_index
+            data.edge_weight = 1. / degree(col, data.num_nodes)[col]
 
         # Split nodes into unlabelled, training and validation sets
         if run_id == 56:
@@ -128,6 +135,8 @@ def main(
 
     # Combine multiple graphs into a single graph
     data = Batch.from_data_list(datas)
+    if model_type == "sup_shadow":
+        del data.batch  # bug in pyg when using shadow model and Batch
 
     # Setup the dataloader which minibatches the graph
     train_loader, val_loader = graph_supervised.setup_dataloaders(
@@ -139,7 +148,13 @@ def main(
 
     # Setup the model
     model = graph_supervised.setup_model(
-        model_type, data, device, layers, len(organ.tissues), pretrained_path
+        model_type,
+        data,
+        device,
+        layers,
+        len(organ.tissues),
+        hidden_units,
+        pretrained_path,
     )
 
     # Setup training parameters
@@ -158,6 +173,7 @@ def main(
     # Saves each run by its timestamp and record params for the run
     run_path = setup_run(project_dir, f"{model_type}/{exp_name}", "graph")
     params = graph_supervised.collect_params(
+        seed,
         organ_name,
         exp_name,
         run_ids,

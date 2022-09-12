@@ -5,7 +5,7 @@ import typer
 import torch
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.utils import add_self_loops
-from torch_geometric.loader import NeighborSampler, NeighborLoader, DataLoader
+from torch_geometric.loader import NeighborSampler, NeighborLoader, ShaDowKHopSampler, DataLoader
 import numpy as np
 import pandas as pd
 
@@ -70,7 +70,7 @@ def main(
             organ, predictions, embeddings, coords, confidence, tissue_class
         )
     # Covert input cell data into a graph
-    feature_data = get_feature(feature, predictions, embeddings)
+    feature_data = get_feature(feature, predictions, embeddings, organ)
     data = setup_graph(coords, k, feature_data, graph_method, loop=False)
     data = ToUndirected()(data)
     data.edge_index, data.edge_attr = add_self_loops(
@@ -116,6 +116,15 @@ def main(
         )
         eval_loader.data.num_nodes = data.num_nodes
         eval_loader.data.n_id = torch.arange(data.num_nodes)
+    elif model_type == "sup_shadow":
+        eval_loader = ShaDowKHopSampler(
+            data,
+            depth=6,
+            num_neighbors=5,
+            node_idx=None,
+            batch_size=4000,
+            shuffle=False,
+        )
     elif model_type == "sup_sign":
         eval_loader = DataLoader(range(data.num_nodes), batch_size=512, shuffle=False)
     elif model_type == "sup_mlp":

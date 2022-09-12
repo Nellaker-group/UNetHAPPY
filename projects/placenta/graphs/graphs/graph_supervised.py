@@ -8,9 +8,10 @@ from torch_geometric.loader import (
     NeighborLoader,
     DataLoader,
     GraphSAINTNodeSampler,
+    GraphSAINTEdgeSampler,
     GraphSAINTRandomWalkSampler,
+    ShaDowKHopSampler,
 )
-from torch_geometric.nn.models.basic_gnn import GAT as GATPYG
 from torch_geometric.transforms import RandomNodeSplit, SIGN
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import (
@@ -33,10 +34,11 @@ from happy.train.utils import (
     plot_tissue_pr_curves,
     get_tissue_confusion_matrix,
 )
-from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
-from happy.models.clustergcn import ClusterGCN, ClusterGCNConvNet, JumpingClusterGCN
+from happy.models.graphsage import SupervisedSAGE
+from happy.models.clustergcn import ClusterGCN, JumpingClusterGCN
 from happy.models.gat import GAT, GATv2
 from happy.models.graphsaint import GraphSAINT
+from happy.models.shadow import ShaDowGCN
 from happy.models.sign import SIGN as SIGN_MLP
 from happy.models.sgc import SGC
 from happy.models.mlp import MLP
@@ -117,8 +119,10 @@ def setup_node_splits(
                             data.val_mask[unlabelled_inds] = False
                             data.train_mask[unlabelled_inds] = False
                             data.test_mask[unlabelled_inds] = False
-                        print(f"All nodes marked as validation: "
-                              f"{data.val_mask.sum().item()}")
+                        print(
+                            f"All nodes marked as validation: "
+                            f"{data.val_mask.sum().item()}"
+                        )
                         return data
                     val_node_inds.extend(
                         get_nodes_within_tiles(
@@ -167,7 +171,6 @@ def setup_dataloaders(
     if (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
-        or model_type == "sup_gat_pyg"
         or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
     ):
@@ -180,20 +183,56 @@ def setup_dataloaders(
         val_loader = NeighborSampler(
             data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
         )
-    elif model_type == "sup_graphsaint":
-        train_loader = GraphSAINTRandomWalkSampler(
+    elif model_type.split("_")[1] == "graphsaint":
+        sampler_type = model_type.split("_")[2]
+        if sampler_type == "rw":
+            train_loader = GraphSAINTRandomWalkSampler(
+                data,
+                batch_size=batch_size,
+                walk_length=num_layers,
+                num_steps=30,
+                sample_coverage=num_neighbors,
+                num_workers=12,
+            )
+        elif sampler_type == "node":
+            train_loader = GraphSAINTNodeSampler(
+                data,
+                batch_size=batch_size,
+                shuffle=True,
+                num_steps=30,
+                sample_coverage=num_neighbors,
+                num_workers=12,
+            )
+        elif sampler_type == "edge":
+            train_loader = GraphSAINTEdgeSampler(
+                data,
+                batch_size=batch_size,
+                shuffle=True,
+                num_steps=30,
+                sample_coverage=num_neighbors,
+                num_workers=12,
+            )
+        val_loader = NeighborSampler(
+            data.edge_index, sizes=[-1], batch_size=1024, shuffle=False, num_workers=12
+        )
+    elif model_type == "sup_shadow":
+        train_loader = ShaDowKHopSampler(
             data,
+            depth=6,
+            num_neighbors=num_neighbors,
+            node_idx=data.train_mask,
             batch_size=batch_size,
-            walk_length=num_layers,
-            num_steps=5,
-            sample_coverage=num_neighbors,
-            num_workers=0
+            num_workers=12,
         )
-        val_loader = NeighborLoader(
-            copy.copy(data), num_neighbors=[-1], shuffle=False, batch_size=512
+        val_loader = ShaDowKHopSampler(
+            data,
+            depth=6,
+            num_neighbors=num_neighbors,
+            node_idx=None,
+            batch_size=batch_size,
+            num_workers=12,
+            shuffle=False,
         )
-        val_loader.data.num_nodes = data.num_nodes
-        val_loader.data.n_id = torch.arange(data.num_nodes)
     elif model_type == "sup_graphsage":
         train_loader = NeighborLoader(
             data,
@@ -221,20 +260,22 @@ def setup_dataloaders(
     return train_loader, val_loader
 
 
-def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
+def setup_model(
+    model_type, data, device, layers, num_classes, hidden_units, pretrained=None
+):
     if pretrained:
         return torch.load(pretrained / "graph_model.pt", map_location=device)
     if model_type == "sup_graphsage":
         model = SupervisedSAGE(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             num_layers=layers,
         )
     elif model_type == "sup_gat":
         model = GAT(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             heads=4,
             num_layers=layers,
@@ -247,35 +288,31 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             heads=4,
             num_layers=layers,
         )
-    elif model_type == "sup_gat_pyg":
-        model = GATPYG(
-            in_channels=data.num_node_features,
-            hidden_channels=256,
-            num_layers=layers,
-            out_channels=num_classes,
-            dropout=0.5,
-            # norm="batch",
-            # jk='None',
-            heads=1,
-        )
     elif model_type == "sup_clustergcn":
         model = ClusterGCN(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             num_layers=layers,
         )
     elif model_type == "sup_jumping":
         model = JumpingClusterGCN(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             num_layers=layers,
         )
-    elif model_type == "sup_graphsaint":
+    elif model_type.split("_")[1] == "graphsaint":
         model = GraphSAINT(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
+            out_channels=num_classes,
+            num_layers=layers,
+        )
+    elif model_type == "sup_shadow":
+        model = ShaDowGCN(
+            data.num_node_features,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             num_layers=layers,
         )
@@ -348,7 +385,6 @@ def setup_training_params(
     elif (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
-        or model_type == "sup_gat_pyg"
         or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
     ):
@@ -364,7 +400,11 @@ def setup_training_params(
             criterion = torch.nn.NLLLoss(weight=class_weights)
         else:
             criterion = torch.nn.NLLLoss()
-    elif model_type == "sup_graphsaint":
+    elif model_type.split("_")[1] == "graphsaint" or model_type == "sup_shadow":
+        if model_type.split("_")[1] == "graphsaint":
+            reduction = "none"
+        else:
+            reduction = "mean"
         if weighted_loss:
             data_classes = train_dataloader.data.y[
                 train_dataloader.data.train_mask
@@ -374,9 +414,9 @@ def setup_training_params(
             )
             class_weights = torch.FloatTensor(class_weights)
             class_weights = class_weights.to(device)
-            criterion = torch.nn.NLLLoss(weight=class_weights)
+            criterion = torch.nn.NLLLoss(weight=class_weights, reduction=reduction)
         else:
-            criterion = torch.nn.NLLLoss()
+            criterion = torch.nn.NLLLoss(reduction=reduction)
     else:
         raise ValueError(f"No such model type {model_type}")
     optimiser = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -401,10 +441,8 @@ def train(
     if (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
-        or model_type == "sup_gat_pyg"
         or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
-        or model_type == "sup_graphsaint"
     ):
         for batch in train_loader:
             batch = batch.to(device)
@@ -419,6 +457,41 @@ def train(
             nodes = batch.train_mask.sum().item()
             total_loss += loss.item() * nodes
             total_correct += int(train_out.argmax(dim=-1).eq(train_y).sum().item())
+            total_examples += nodes
+    elif model_type.split("_")[1] == "graphsaint":
+        model.set_aggr('add')
+        for batch in train_loader:
+            batch = batch.to(device)
+            optimiser.zero_grad()
+            edge_weight = batch.edge_norm * batch.edge_weight
+            out = model(batch.x, batch.edge_index, edge_weight)
+            loss = criterion(out, batch.y)
+            loss = (loss * batch.node_norm)[batch.train_mask].sum()
+            loss.backward()
+            optimiser.step()
+
+            nodes = batch.train_mask.sum().item()
+            total_loss += loss.item() * nodes
+            total_correct += int(
+                out[batch.train_mask]
+                .argmax(dim=-1)
+                .eq(batch.y[batch.train_mask])
+                .sum()
+                .item()
+            )
+            total_examples += nodes
+    elif model_type == "sup_shadow":
+        for batch in train_loader:
+            batch = batch.to(device)
+            optimiser.zero_grad()
+            out = model(batch.x, batch.edge_index, batch.batch, batch.root_n_id)
+            loss = criterion(out, batch.y)
+            loss.backward()
+            optimiser.step()
+
+            nodes = out.size()[0]
+            total_loss += loss.item() * nodes
+            total_correct += int(out.argmax(dim=-1).eq(batch.y).sum().item())
             total_examples += nodes
     elif (
         model_type == "sup_graphsage"
@@ -480,7 +553,17 @@ def train(
 @torch.no_grad()
 def validate(model, data, eval_loader, device):
     model.eval()
-    out, _ = model.inference(data.x, eval_loader, device)
+    if not isinstance(model, ShaDowGCN):
+        if isinstance(model, GraphSAINT):
+            model.set_aggr('mean')
+        out, _ = model.inference(data.x, eval_loader, device)
+    else:
+        out = []
+        for batch in eval_loader:
+            batch = batch.to(device)
+            batch_out = model(batch.x, batch.edge_index, batch.batch, batch.root_n_id)
+            out.append(batch_out)
+        out = torch.cat(out, dim=0)
     out = out.argmax(dim=-1)
     y = data.y.to(out.device)
     train_accuracy = int((out[data.train_mask].eq(y[data.train_mask])).sum()) / int(
@@ -556,7 +639,21 @@ def validate_mlp(model, data, eval_loader, device):
 def inference(model, x, eval_loader, device):
     print("Running inference")
     model.eval()
-    out, graph_embeddings = model.inference(x, eval_loader, device)
+    if not isinstance(model, ShaDowGCN):
+        if isinstance(model, GraphSAINT):
+            model.set_aggr('mean')
+        out, graph_embeddings = model.inference(x, eval_loader, device)
+    else:
+        out = []
+        graph_embeddings = []
+        for batch in eval_loader:
+            batch = batch.to(device)
+            batch_out, batch_embed = model.inference(
+                batch.x, batch.edge_index, batch.batch, batch.root_n_id
+            )
+            out.append(batch_out)
+            graph_embeddings.append(batch_embed)
+        out = torch.cat(out, dim=0)
     predicted_labels = out.argmax(dim=-1, keepdim=True).squeeze()
     predicted_labels = predicted_labels.cpu().numpy()
     out = out.cpu().detach().numpy()
@@ -680,6 +777,7 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
 
 
 def collect_params(
+    seed,
     organ_name,
     exp_name,
     run_ids,
@@ -700,6 +798,7 @@ def collect_params(
 ):
     return pd.DataFrame(
         {
+            "seed": seed,
             "organ_name": organ_name,
             "exp_name": exp_name,
             "run_ids": [np.array(run_ids)],
