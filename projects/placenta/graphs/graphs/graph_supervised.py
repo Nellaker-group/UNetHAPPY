@@ -283,7 +283,7 @@ def setup_model(
     elif model_type == "sup_gatv2":
         model = GATv2(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             heads=4,
             num_layers=layers,
@@ -319,7 +319,7 @@ def setup_model(
     elif model_type == "sup_sign":
         model = SIGN_MLP(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             num_layers=layers,
         )
@@ -332,7 +332,7 @@ def setup_model(
     elif model_type == "sup_mlp":
         model = MLP(
             data.num_node_features,
-            hidden_channels=256,
+            hidden_channels=hidden_units,
             out_channels=num_classes,
             num_layers=layers,
         )
