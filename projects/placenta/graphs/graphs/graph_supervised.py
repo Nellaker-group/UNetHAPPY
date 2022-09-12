@@ -476,7 +476,19 @@ def validate(model, data, eval_loader, device):
 def inference(model, x, eval_loader, device):
     print("Running inference")
     model.eval()
-    out, graph_embeddings = model.inference(x, eval_loader, device)
+    if not isinstance(model, ShaDowGCN):
+        out, graph_embeddings = model.inference(x, eval_loader, device)
+    else:
+        out = []
+        graph_embeddings = []
+        for batch in eval_loader:
+            batch = batch.to(device)
+            batch_out, batch_embed = model.inference(
+                batch.x, batch.edge_index, batch.batch, batch.root_n_id
+            )
+            out.append(batch_out)
+            graph_embeddings.append(batch_embed)
+        out = torch.cat(out, dim=0)
     predicted_labels = out.argmax(dim=-1, keepdim=True).squeeze()
     predicted_labels = predicted_labels.cpu().numpy()
     out = out.cpu().detach().numpy()

@@ -5,7 +5,7 @@ import typer
 import torch
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.utils import add_self_loops
-from torch_geometric.loader import NeighborSampler, NeighborLoader
+from torch_geometric.loader import NeighborSampler, NeighborLoader, ShaDowKHopSampler
 import numpy as np
 import pandas as pd
 
@@ -116,6 +116,15 @@ def main(
         )
         eval_loader.data.num_nodes = data.num_nodes
         eval_loader.data.n_id = torch.arange(data.num_nodes)
+    elif model_type == "sup_shadow":
+        eval_loader = ShaDowKHopSampler(
+            data,
+            depth=6,
+            num_neighbors=5,
+            node_idx=None,
+            batch_size=4000,
+            shuffle=False,
+        )
     else:
         eval_loader = NeighborSampler(
             data.edge_index,

@@ -23,3 +23,13 @@ class ShaDowGCN(torch.nn.Module):
         x = torch.cat([x[root_n_id], global_mean_pool(x, batch)], dim=-1)
         x = self.lin(x)
         return F.log_softmax(x, dim=-1)
+
+    def inference(self, x, edge_index, batch, root_n_id):
+        for i, conv in enumerate(self.convs):
+            x = conv(x, edge_index).relu()
+            x = F.dropout(x, p=0.5, training=self.training)
+        # We merge both central node embeddings and subgraph embeddings:
+        x = torch.cat([x[root_n_id], global_mean_pool(x, batch)], dim=-1)
+        embeddings = x.detach().clone()
+        x = self.lin(x)
+        return x, embeddings
