@@ -206,6 +206,11 @@ def main(
                         model, data, val_loader, device
                     )
                     logger.log_accuracy("val", epoch - 1, val_accuracy)
+                elif model_type == "sup_mlp":
+                    val_accuracy = graph_supervised.validate_mlp(
+                        model, data, val_loader, device
+                    )
+                    logger.log_accuracy("val", epoch - 1, val_accuracy)
                 else:
                     train_accuracy, val_accuracy = graph_supervised.validate(
                         model, data, val_loader, device

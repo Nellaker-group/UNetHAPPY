@@ -21,3 +21,4 @@ class SupervisedModelsArg(str, Enum):
     sup_gatv2 = "sup_gatv2"
     sup_sign = "sup_sign"
     sup_sgc = "sup_sgc"
+    sup_mlp = "sup_mlp"

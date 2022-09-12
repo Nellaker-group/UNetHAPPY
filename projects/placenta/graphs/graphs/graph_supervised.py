@@ -37,8 +37,9 @@ from happy.models.graphsage import SupervisedSAGE, SupervisedDiffPool
 from happy.models.clustergcn import ClusterGCN, ClusterGCNConvNet, JumpingClusterGCN
 from happy.models.gat import GAT, GATv2
 from happy.models.graphsaint import GraphSAINT
-from happy.models.sign import SIGN as SIGN_Net
+from happy.models.sign import SIGN as SIGN_MLP
 from happy.models.sgc import SGC
+from happy.models.mlp import MLP
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
 
 
@@ -207,7 +208,10 @@ def setup_dataloaders(
         )
         val_loader.data.num_nodes = data.num_nodes
         val_loader.data.n_id = torch.arange(data.num_nodes)
-    elif model_type == "sup_sign":
+    elif (
+        model_type == "sup_sign"
+        or model_type == "sup_mlp"
+    ):
         train_idx = data.train_mask.nonzero(as_tuple=False).view(-1)
         val_idx = data.val_mask.nonzero(as_tuple=False).view(-1)
 
@@ -232,7 +236,7 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             data.num_node_features,
             hidden_channels=256,
             out_channels=num_classes,
-            heads=8,
+            heads=4,
             num_layers=layers,
         )
     elif model_type == "sup_gatv2":
@@ -240,7 +244,7 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             data.num_node_features,
             hidden_channels=256,
             out_channels=num_classes,
-            heads=8,
+            heads=4,
             num_layers=layers,
         )
     elif model_type == "sup_gat_pyg":
@@ -276,7 +280,7 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
             num_layers=layers,
         )
     elif model_type == "sup_sign":
-        model = SIGN_Net(
+        model = SIGN_MLP(
             data.num_node_features,
             hidden_channels=256,
             out_channels=num_classes,
@@ -285,6 +289,13 @@ def setup_model(model_type, data, device, layers, num_classes, pretrained=None):
     elif model_type == "sup_sgc":
         model = SGC(
             data.num_node_features,
+            out_channels=num_classes,
+            num_layers=layers,
+        )
+    elif model_type == "sup_mlp":
+        model = MLP(
+            data.num_node_features,
+            hidden_channels=256,
             out_channels=num_classes,
             num_layers=layers,
         )
@@ -322,6 +333,7 @@ def setup_training_params(
             criterion = torch.nn.CrossEntropyLoss()
     elif (
         model_type == "sup_sign"
+        or model_type == "sup_mlp"
     ):
         if weighted_loss:
             data_classes = data.y[data.train_mask].numpy()
@@ -443,6 +455,22 @@ def train(
             total_loss += float(loss) * nodes
             total_correct += int((out.argmax(dim=-1).eq(train_y)).sum())
             total_examples += nodes
+    elif (
+        model_type == "sup_mlp"
+    ):
+        for idx in train_loader:
+            optimiser.zero_grad()
+            train_x = data.x[idx].to(device)
+            train_y = data.y[idx].to(device)
+            out = model(train_x)
+            loss = criterion(out, train_y)
+            loss.backward()
+            optimiser.step()
+
+            nodes = data.train_mask[idx].sum().item()
+            total_loss += float(loss) * nodes
+            total_correct += int((out.argmax(dim=-1).eq(train_y)).sum())
+            total_examples += nodes
     else:
         raise ValueError(f"No such model type {model_type}")
 
@@ -497,6 +525,34 @@ def validate_sign(model, data, eval_loader, device):
 
 
 @torch.no_grad()
+def validate_mlp(model, data, eval_loader, device):
+    print("Running inference")
+    model.eval()
+    out = []
+    pred = []
+    lab = []
+
+    for idx in eval_loader:
+        eval_x = data.x[idx].to(device)
+        eval_y = data.y[idx]
+        out_i, _ = model.inference(eval_x)
+        pred_i = out_i.argmax(dim=-1, keepdim=True).squeeze()
+        out_i = out_i.cpu().detach().numpy()
+        pred_i = pred_i.cpu().numpy()
+        lab_i = eval_y.cpu().numpy()
+        out.append(out_i)
+        pred.append(pred_i)
+        lab.append(lab_i)
+
+    out = np.concatenate(out, axis=0)
+    pred = np.concatenate(pred, axis=0)
+    lab = np.concatenate(lab, axis=0)
+    acc = np.mean(pred == lab)
+
+    return acc
+
+
+@torch.no_grad()
 def inference(model, x, eval_loader, device):
     print("Running inference")
     model.eval()
@@ -521,6 +577,32 @@ def inference_sign(model, data, eval_loader, device):
     for idx in eval_loader:
         eval_x = [data.x[idx].to(device)]
         eval_x += [data[f'x{i}'][idx].to(device) for i in range(1, sign_K + 1)]
+        out_i, emb_i = model.inference(eval_x)
+        pred_i = out_i.argmax(dim=-1, keepdim=True).squeeze()
+        pred_i = pred_i.cpu().numpy()
+        out_i = out_i.cpu().detach().numpy()
+        emb_i = emb_i.cpu().detach().numpy()
+        out.append(out_i)
+        emb.append(emb_i)
+        pred.append(pred_i)
+
+    out = np.concatenate(out, axis=0)
+    emb = np.concatenate(emb, axis=0)
+    pred = np.concatenate(pred, axis=0)
+
+    return out, emb, pred
+
+
+@torch.no_grad()
+def inference_mlp(model, data, eval_loader, device):
+    print("Running inference")
+    model.eval()
+    out = []
+    emb = []
+    pred = []
+
+    for idx in eval_loader:
+        eval_x = data.x[idx].to(device)
         out_i, emb_i = model.inference(eval_x)
         pred_i = out_i.argmax(dim=-1, keepdim=True).squeeze()
         pred_i = pred_i.cpu().numpy()
