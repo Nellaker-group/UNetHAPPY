@@ -56,7 +56,7 @@ def main(
     predictions, embeddings, coords, confidence = get_raw_data(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
-    feature_data = get_feature(feature.value, predictions, embeddings)
+    feature_data = get_feature(feature.value, predictions, embeddings, organ)
     _, _, tissue_class = get_groundtruth_patch(
         organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
     )

@@ -101,7 +101,7 @@ def main(
                 organ, predictions, embeddings, coords, confidence, tissue_class
             )
         # Covert input cell data into a graph
-        feature_data = get_feature(feature, predictions, embeddings)
+        feature_data = get_feature(feature, predictions, embeddings, organ)
         data = setup_graph(coords, k, feature_data, graph_method, loop=False)
         data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
         data = ToUndirected()(data)

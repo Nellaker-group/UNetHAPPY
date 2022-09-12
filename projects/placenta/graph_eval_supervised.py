@@ -70,7 +70,7 @@ def main(
             organ, predictions, embeddings, coords, confidence, tissue_class
         )
     # Covert input cell data into a graph
-    feature_data = get_feature(feature, predictions, embeddings)
+    feature_data = get_feature(feature, predictions, embeddings, organ)
     data = setup_graph(coords, k, feature_data, graph_method, loop=False)
     data = ToUndirected()(data)
     data.edge_index, data.edge_attr = add_self_loops(

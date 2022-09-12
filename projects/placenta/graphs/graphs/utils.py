@@ -6,6 +6,7 @@ from torch_geometric.utils.isolated import (
     remove_isolated_nodes,
 )
 import numpy as np
+import pandas as pd
 
 
 def set_seed(seed):
@@ -14,9 +15,19 @@ def set_seed(seed):
     np.random.seed(seed)
 
 
-def get_feature(feature, predictions, embeddings):
+def get_feature(feature, predictions, embeddings, organ=None):
     if feature == "predictions":
-        return predictions
+        cell_classes = [cell.id for cell in organ.cells]
+        preds = pd.Series(predictions)
+        one_hot_preds = pd.get_dummies(preds)
+        missing_cells = []
+        for cell in cell_classes:
+            if cell not in one_hot_preds.columns:
+                missing_cells.append(cell)
+        for cell in missing_cells:
+            one_hot_preds[cell] = 0
+        one_hot_preds = one_hot_preds[cell_classes]
+        return one_hot_preds.to_numpy()
     elif feature == "embeddings":
         return embeddings
     else:
