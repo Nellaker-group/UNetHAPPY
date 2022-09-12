@@ -494,6 +494,7 @@ def inference(model, x, eval_loader, device):
             out.append(batch_out)
             graph_embeddings.append(batch_embed)
         out = torch.cat(out, dim=0)
+        graph_embeddings = torch.cat(graph_embeddings, dim=0)
     predicted_labels = out.argmax(dim=-1, keepdim=True).squeeze()
     predicted_labels = predicted_labels.cpu().numpy()
     out = out.cpu().detach().numpy()
