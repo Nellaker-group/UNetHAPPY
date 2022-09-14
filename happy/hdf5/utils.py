@@ -15,11 +15,7 @@ def get_embeddings_file(project_name, run_id):
         / "results"
         / "embeddings"
     )
-    if run_id == 56 or run_id == 58:
-        return embeddings_dir / f"run_{run_id}.hdf5"
-    else:
-        raise ValueError(f"run_id {run_id} is not valid")
-    # embeddings_path = db.get_embeddings_path(run_id, embeddings_dir)
+    embeddings_path = db.get_embeddings_path(run_id, embeddings_dir)
     return embeddings_dir / embeddings_path
 
 
