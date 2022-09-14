@@ -2,7 +2,7 @@ from typing import Optional, List
 
 import typer
 import torch
-from torch_geometric.transforms import ToUndirected
+from torch_geometric.transforms import ToUndirected, SIGN
 from torch_geometric.utils import add_self_loops, degree
 from torch_geometric.data import Batch
 
@@ -167,6 +167,7 @@ def main(
         device,
         weighted_loss,
         use_custom_weights,
+        data=data, # So that the SIGN dataloader can be used
     )
 
     # Saves each run by its timestamp and record params for the run
@@ -195,6 +196,11 @@ def main(
 
     # Train!
     try:
+        if model_type == "sup_sign":
+            sign_K = 16 # TODO: Check this is correct
+            sign_tform = SIGN(sign_K)
+            data = sign_tform(data)
+
         print("Training:")
         prev_best_val = 0
         for epoch in range(1, epochs + 1):
@@ -205,16 +211,28 @@ def main(
                 criterion,
                 train_loader,
                 device,
+                data=data, # So that the SIGN dataloader can be used
             )
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
 
             if include_validation and (epoch % validation_step == 0 or epoch == 1):
-                train_accuracy, val_accuracy = graph_supervised.validate(
-                    model, data, val_loader, device
-                )
-                logger.log_accuracy("train_inf", epoch - 1, train_accuracy)
-                logger.log_accuracy("val", epoch - 1, val_accuracy)
+                if model_type == "sup_sign":
+                    val_accuracy = graph_supervised.validate_sign(
+                        model, data, val_loader, device
+                    )
+                    logger.log_accuracy("val", epoch - 1, val_accuracy)
+                elif model_type == "sup_mlp":
+                    val_accuracy = graph_supervised.validate_mlp(
+                        model, data, val_loader, device
+                    )
+                    logger.log_accuracy("val", epoch - 1, val_accuracy)
+                else:
+                    train_accuracy, val_accuracy = graph_supervised.validate(
+                        model, data, val_loader, device
+                    )
+                    logger.log_accuracy("train_inf", epoch - 1, train_accuracy)
+                    logger.log_accuracy("val", epoch - 1, val_accuracy)
 
                 # Save new best model
                 if val_accuracy >= prev_best_val:

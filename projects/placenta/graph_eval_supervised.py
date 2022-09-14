@@ -5,7 +5,7 @@ import typer
 import torch
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.utils import add_self_loops
-from torch_geometric.loader import NeighborSampler, NeighborLoader, ShaDowKHopSampler
+from torch_geometric.loader import NeighborSampler, NeighborLoader, ShaDowKHopSampler, DataLoader
 import numpy as np
 import pandas as pd
 
@@ -17,7 +17,7 @@ from graphs.graphs.utils import get_feature
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
 from graphs.graphs.create_graph import get_groundtruth_patch
-from graphs.graphs.graph_supervised import inference, setup_node_splits, evaluate
+from graphs.graphs.graph_supervised import inference, setup_node_splits, evaluate, inference_sign, inference_mlp
 
 np.random.seed(2)
 
@@ -125,6 +125,10 @@ def main(
             batch_size=4000,
             shuffle=False,
         )
+    elif model_type == "sup_sign":
+        eval_loader = DataLoader(range(data.num_nodes), batch_size=512, shuffle=False)
+    elif model_type == "sup_mlp":
+        eval_loader = DataLoader(range(data.num_nodes), batch_size=512, shuffle=False)
     else:
         eval_loader = NeighborSampler(
             data.edge_index,
@@ -135,7 +139,12 @@ def main(
         )
 
     # Run inference and get predicted labels for nodes
-    out, graph_embeddings, predicted_labels = inference(model, x, eval_loader, device)
+    if model_type == "sup_sign":
+        out, graph_embeddings, predicted_labels = inference_sign(model, data, eval_loader, device)
+    elif model_type == "sup_mlp":
+        out, graph_embeddings, predicted_labels = inference_mlp(model, data, eval_loader, device)
+    else:
+        out, graph_embeddings, predicted_labels = inference(model, x, eval_loader, device)
 
     # restrict to only data in patch_files using val_mask
     val_nodes = data.val_mask
