@@ -1,4 +1,3 @@
-import torch.nn as nn
 from torch.nn import Linear
 import torch.nn.functional as F
 import torch
@@ -11,12 +10,12 @@ class MLP(torch.nn.Module):
         self.num_layers = num_layers
         self.lins = torch.nn.ModuleList()
         self.bns = torch.nn.ModuleList()
-        self.lins.append(torch.nn.Linear(in_channels, hidden_channels))
+        self.lins.append(Linear(in_channels, hidden_channels))
         self.bns.append(norm.BatchNorm(hidden_channels))
         for _ in range(num_layers - 2):
-            self.lins.append(torch.nn.Linear(hidden_channels, hidden_channels))
+            self.lins.append(Linear(hidden_channels, hidden_channels))
             self.bns.append(norm.BatchNorm(hidden_channels))
-        
+
         self.lins.append(torch.nn.Linear(hidden_channels, out_channels))
 
     def forward(self, x):

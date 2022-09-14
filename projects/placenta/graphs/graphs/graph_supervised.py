@@ -40,7 +40,6 @@ from happy.models.gat import GAT, GATv2
 from happy.models.graphsaint import GraphSAINT
 from happy.models.shadow import ShaDowGCN
 from happy.models.sign import SIGN as SIGN_MLP
-from happy.models.sgc import SGC
 from happy.models.mlp import MLP
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
 
@@ -247,14 +246,13 @@ def setup_dataloaders(
         )
         val_loader.data.num_nodes = data.num_nodes
         val_loader.data.n_id = torch.arange(data.num_nodes)
-    elif (
-        model_type == "sup_sign"
-        or model_type == "sup_mlp"
-    ):
+    elif model_type == "sup_sign" or model_type == "sup_mlp":
         train_idx = data.train_mask.nonzero(as_tuple=False).view(-1)
         val_idx = data.val_mask.nonzero(as_tuple=False).view(-1)
 
-        train_loader = DataLoader(train_idx, batch_size=batch_size, shuffle=True, num_workers=12)
+        train_loader = DataLoader(
+            train_idx, batch_size=batch_size, shuffle=True, num_workers=12
+        )
         val_loader = DataLoader(val_idx, batch_size=batch_size, shuffle=False)
 
     return train_loader, val_loader
@@ -323,12 +321,6 @@ def setup_model(
             out_channels=num_classes,
             num_layers=layers,
         )
-    elif model_type == "sup_sgc":
-        model = SGC(
-            data.num_node_features,
-            out_channels=num_classes,
-            num_layers=layers,
-        )
     elif model_type == "sup_mlp":
         model = MLP(
             data.num_node_features,
@@ -353,9 +345,7 @@ def setup_training_params(
     use_custom_weights,
     data=None,
 ):
-    if (
-        model_type == "sup_graphsage"
-    ):
+    if model_type == "sup_graphsage":
         if weighted_loss:
             data_classes = train_dataloader.data.y[
                 train_dataloader.data.train_mask
@@ -368,10 +358,7 @@ def setup_training_params(
             criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
         else:
             criterion = torch.nn.CrossEntropyLoss()
-    elif (
-        model_type == "sup_sign"
-        or model_type == "sup_mlp"
-    ):
+    elif model_type == "sup_sign" or model_type == "sup_mlp":
         if weighted_loss:
             data_classes = data.y[data.train_mask].numpy()
             class_weights = _compute_tissue_weights(
@@ -459,7 +446,7 @@ def train(
             total_correct += int(train_out.argmax(dim=-1).eq(train_y).sum().item())
             total_examples += nodes
     elif model_type.split("_")[1] == "graphsaint":
-        model.set_aggr('add')
+        model.set_aggr("add")
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
@@ -493,9 +480,7 @@ def train(
             total_loss += loss.item() * nodes
             total_correct += int(out.argmax(dim=-1).eq(batch.y).sum().item())
             total_examples += nodes
-    elif (
-        model_type == "sup_graphsage"
-    ):
+    elif model_type == "sup_graphsage":
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
@@ -510,15 +495,13 @@ def train(
             total_loss += float(loss) * nodes
             total_correct += int((train_out.argmax(dim=-1).eq(train_y)).sum())
             total_examples += nodes
-    elif (
-        model_type == "sup_sign"
-    ):
+    elif model_type == "sup_sign":
         for idx in train_loader:
             optimiser.zero_grad()
             train_x = [data.x[idx].to(device)]
-            sign_K = 16 # TODO: check that this is correct
-            train_x += [data[f'x{i}'][idx].to(device) for i in range(1, sign_K + 1)]
             train_y = data.y[idx].to(device)
+            sign_K = model.num_layers
+            train_x += [data[f"x{i}"][idx].to(device) for i in range(1, sign_K + 1)]
             out = model(train_x)
             loss = criterion(out, train_y)
             loss.backward()
@@ -528,9 +511,7 @@ def train(
             total_loss += float(loss) * nodes
             total_correct += int((out.argmax(dim=-1).eq(train_y)).sum())
             total_examples += nodes
-    elif (
-        model_type == "sup_mlp"
-    ):
+    elif model_type == "sup_mlp":
         for idx in train_loader:
             optimiser.zero_grad()
             train_x = data.x[idx].to(device)
@@ -555,7 +536,7 @@ def validate(model, data, eval_loader, device):
     model.eval()
     if not isinstance(model, ShaDowGCN):
         if isinstance(model, GraphSAINT):
-            model.set_aggr('mean')
+            model.set_aggr("mean")
         out, _ = model.inference(data.x, eval_loader, device)
     else:
         out = []
@@ -582,13 +563,12 @@ def validate_sign(model, data, eval_loader, device):
     out = []
     pred = []
     lab = []
-    sign_K = 16 # TODO: check that this is correct
-    sign_tform = SIGN(sign_K)
-    data = sign_tform(data)
+    sign_K = model.num_layers
+    data = SIGN(sign_K)(data)
 
     for idx in eval_loader:
         eval_x = [data.x[idx].to(device)]
-        eval_x += [data[f'x{i}'][idx].to(device) for i in range(1, sign_K + 1)]
+        eval_x += [data[f"x{i}"][idx].to(device) for i in range(1, sign_K + 1)]
         eval_y = data.y[idx]
         out_i, _ = model.inference(eval_x)
         pred_i = out_i.argmax(dim=-1, keepdim=True).squeeze()
@@ -599,7 +579,6 @@ def validate_sign(model, data, eval_loader, device):
         pred.append(pred_i)
         lab.append(lab_i)
 
-    out = np.concatenate(out, axis=0)
     pred = np.concatenate(pred, axis=0)
     lab = np.concatenate(lab, axis=0)
     acc = np.mean(pred == lab)
@@ -627,7 +606,6 @@ def validate_mlp(model, data, eval_loader, device):
         pred.append(pred_i)
         lab.append(lab_i)
 
-    out = np.concatenate(out, axis=0)
     pred = np.concatenate(pred, axis=0)
     lab = np.concatenate(lab, axis=0)
     acc = np.mean(pred == lab)
@@ -641,7 +619,7 @@ def inference(model, x, eval_loader, device):
     model.eval()
     if not isinstance(model, ShaDowGCN):
         if isinstance(model, GraphSAINT):
-            model.set_aggr('mean')
+            model.set_aggr("mean")
         out, graph_embeddings = model.inference(x, eval_loader, device)
     else:
         out = []
@@ -668,13 +646,12 @@ def inference_sign(model, data, eval_loader, device):
     out = []
     emb = []
     pred = []
-    sign_K = 16 # TODO: check that this is correct
-    sign_tform = SIGN(sign_K)
-    data = sign_tform(data)
+    sign_K = model.num_layers
+    data = SIGN(sign_K)(data)
 
     for idx in eval_loader:
         eval_x = [data.x[idx].to(device)]
-        eval_x += [data[f'x{i}'][idx].to(device) for i in range(1, sign_K + 1)]
+        eval_x += [data[f"x{i}"][idx].to(device) for i in range(1, sign_K + 1)]
         out_i, emb_i = model.inference(eval_x)
         pred_i = out_i.argmax(dim=-1, keepdim=True).squeeze()
         pred_i = pred_i.cpu().numpy()

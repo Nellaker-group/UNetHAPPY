@@ -110,7 +110,7 @@ def main(
         )
         if model_type.split("_")[1] == "graphsaint":
             row, col = data.edge_index
-            data.edge_weight = 1. / degree(col, data.num_nodes)[col]
+            data.edge_weight = 1.0 / degree(col, data.num_nodes)[col]
 
         # Split nodes into unlabelled, training and validation sets
         if run_id == 56:
@@ -167,7 +167,7 @@ def main(
         device,
         weighted_loss,
         use_custom_weights,
-        data=data, # So that the SIGN dataloader can be used
+        data=data,  # So that the SIGN dataloader can be used
     )
 
     # Saves each run by its timestamp and record params for the run
@@ -197,9 +197,7 @@ def main(
     # Train!
     try:
         if model_type == "sup_sign":
-            sign_K = 16 # TODO: Check this is correct
-            sign_tform = SIGN(sign_K)
-            data = sign_tform(data)
+            data = SIGN(layers)(data)
 
         print("Training:")
         prev_best_val = 0
@@ -211,7 +209,7 @@ def main(
                 criterion,
                 train_loader,
                 device,
-                data=data, # So that the SIGN dataloader can be used
+                data=data,  # So that the SIGN dataloader can be used
             )
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
