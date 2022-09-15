@@ -6,12 +6,13 @@ from torch_geometric.loader import (
     ClusterLoader,
     NeighborSampler,
     NeighborLoader,
+    DataLoader,
     GraphSAINTNodeSampler,
     GraphSAINTEdgeSampler,
     GraphSAINTRandomWalkSampler,
     ShaDowKHopSampler,
 )
-from torch_geometric.transforms import RandomNodeSplit
+from torch_geometric.transforms import RandomNodeSplit, SIGN
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import (
     accuracy_score,
@@ -38,6 +39,8 @@ from happy.models.clustergcn import ClusterGCN, JumpingClusterGCN
 from happy.models.gat import GAT, GATv2
 from happy.models.graphsaint import GraphSAINT
 from happy.models.shadow import ShaDowGCN
+from happy.models.sign import SIGN as SIGN_MLP
+from happy.models.mlp import MLP
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
 
 
@@ -167,6 +170,7 @@ def setup_dataloaders(
     if (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
+        or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
     ):
         cluster_data = ClusterData(
@@ -228,7 +232,7 @@ def setup_dataloaders(
             num_workers=12,
             shuffle=False,
         )
-    else:
+    elif model_type == "sup_graphsage":
         train_loader = NeighborLoader(
             data,
             input_nodes=data.train_mask,
@@ -242,6 +246,14 @@ def setup_dataloaders(
         )
         val_loader.data.num_nodes = data.num_nodes
         val_loader.data.n_id = torch.arange(data.num_nodes)
+    elif model_type == "sup_sign" or model_type == "sup_mlp":
+        train_idx = data.train_mask.nonzero(as_tuple=False).view(-1)
+        val_idx = data.val_mask.nonzero(as_tuple=False).view(-1)
+
+        train_loader = DataLoader(
+            train_idx, batch_size=batch_size, shuffle=True, num_workers=0
+        )
+        val_loader = DataLoader(val_idx, batch_size=batch_size, shuffle=False)
 
     return train_loader, val_loader
 
@@ -263,7 +275,15 @@ def setup_model(
             data.num_node_features,
             hidden_channels=hidden_units,
             out_channels=num_classes,
-            heads=1,
+            heads=4,
+            num_layers=layers,
+        )
+    elif model_type == "sup_gatv2":
+        model = GATv2(
+            data.num_node_features,
+            hidden_channels=hidden_units,
+            out_channels=num_classes,
+            heads=4,
             num_layers=layers,
         )
     elif model_type == "sup_clustergcn":
@@ -294,6 +314,20 @@ def setup_model(
             out_channels=num_classes,
             num_layers=layers,
         )
+    elif model_type == "sup_sign":
+        model = SIGN_MLP(
+            data.num_node_features,
+            hidden_channels=hidden_units,
+            out_channels=num_classes,
+            num_layers=layers,
+        )
+    elif model_type == "sup_mlp":
+        model = MLP(
+            data.num_node_features,
+            hidden_channels=hidden_units,
+            out_channels=num_classes,
+            num_layers=layers,
+        )
     else:
         return ValueError(f"No such model type implemented: {model_type}")
     model = model.to(device)
@@ -309,6 +343,7 @@ def setup_training_params(
     device,
     weighted_loss,
     use_custom_weights,
+    data=None,
 ):
     if model_type == "sup_graphsage":
         if weighted_loss:
@@ -323,9 +358,21 @@ def setup_training_params(
             criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
         else:
             criterion = torch.nn.CrossEntropyLoss()
+    elif model_type == "sup_sign" or model_type == "sup_mlp":
+        if weighted_loss:
+            data_classes = data.y[data.train_mask].numpy()
+            class_weights = _compute_tissue_weights(
+                data_classes, organ, use_custom_weights
+            )
+            class_weights = torch.FloatTensor(class_weights)
+            class_weights = class_weights.to(device)
+            criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
+        else:
+            criterion = torch.nn.CrossEntropyLoss()
     elif (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
+        or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
     ):
         if weighted_loss:
@@ -370,6 +417,7 @@ def train(
     criterion,
     train_loader,
     device,
+    data,
 ):
     model.train()
 
@@ -380,6 +428,7 @@ def train(
     if (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
+        or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
     ):
         for batch in train_loader:
@@ -397,7 +446,7 @@ def train(
             total_correct += int(train_out.argmax(dim=-1).eq(train_y).sum().item())
             total_examples += nodes
     elif model_type.split("_")[1] == "graphsaint":
-        model.set_aggr('add')
+        model.set_aggr("add")
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
@@ -431,7 +480,7 @@ def train(
             total_loss += loss.item() * nodes
             total_correct += int(out.argmax(dim=-1).eq(batch.y).sum().item())
             total_examples += nodes
-    else:
+    elif model_type == "sup_graphsage":
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
@@ -446,6 +495,39 @@ def train(
             total_loss += float(loss) * nodes
             total_correct += int((train_out.argmax(dim=-1).eq(train_y)).sum())
             total_examples += nodes
+    elif model_type == "sup_sign":
+        for idx in train_loader:
+            optimiser.zero_grad()
+            train_x = [data.x[idx].to(device)]
+            train_y = data.y[idx].to(device)
+            train_x += [
+                data[f"x{i}"][idx].to(device) for i in range(1, model.num_layers + 1)
+            ]
+            out = model(train_x)
+            loss = criterion(out, train_y)
+            loss.backward()
+            optimiser.step()
+
+            nodes = data.train_mask[idx].sum().item()
+            total_loss += float(loss) * nodes
+            total_correct += int((out.argmax(dim=-1).eq(train_y)).sum())
+            total_examples += nodes
+    elif model_type == "sup_mlp":
+        for idx in train_loader:
+            optimiser.zero_grad()
+            train_x = data.x[idx].to(device)
+            train_y = data.y[idx].to(device)
+            out = model(train_x)
+            loss = criterion(out, train_y)
+            loss.backward()
+            optimiser.step()
+
+            nodes = data.train_mask[idx].sum().item()
+            total_loss += float(loss) * nodes
+            total_correct += int((out.argmax(dim=-1).eq(train_y)).sum())
+            total_examples += nodes
+    else:
+        raise ValueError(f"No such model type {model_type}")
 
     return total_loss / total_examples, total_correct / total_examples
 
@@ -455,7 +537,7 @@ def validate(model, data, eval_loader, device):
     model.eval()
     if not isinstance(model, ShaDowGCN):
         if isinstance(model, GraphSAINT):
-            model.set_aggr('mean')
+            model.set_aggr("mean")
         out, _ = model.inference(data.x, eval_loader, device)
     else:
         out = []
@@ -476,12 +558,33 @@ def validate(model, data, eval_loader, device):
 
 
 @torch.no_grad()
+def validate_mlp(model, data, eval_loader, device):
+    print("Running inference")
+    model.eval()
+    out = []
+    for idx in eval_loader:
+        eval_x = data.x[idx].to(device)
+        if isinstance(model, SIGN_MLP):
+            eval_x = [eval_x]
+            eval_x += [
+                data[f"x{i}"][idx].to(device) for i in range(1, model.num_layers + 1)
+            ]
+        out_i, _ = model.inference(eval_x)
+        out.append(out_i)
+    out = torch.cat(out, dim=0)
+    out = out.argmax(dim=-1)
+    y = data.y.to(out.device)
+    val_accuracy = int((out.eq(y[data.val_mask])).sum()) / int(data.val_mask.sum())
+    return val_accuracy
+
+
+@torch.no_grad()
 def inference(model, x, eval_loader, device):
     print("Running inference")
     model.eval()
     if not isinstance(model, ShaDowGCN):
         if isinstance(model, GraphSAINT):
-            model.set_aggr('mean')
+            model.set_aggr("mean")
         out, graph_embeddings = model.inference(x, eval_loader, device)
     else:
         out = []
@@ -494,6 +597,31 @@ def inference(model, x, eval_loader, device):
             out.append(batch_out)
             graph_embeddings.append(batch_embed)
         out = torch.cat(out, dim=0)
+        graph_embeddings = torch.cat(graph_embeddings, dim=0)
+    predicted_labels = out.argmax(dim=-1, keepdim=True).squeeze()
+    predicted_labels = predicted_labels.cpu().numpy()
+    out = out.cpu().detach().numpy()
+    return out, graph_embeddings, predicted_labels
+
+
+@torch.no_grad()
+def inference_mlp(model, data, eval_loader, device):
+    print("Running inference")
+    model.eval()
+    out = []
+    graph_embeddings = []
+    for idx in eval_loader:
+        eval_x = data.x[idx].to(device)
+        if isinstance(model, SIGN_MLP):
+            eval_x = [eval_x]
+            eval_x += [
+                data[f"x{i}"][idx].to(device) for i in range(1, model.num_layers + 1)
+            ]
+        out_i, emb_i = model.inference(eval_x)
+        out.append(out_i)
+        graph_embeddings.append(emb_i)
+    out = torch.cat(out, dim=0)
+    graph_embeddings = torch.cat(graph_embeddings, dim=0)
     predicted_labels = out.argmax(dim=-1, keepdim=True).squeeze()
     predicted_labels = predicted_labels.cpu().numpy()
     out = out.cpu().detach().numpy()
