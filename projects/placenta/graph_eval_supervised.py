@@ -149,7 +149,9 @@ def main(
     # restrict to only data in patch_files using val_mask
     val_nodes = data.val_mask
     predicted_labels = predicted_labels[val_nodes]
-    graph_embeddings = graph_embeddings[val_nodes]
+    if plot_umap:
+        graph_embeddings = graph_embeddings[val_nodes]
+        
     out = out[val_nodes]
     pos = pos[val_nodes]
     tissue_class = (
