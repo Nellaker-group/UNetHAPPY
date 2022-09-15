@@ -560,7 +560,6 @@ def validate(model, data, eval_loader, device):
 
 @torch.no_grad()
 def validate_mlp(model, data, eval_loader, device):
-    print("Running inference")
     model.eval()
     out = []
     for idx in eval_loader:
