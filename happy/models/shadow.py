@@ -5,9 +5,10 @@ from torch_geometric.nn import SAGEConv, global_mean_pool
 
 
 class ShaDowGCN(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
+    def __init__(self, in_channels, hidden_channels, out_channels, dropout, num_layers):
         super().__init__()
         self.num_layers = num_layers
+        self.dropout = dropout
         self.convs = nn.ModuleList()
 
         for i in range(num_layers):
@@ -18,7 +19,7 @@ class ShaDowGCN(torch.nn.Module):
     def forward(self, x, edge_index, batch, root_n_id):
         for i, conv in enumerate(self.convs):
             x = conv(x, edge_index).relu()
-            x = F.dropout(x, p=0.5, training=self.training)
+            x = F.dropout(x, p=self.dropout, training=self.training)
         # We merge both central node embeddings and subgraph embeddings:
         x = torch.cat([x[root_n_id], global_mean_pool(x, batch)], dim=-1)
         x = self.lin(x)
@@ -27,7 +28,6 @@ class ShaDowGCN(torch.nn.Module):
     def inference(self, x, edge_index, batch, root_n_id):
         for i, conv in enumerate(self.convs):
             x = conv(x, edge_index).relu()
-            x = F.dropout(x, p=0.5, training=self.training)
         # We merge both central node embeddings and subgraph embeddings:
         x = torch.cat([x[root_n_id], global_mean_pool(x, batch)], dim=-1)
         embeddings = x.detach().clone()

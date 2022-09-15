@@ -32,9 +32,10 @@ class SAGE(nn.Module):
 
 
 class SupervisedSAGE(nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
+    def __init__(self, in_channels, hidden_channels, out_channels, dropout, num_layers):
         super(SupervisedSAGE, self).__init__()
         self.num_layers = num_layers
+        self.dropout = dropout
         self.convs = nn.ModuleList()
         self.bns = nn.ModuleList()
 
@@ -50,7 +51,7 @@ class SupervisedSAGE(nn.Module):
             if i < len(self.convs) - 1:
                 x = self.bns[i](x)
                 x = x.relu_()
-                x = F.dropout(x, p=0.5, training=self.training)
+                x = F.dropout(x, p=self.dropout, training=self.training)
         return x
 
     def inference(self, x_all, subgraph_loader, device):

@@ -14,6 +14,7 @@ def process_knt_cells(
     radius,
     cut_off_count,
     plot=False,
+    verbose=True,
 ):
     # Sort by coordinates first to match up with any tissue predictions
     sort_args = np.lexsort((all_coords[:, 1], all_coords[:, 0]))
@@ -26,7 +27,8 @@ def process_knt_cells(
     predictions, embeddings, coords, confidence = filter_by_cell_type(
         all_predictions, all_embeddings, all_coords, all_confidence, "KNT", organ
     )
-    print(f"Data loaded with {len(predictions)} KNT cells")
+    if verbose:
+        print(f"Data loaded with {len(predictions)} KNT cells")
 
     # Get indices of KNT cells in radius
     all_knt_inds = np.nonzero(all_predictions == 10)[0]
@@ -38,7 +40,7 @@ def process_knt_cells(
 
     # find KNT cells with no neighbors and turn them into SYN
     all_predictions, predictions = _convert_isolated_knt_into_syn(
-        all_predictions, predictions, cut_off_count, unique_indices, all_knt_inds
+        all_predictions, predictions, cut_off_count, unique_indices, all_knt_inds, verbose=verbose
     )
 
     # remove points with more than cut off neighbors and keep just one point
@@ -57,7 +59,8 @@ def process_knt_cells(
     all_embeddings = np.delete(all_embeddings, inds_to_remove_from_total, axis=0)
     all_coords = np.delete(all_coords, inds_to_remove_from_total, axis=0)
     all_confidence = np.delete(all_confidence, inds_to_remove_from_total, axis=0)
-    print(f"Clustered {len(inds_to_remove_from_total)} KNT cells into a single point")
+    if verbose:
+        print(f"Clustered {len(inds_to_remove_from_total)} KNT cells into a single point")
 
     return (
         all_predictions,
@@ -85,7 +88,7 @@ def _get_indices_in_radius(coords, radius):
 
 
 def _convert_isolated_knt_into_syn(
-    all_predictions, knt_predictions, cut_off_count, unique_indices, all_knt_inds
+    all_predictions, knt_predictions, cut_off_count, unique_indices, all_knt_inds, verbose=True
 ):
     lone_knt_indices = []
     lone_knt_indices_nested = [
@@ -95,10 +98,11 @@ def _convert_isolated_knt_into_syn(
         lone_knt_indices.extend(nested)
     all_predictions[all_knt_inds[lone_knt_indices]] = 3
     knt_predictions[lone_knt_indices] = 3
-    print(
-        f"Converted {len(lone_knt_indices)} KNT cells with fewer than "
-        f"{cut_off_count+1} neighbours into SYN"
-    )
+    if verbose:
+        print(
+            f"Converted {len(lone_knt_indices)} KNT cells with fewer than "
+            f"{cut_off_count+1} neighbours into SYN"
+        )
     return all_predictions, knt_predictions
 
 

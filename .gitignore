@@ -225,3 +225,4 @@ analysis/evaluation/plots
 .vscode
 qsub_logs
 qsub_scripts
+notebooks

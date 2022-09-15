@@ -76,38 +76,48 @@ def _get_id_by_tissue_name(organ, tissue_name, id_type):
     return tissue_id
 
 
-def get_raw_data(project_name, run_id, x_min, y_min, width, height, top_conf=False):
+def get_raw_data(
+    project_name, run_id, x_min, y_min, width, height, top_conf=False, verbose=True
+):
     embeddings_path = get_embeddings_file(project_name, run_id)
-    print(f"Getting data from: {embeddings_path}")
-    print(f"Using patch of size: x{x_min}, y{y_min}, w{width}, h{height}")
+    if verbose:
+        print(f"Getting data from: {embeddings_path}")
+        print(f"Using patch of size: x{x_min}, y{y_min}, w{width}, h{height}")
     # Get hdf5 datasets contained in specified box/patch of WSI
     predictions, embeddings, coords, confidence = get_datasets_in_patch(
-        embeddings_path, x_min, y_min, width, height
+        embeddings_path, x_min, y_min, width, height, verbose=verbose
     )
     if top_conf:
         predictions, embeddings, coords, confidence = filter_by_confidence(
             predictions, embeddings, coords, confidence, 0.9, 1.0
         )
-    print(f"Data loaded with {len(predictions)} nodes")
+    if verbose:
+        print(f"Data loaded with {len(predictions)} nodes")
     sort_args = np.lexsort((coords[:, 1], coords[:, 0]))
     coords = coords[sort_args]
     predictions = predictions[sort_args]
     embeddings = embeddings[sort_args]
     confidence = confidence[sort_args]
-    print("Data sorted by x coordinates")
+    if verbose:
+        print("Data sorted by x coordinates")
 
     return predictions, embeddings, coords, confidence
 
-def process_knts(organ, predictions, embeddings, coords, confidence, tissues=None):
+
+def process_knts(
+    organ, predictions, embeddings, coords, confidence, tissues=None, verbose=True
+):
     # Turn isolated knts into syn and group large knts into one point
-    (
+    (predictions, embeddings, coords, confidence, inds_to_remove,) = process_knt_cells(
         predictions,
         embeddings,
         coords,
         confidence,
-        inds_to_remove,
-    ) = process_knt_cells(
-        predictions, embeddings, coords, confidence, organ, 50, 3, plot=False
+        organ,
+        50,
+        3,
+        plot=False,
+        verbose=verbose,
     )
     # Remove points from tissue ground truth as well
     if tissues is not None and len(inds_to_remove) > 0:
@@ -115,14 +125,16 @@ def process_knts(organ, predictions, embeddings, coords, confidence, tissues=Non
     return predictions, embeddings, coords, confidence, tissues
 
 
-def setup_graph(coords, k, feature, graph_method, norm_edges=True, loop=True):
+def setup_graph(
+    coords, k, feature, graph_method, norm_edges=True, loop=True, verbose=True
+):
     data = Data(x=torch.Tensor(feature), pos=torch.Tensor(coords.astype("int32")))
     if graph_method == "k":
-        graph = make_k_graph(data, k, norm_edges, loop)
+        graph = make_k_graph(data, k, norm_edges, loop, verbose=verbose)
     elif graph_method == "delaunay":
-        graph = make_delaunay_graph(data, norm_edges)
+        graph = make_delaunay_graph(data, norm_edges, verbose=verbose)
     elif graph_method == "intersection":
-        graph = make_intersection_graph(data, k, norm_edges)
+        graph = make_intersection_graph(data, k, norm_edges, verbose=verbose)
     else:
         raise ValueError(f"No such graph method: {graph_method}")
     if graph.x.ndim == 1:
@@ -130,52 +142,64 @@ def setup_graph(coords, k, feature, graph_method, norm_edges=True, loop=True):
     return graph
 
 
-def make_k_graph(data, k, norm_edges=True, loop=True):
-    print(f"Generating graph for k={k}")
+def make_k_graph(data, k, norm_edges=True, loop=True, verbose=True):
+    if verbose:
+        print(f"Generating graph for k={k}")
     data = KNNGraph(k=k + 1, loop=loop, force_undirected=True)(data)
     get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
     data = get_edge_distance_weights(data)
-    print(f"Graph made with {len(data.edge_index[0])} edges!")
+    if verbose:
+        print(f"Graph made with {len(data.edge_index[0])} edges!")
     return data
 
 
-def make_radius_k_graph(data, radius, k):
-    print(f"Generating graph for radius={radius} and k={k}")
+def make_radius_k_graph(data, radius, k, verbose=True):
+    if verbose:
+        print(f"Generating graph for radius={radius} and k={k}")
     data.edge_index = radius_graph(data.pos, r=radius, max_num_neighbors=k)
-    print("Graph made!")
+    if verbose:
+        print("Graph made!")
     return data
 
 
-def make_voronoi(data):
-    print(f"Generating voronoi diagram")
+def make_voronoi(data, verbose=True):
+    if verbose:
+        print(f"Generating voronoi diagram")
     vor = Voronoi(data.pos)
-    print("Voronoi made!")
+    if verbose:
+        print("Voronoi made!")
     return vor
 
 
-def make_delaunay_triangulation(data):
-    print(f"Generating delaunay triangulation")
+def make_delaunay_triangulation(data, verbose=True):
+    if verbose:
+        print(f"Generating delaunay triangulation")
     triang = tri.Triangulation(data.pos[:, 0], data.pos[:, 1])
-    print("Triangulation made!")
+    if verbose:
+        print("Triangulation made!")
     return triang
 
 
-def make_delaunay_graph(data, norm_edges=True):
-    print(f"Generating delaunay graph")
+def make_delaunay_graph(data, norm_edges=True, verbose=True):
+    if verbose:
+        print(f"Generating delaunay graph")
     triang = tri.Triangulation(data.pos[:, 0], data.pos[:, 1])
     data.edge_index = torch.tensor(triang.edges.astype("int64"), dtype=torch.long).T
     get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
     data = get_edge_distance_weights(data)
-    print(f"Graph made with {len(data.edge_index[0])} edges!")
+    if verbose:
+        print(f"Graph made with {len(data.edge_index[0])} edges!")
     return data
 
 
-def make_intersection_graph(data, k, norm_edges=True):
-    print(f"Generating graph for k={k}")
+def make_intersection_graph(data, k, norm_edges=True, verbose=True):
+    if verbose:
+        print(f"Generating graph for k={k}")
     knn_graph = KNNGraph(k=k + 1, loop=False, force_undirected=True)(data)
     knn_edge_index = knn_graph.edge_index.T
     knn_edge_index = np.array(knn_edge_index.tolist())
-    print(f"Generating delaunay graph")
+    if verbose:
+        print(f"Generating delaunay graph")
     try:
         triang = tri.Triangulation(data.pos[:, 0], data.pos[:, 1])
         delaunay_edge_index = triang.edges.astype("int64")
@@ -183,10 +207,12 @@ def make_intersection_graph(data, k, norm_edges=True):
         print("Too few points to make a triangulation, returning knn graph")
         get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
         knn_graph = get_edge_distance_weights(knn_graph)
-        print(f"Graph made with {len(knn_graph.edge_index[0])} edges!")
+        if verbose:
+            print(f"Graph made with {len(knn_graph.edge_index[0])} edges!")
         return knn_graph
 
-    print(f"Generating intersection of both graphs")
+    if verbose:
+        print(f"Generating intersection of both graphs")
     _, ncols = knn_edge_index.shape
     dtype = ", ".join([str(knn_edge_index.dtype)] * ncols)
     intersection = np.intersect1d(
@@ -198,7 +224,8 @@ def make_intersection_graph(data, k, norm_edges=True):
 
     get_edge_distance_weights = Distance(cat=False, norm=norm_edges)
     data = get_edge_distance_weights(data)
-    print(f"Graph made with {len(data.edge_index[0])} edges!")
+    if verbose:
+        print(f"Graph made with {len(data.edge_index[0])} edges!")
     return data
 
 

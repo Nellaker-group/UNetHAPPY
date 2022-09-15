@@ -47,6 +47,7 @@ def main(
     epochs: int = 50,
     layers: int = typer.Option(...),
     hidden_units: int = 256,
+    dropout: float = 0.5,
     learning_rate: float = 0.001,
     weighted_loss: bool = True,
     use_custom_weights: bool = True,
@@ -156,6 +157,7 @@ def main(
         layers,
         len(organ.tissues),
         hidden_units,
+        dropout,
         pretrained_path,
     )
 

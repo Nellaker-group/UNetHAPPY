@@ -48,20 +48,22 @@ def main(
     feature: FeatureArg = FeatureArg.embeddings,
     group_knts: bool = True,
     top_conf: bool = False,
-    model_type: str = "graphsage",
+    model_type: str = "sup_graphsage",
     graph_method: MethodArg = MethodArg.k,
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
     label_type: str = "full",
     tissue_label_tsv: Optional[str] = None,
+    verbose: bool = True,
 ):
     device = get_device()
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
     patch_files = [project_dir / "config" / file for file in val_patch_files]
 
+    print("Begin graph construction...")
     predictions, embeddings, coords, confidence = get_raw_data(
-        project_name, run_id, x_min, y_min, width, height, top_conf
+        project_name, run_id, x_min, y_min, width, height, top_conf, verbose=verbose
     )
     # Get ground truth manually annotated data
     _, _, tissue_class = get_groundtruth_patch(
@@ -77,11 +79,19 @@ def main(
     # Covert isolated knts into syn and turn groups into a single knt point
     if group_knts:
         predictions, embeddings, coords, confidence, tissue_class = process_knts(
-            organ, predictions, embeddings, coords, confidence, tissue_class
+            organ,
+            predictions,
+            embeddings,
+            coords,
+            confidence,
+            tissue_class,
+            verbose=verbose,
         )
     # Covert input cell data into a graph
     feature_data = get_feature(feature, predictions, embeddings, organ)
-    data = setup_graph(coords, k, feature_data, graph_method, loop=False)
+    data = setup_graph(
+        coords, k, feature_data, graph_method, loop=False, verbose=verbose
+    )
     data = ToUndirected()(data)
     data.edge_index, data.edge_attr = add_self_loops(
         data["edge_index"], data["edge_attr"], fill_value="mean"
@@ -89,7 +99,10 @@ def main(
     pos = data.pos
     x = data.x.to(device)
 
-    data = setup_node_splits(data, tissue_class, remove_unlabelled, True, patch_files)
+    data = setup_node_splits(
+        data, tissue_class, remove_unlabelled, True, patch_files, verbose=verbose
+    )
+    print("Graph construction complete")
 
     # Setup trained model
     pretrained_path = (
@@ -162,9 +175,9 @@ def main(
     # restrict to only data in patch_files using val_mask
     val_nodes = data.val_mask
     predicted_labels = predicted_labels[val_nodes]
-    graph_embeddings = graph_embeddings[val_nodes]
     out = out[val_nodes]
     pos = pos[val_nodes]
+    graph_embeddings = graph_embeddings[val_nodes] if plot_umap else graph_embeddings
     tissue_class = (
         tissue_class[val_nodes] if tissue_label_tsv is not None else tissue_class
     )
