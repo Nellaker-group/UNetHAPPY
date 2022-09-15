@@ -24,7 +24,7 @@ class MLP(torch.nn.Module):
             x = F.relu(self.bns[i](x))
             x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.lins[-1](x)
-        return x
+        return F.log_softmax(x, dim=-1)
 
     def inference(self, x):
         for i, lin in enumerate(self.lins[:-1]):

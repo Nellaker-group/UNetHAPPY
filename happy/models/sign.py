@@ -26,7 +26,7 @@ class SIGN(nn.Module):
             hs.append(h)
         h = torch.cat(hs, dim=-1)
         o = self.lin(h)
-        return o
+        return F.log_softmax(o, dim=-1)
 
     def inference(self, xs):
         hs = []
