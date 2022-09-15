@@ -52,6 +52,7 @@ def setup_node_splits(
     include_validation=True,
     val_patch_files=[],
     test_patch_files=[],
+    verbose=True,
 ):
     all_xs = data["pos"][:, 0]
     all_ys = data["pos"][:, 1]
@@ -68,19 +69,22 @@ def setup_node_splits(
         data.unlabelled_mask = unlabelled_mask
         train_mask[unlabelled_inds] = False
         data.train_mask = train_mask
-        print(f"{len(unlabelled_inds)} nodes marked as unlabelled")
+        if verbose:
+            print(f"{len(unlabelled_inds)} nodes marked as unlabelled")
 
     # Split the graph by masks into training, validation and test nodes
     if include_validation:
         if len(val_patch_files) == 0:
             if len(test_patch_files) == 0:
-                print("No validation patch provided, splitting nodes randomly")
+                if verbose:
+                    print("No validation patch provided, splitting nodes randomly")
                 data = RandomNodeSplit(num_val=0.15, num_test=0.15)(data)
             else:
-                print(
-                    "No validation patch provided, splitting nodes randomly into "
-                    "train and val and using test patch"
-                )
+                if verbose:
+                    print(
+                        "No validation patch provided, splitting nodes randomly into "
+                        "train and val and using test patch"
+                    )
                 data = RandomNodeSplit(num_val=0.15, num_test=0)(data)
                 test_node_inds = []
                 for file in test_patch_files:
@@ -101,7 +105,8 @@ def setup_node_splits(
                 data.train_mask[unlabelled_inds] = False
                 data.test_mask[unlabelled_inds] = False
         else:
-            print("Splitting graph by validation patch")
+            if verbose:
+                print("Splitting graph by validation patch")
             val_node_inds = []
             for file in val_patch_files:
                 patches_df = pd.read_csv(file)
@@ -119,10 +124,11 @@ def setup_node_splits(
                             data.val_mask[unlabelled_inds] = False
                             data.train_mask[unlabelled_inds] = False
                             data.test_mask[unlabelled_inds] = False
-                        print(
-                            f"All nodes marked as validation: "
-                            f"{data.val_mask.sum().item()}"
-                        )
+                        if verbose:
+                            print(
+                                f"All nodes marked as validation: "
+                                f"{data.val_mask.sum().item()}"
+                            )
                         return data
                     val_node_inds.extend(
                         get_nodes_within_tiles(
@@ -150,11 +156,12 @@ def setup_node_splits(
                 data.test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
             data.val_mask = val_mask
             data.train_mask = train_mask
-        print(
-            f"Graph split into {data.train_mask.sum().item()} train nodes "
-            f"and {data.val_mask.sum().item()} validation nodes "
-            f"and {data.test_mask.sum().item()} test nodes"
-        )
+        if verbose:
+            print(
+                f"Graph split into {data.train_mask.sum().item()} train nodes "
+                f"and {data.val_mask.sum().item()} validation nodes "
+                f"and {data.test_mask.sum().item()} test nodes"
+            )
     else:
         data.val_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
         data.test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
@@ -261,10 +268,12 @@ def setup_dataloaders(
 
 
 def setup_model(
-    model_type, data, device, layers, num_classes, hidden_units, pretrained=None
+    model_type, data, device, layers, num_classes, hidden_units, pretrained=None, dropout=None
 ):
     if pretrained:
         return torch.load(pretrained / "graph_model.pt", map_location=device)
+    if dropout is not None and (model_type != "sup_gat" or model_type != "sup_gatv2"):
+        print("Warning: dropout argument is only supported for GAT models")
     if model_type == "sup_graphsage":
         model = SupervisedSAGE(
             data.num_node_features,
@@ -279,6 +288,7 @@ def setup_model(
             out_channels=num_classes,
             heads=4,
             num_layers=layers,
+            dropout=dropout,
         )
     elif model_type == "sup_gatv2":
         model = GATv2(
@@ -287,6 +297,7 @@ def setup_model(
             out_channels=num_classes,
             heads=4,
             num_layers=layers,
+            dropout=dropout,
         )
     elif model_type == "sup_clustergcn":
         model = ClusterGCN(

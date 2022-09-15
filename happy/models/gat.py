@@ -12,10 +12,12 @@ class GAT(nn.Module):
         out_channels,
         heads,
         num_layers,
+        dropout=0.0,
     ):
         super().__init__()
         self.num_layers = num_layers
         self.convs = nn.ModuleList()
+        self.dropout = dropout
 
         for i in range(num_layers):
             if i == 0:
@@ -24,7 +26,7 @@ class GAT(nn.Module):
                         in_channels,
                         hidden_channels,
                         heads,
-                        dropout=0.6,
+                        dropout=dropout,
                         add_self_loops=False,
                     )
                 )
@@ -33,7 +35,7 @@ class GAT(nn.Module):
                     hidden_channels * heads,
                     hidden_channels,
                     heads,
-                    dropout=0.6,
+                    dropout=dropout,
                     add_self_loops=False,
                 )
             )
@@ -44,14 +46,14 @@ class GAT(nn.Module):
                         out_channels,
                         heads=heads,
                         concat=False,
-                        dropout=0.6,
+                        dropout=dropout,
                         add_self_loops=False,
                     )
                 )
 
     def forward(self, x, edge_index):
         for i, conv in enumerate(self.convs):
-            x = F.dropout(x, p=0.6, training=self.training)
+            x = F.dropout(x, p=self.dropout, training=self.training)
             x = conv(x, edge_index)
             if i != len(self.convs) - 1:
                 x = F.relu(x)
@@ -88,10 +90,12 @@ class GATv2(nn.Module):
         out_channels,
         heads,
         num_layers,
+        dropout=0.0,
     ):
         super().__init__()
         self.num_layers = num_layers
         self.convs = nn.ModuleList()
+        self.dropout = dropout
 
         for i in range(num_layers):
             if i == 0:
@@ -100,7 +104,7 @@ class GATv2(nn.Module):
                         in_channels,
                         hidden_channels,
                         heads,
-                        dropout=0.6,
+                        dropout=dropout,
                         add_self_loops=False,
                         share_weights=True,
                     )
@@ -110,7 +114,7 @@ class GATv2(nn.Module):
                     hidden_channels * heads,
                     hidden_channels,
                     heads,
-                    dropout=0.6,
+                    dropout=dropout,
                     add_self_loops=False,
                     share_weights=True,
                 )
@@ -122,7 +126,7 @@ class GATv2(nn.Module):
                         out_channels,
                         heads=heads,
                         concat=False,
-                        dropout=0.6,
+                        dropout=dropout,
                         add_self_loops=False,
                         share_weights=True,
                     )
@@ -130,7 +134,7 @@ class GATv2(nn.Module):
 
     def forward(self, x, edge_index):
         for i, conv in enumerate(self.convs):
-            x = F.dropout(x, p=0.6, training=self.training)
+            x = F.dropout(x, p=self.dropout, training=self.training)
             x = conv(x, edge_index)
             if i != len(self.convs) - 1:
                 x = F.relu(x)

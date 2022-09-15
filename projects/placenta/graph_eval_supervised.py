@@ -44,14 +44,16 @@ def main(
     remove_unlabelled: bool = True,
     label_type: str = "full",
     tissue_label_tsv: Optional[str] = None,
+    verbose: bool = True,
 ):
     device = get_device()
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
     patch_files = [project_dir / "config" / file for file in val_patch_files]
 
+    print("Begin graph construction...")
     predictions, embeddings, coords, confidence = get_raw_data(
-        project_name, run_id, x_min, y_min, width, height, top_conf
+        project_name, run_id, x_min, y_min, width, height, top_conf, verbose=verbose
     )
     # Get ground truth manually annotated data
     _, _, tissue_class = get_groundtruth_patch(
@@ -67,11 +69,11 @@ def main(
     # Covert isolated knts into syn and turn groups into a single knt point
     if group_knts:
         predictions, embeddings, coords, confidence, tissue_class = process_knts(
-            organ, predictions, embeddings, coords, confidence, tissue_class
+            organ, predictions, embeddings, coords, confidence, tissue_class, verbose=verbose
         )
     # Covert input cell data into a graph
     feature_data = get_feature(feature, predictions, embeddings, organ)
-    data = setup_graph(coords, k, feature_data, graph_method, loop=False)
+    data = setup_graph(coords, k, feature_data, graph_method, loop=False, verbose=verbose)
     data = ToUndirected()(data)
     data.edge_index, data.edge_attr = add_self_loops(
         data["edge_index"], data["edge_attr"], fill_value="mean"
@@ -79,7 +81,8 @@ def main(
     pos = data.pos
     x = data.x.to(device)
 
-    data = setup_node_splits(data, tissue_class, remove_unlabelled, True, patch_files)
+    data = setup_node_splits(data, tissue_class, remove_unlabelled, True, patch_files, verbose=verbose)
+    print("Graph construction complete")
 
     # Setup trained model
     pretrained_path = (

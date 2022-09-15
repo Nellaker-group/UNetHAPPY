@@ -58,6 +58,7 @@ def main(
     mask_unlabelled: bool = True,
     include_validation: bool = True,
     validation_step: int = 25,
+    dropout: Optional[float] = None,
 ):
     model_type = model_type.value
     graph_method = graph_method.value
@@ -155,6 +156,7 @@ def main(
         len(organ.tissues),
         hidden_units,
         pretrained_path,
+        dropout=dropout,
     )
 
     # Setup training parameters

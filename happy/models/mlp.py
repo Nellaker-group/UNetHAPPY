@@ -1,3 +1,4 @@
+from re import X
 import torch.nn as nn
 from torch.nn import Linear
 import torch.nn.functional as F
@@ -25,11 +26,15 @@ class MLP(torch.nn.Module):
             x = F.relu(self.bns[i](x))
             x = F.dropout(x, p=0.5, training=self.training)
         x = self.lins[-1](x)
-        return torch.log_softmax(x, dim=-1)
+        return x
 
     def inference(self, x):
         for i, lin in enumerate(self.lins[:-1]):
             x = lin(x)
             x = F.relu(self.bns[i](x))
+
+            if i == self.num_layers - 2:
+                e = x.detach().clone()
+
         x = self.lins[-1](x)
-        return torch.log_softmax(x, dim=-1), x
+        return x, e

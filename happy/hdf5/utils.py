@@ -23,7 +23,7 @@ def get_embeddings_file(project_name, run_id):
     return embeddings_dir / embeddings_path
 
 
-def get_hdf5_datasets(file_path, start, num_points):
+def get_hdf5_datasets(file_path, start, num_points, verbose=True):
     with h5py.File(file_path, "r") as f:
         subset_start = (
             int(len(f["predictions"]) * start) if 1 > start > 0 else int(start)
@@ -31,7 +31,8 @@ def get_hdf5_datasets(file_path, start, num_points):
         subset_end = (
             len(f["predictions"]) if num_points == -1 else subset_start + num_points
         )
-        print(f"Getting {subset_end - subset_start} datapoints from hdf5")
+        if verbose:
+            print(f"Getting {subset_end - subset_start} datapoints from hdf5")
         predictions = f["predictions"][subset_start:subset_end]
         embeddings = f["embeddings"][subset_start:subset_end]
         coords = f["coords"][subset_start:subset_end]
@@ -87,9 +88,9 @@ def filter_hdf5(
     )
 
 
-def get_datasets_in_patch(file_path, x_min, y_min, width, height):
+def get_datasets_in_patch(file_path, x_min, y_min, width, height, verbose=True):
     predictions, embeddings, coords, confidence, _, _ = get_hdf5_datasets(
-        file_path, 0, -1
+        file_path, 0, -1, verbose=verbose
     )
 
     if x_min == 0 and y_min == 0 and width == -1 and height == -1:
