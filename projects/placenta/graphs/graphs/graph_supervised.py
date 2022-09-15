@@ -12,7 +12,7 @@ from torch_geometric.loader import (
     GraphSAINTRandomWalkSampler,
     ShaDowKHopSampler,
 )
-from torch_geometric.transforms import RandomNodeSplit, SIGN
+from torch_geometric.transforms import RandomNodeSplit
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import (
     accuracy_score,
@@ -251,10 +251,11 @@ def setup_dataloaders(
         val_idx = data.val_mask.nonzero(as_tuple=False).view(-1)
 
         train_loader = DataLoader(
-            train_idx, batch_size=batch_size, shuffle=True, num_workers=0
+            train_idx, batch_size=batch_size, shuffle=True, num_workers=12
         )
         val_loader = DataLoader(val_idx, batch_size=batch_size, shuffle=False)
-
+    else:
+        raise ValueError(f"Model type {model_type} not implemented")
     return train_loader, val_loader
 
 
@@ -366,9 +367,9 @@ def setup_training_params(
             )
             class_weights = torch.FloatTensor(class_weights)
             class_weights = class_weights.to(device)
-            criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
+            criterion = torch.nn.NLLLoss(weight=class_weights)
         else:
-            criterion = torch.nn.CrossEntropyLoss()
+            criterion = torch.nn.NLLLoss()
     elif (
         model_type == "sup_clustergcn"
         or model_type == "sup_gat"
