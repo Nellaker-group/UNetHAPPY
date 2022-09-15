@@ -251,7 +251,7 @@ def setup_dataloaders(
         val_idx = data.val_mask.nonzero(as_tuple=False).view(-1)
 
         train_loader = DataLoader(
-            train_idx, batch_size=batch_size, shuffle=True, num_workers=12
+            train_idx, batch_size=batch_size, shuffle=True, num_workers=0
         )
         val_loader = DataLoader(val_idx, batch_size=batch_size, shuffle=False)
 
@@ -500,8 +500,9 @@ def train(
             optimiser.zero_grad()
             train_x = [data.x[idx].to(device)]
             train_y = data.y[idx].to(device)
-            sign_K = model.num_layers
-            train_x += [data[f"x{i}"][idx].to(device) for i in range(1, sign_K + 1)]
+            train_x += [
+                data[f"x{i}"][idx].to(device) for i in range(1, model.num_layers + 1)
+            ]
             out = model(train_x)
             loss = criterion(out, train_y)
             loss.backward()
@@ -557,60 +558,24 @@ def validate(model, data, eval_loader, device):
 
 
 @torch.no_grad()
-def validate_sign(model, data, eval_loader, device):
-    print("Running inference")
-    model.eval()
-    out = []
-    pred = []
-    lab = []
-    sign_K = model.num_layers
-    data = SIGN(sign_K)(data)
-
-    for idx in eval_loader:
-        eval_x = [data.x[idx].to(device)]
-        eval_x += [data[f"x{i}"][idx].to(device) for i in range(1, sign_K + 1)]
-        eval_y = data.y[idx]
-        out_i, _ = model.inference(eval_x)
-        pred_i = out_i.argmax(dim=-1, keepdim=True).squeeze()
-        out_i = out_i.cpu().detach().numpy()
-        pred_i = pred_i.cpu().numpy()
-        lab_i = eval_y.cpu().numpy()
-        out.append(out_i)
-        pred.append(pred_i)
-        lab.append(lab_i)
-
-    pred = np.concatenate(pred, axis=0)
-    lab = np.concatenate(lab, axis=0)
-    acc = np.mean(pred == lab)
-
-    return acc
-
-
-@torch.no_grad()
 def validate_mlp(model, data, eval_loader, device):
     print("Running inference")
     model.eval()
     out = []
-    pred = []
-    lab = []
-
     for idx in eval_loader:
         eval_x = data.x[idx].to(device)
-        eval_y = data.y[idx]
+        if isinstance(model, SIGN_MLP):
+            eval_x = [eval_x]
+            eval_x += [
+                data[f"x{i}"][idx].to(device) for i in range(1, model.num_layers + 1)
+            ]
         out_i, _ = model.inference(eval_x)
-        pred_i = out_i.argmax(dim=-1, keepdim=True).squeeze()
-        out_i = out_i.cpu().detach().numpy()
-        pred_i = pred_i.cpu().numpy()
-        lab_i = eval_y.cpu().numpy()
         out.append(out_i)
-        pred.append(pred_i)
-        lab.append(lab_i)
-
-    pred = np.concatenate(pred, axis=0)
-    lab = np.concatenate(lab, axis=0)
-    acc = np.mean(pred == lab)
-
-    return acc
+    out = torch.cat(out, dim=0)
+    out = out.argmax(dim=-1)
+    y = data.y.to(out.device)
+    val_accuracy = int((out.eq(y[data.val_mask])).sum()) / int(data.val_mask.sum())
+    return val_accuracy
 
 
 @torch.no_grad()
@@ -640,58 +605,27 @@ def inference(model, x, eval_loader, device):
 
 
 @torch.no_grad()
-def inference_sign(model, data, eval_loader, device):
-    print("Running inference")
-    model.eval()
-    out = []
-    emb = []
-    pred = []
-    sign_K = model.num_layers
-    data = SIGN(sign_K)(data)
-
-    for idx in eval_loader:
-        eval_x = [data.x[idx].to(device)]
-        eval_x += [data[f"x{i}"][idx].to(device) for i in range(1, sign_K + 1)]
-        out_i, emb_i = model.inference(eval_x)
-        pred_i = out_i.argmax(dim=-1, keepdim=True).squeeze()
-        pred_i = pred_i.cpu().numpy()
-        out_i = out_i.cpu().detach().numpy()
-        emb_i = emb_i.cpu().detach().numpy()
-        out.append(out_i)
-        emb.append(emb_i)
-        pred.append(pred_i)
-
-    out = np.concatenate(out, axis=0)
-    emb = np.concatenate(emb, axis=0)
-    pred = np.concatenate(pred, axis=0)
-
-    return out, emb, pred
-
-
-@torch.no_grad()
 def inference_mlp(model, data, eval_loader, device):
     print("Running inference")
     model.eval()
     out = []
-    emb = []
-    pred = []
-
+    graph_embeddings = []
     for idx in eval_loader:
         eval_x = data.x[idx].to(device)
+        if isinstance(model, SIGN_MLP):
+            eval_x = [eval_x]
+            eval_x += [
+                data[f"x{i}"][idx].to(device) for i in range(1, model.num_layers + 1)
+            ]
         out_i, emb_i = model.inference(eval_x)
-        pred_i = out_i.argmax(dim=-1, keepdim=True).squeeze()
-        pred_i = pred_i.cpu().numpy()
-        out_i = out_i.cpu().detach().numpy()
-        emb_i = emb_i.cpu().detach().numpy()
         out.append(out_i)
-        emb.append(emb_i)
-        pred.append(pred_i)
-
-    out = np.concatenate(out, axis=0)
-    emb = np.concatenate(emb, axis=0)
-    pred = np.concatenate(pred, axis=0)
-
-    return out, emb, pred
+        graph_embeddings.append(emb_i)
+    out = torch.cat(out, dim=0)
+    graph_embeddings = torch.cat(graph_embeddings, dim=0)
+    predicted_labels = out.argmax(dim=-1, keepdim=True).squeeze()
+    predicted_labels = predicted_labels.cpu().numpy()
+    out = out.cpu().detach().numpy()
+    return out, graph_embeddings, predicted_labels
 
 
 def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled):

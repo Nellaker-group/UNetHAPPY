@@ -3,7 +3,7 @@ from typing import Optional, List
 
 import typer
 import torch
-from torch_geometric.transforms import ToUndirected
+from torch_geometric.transforms import ToUndirected, SIGN
 from torch_geometric.utils import add_self_loops
 from torch_geometric.loader import (
     NeighborSampler,
@@ -26,7 +26,6 @@ from graphs.graphs.graph_supervised import (
     inference,
     setup_node_splits,
     evaluate,
-    inference_sign,
     inference_mlp,
 )
 
@@ -109,6 +108,9 @@ def main(
         else f"model_{model_name.split('_')[0]}"
     )
 
+    if model_type == "sup_sign":
+        data = SIGN(model.num_layers)(data)  # precompute SIGN fixed embeddings
+
     # Setup paths
     save_path = (
         Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs / f"run_{run_id}"
@@ -148,11 +150,7 @@ def main(
         )
 
     # Run inference and get predicted labels for nodes
-    if model_type == "sup_sign":
-        out, graph_embeddings, predicted_labels = inference_sign(
-            model, data, eval_loader, device
-        )
-    elif model_type == "sup_mlp":
+    if model_type == "sup_mlp" or model_type == "sup_sign":
         out, graph_embeddings, predicted_labels = inference_mlp(
             model, data, eval_loader, device
         )

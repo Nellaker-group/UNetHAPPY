@@ -14,7 +14,6 @@ class SIGN(nn.Module):
         for _ in range(num_layers + 1):
             self.lins.append(Linear(in_channels, hidden_channels))
             self.bns.append(norm.BatchNorm(hidden_channels))
-
         self.lin = Linear((num_layers + 1) * hidden_channels, out_channels)
 
     def forward(self, xs):
@@ -24,7 +23,6 @@ class SIGN(nn.Module):
             h = F.relu(self.bns[i](h))
             h = F.dropout(h, p=0.25, training=self.training)
             hs.append(h)
-
         h = torch.cat(hs, dim=-1)
         o = self.lin(h)
         return o.log_softmax(dim=-1)
@@ -36,5 +34,6 @@ class SIGN(nn.Module):
             h = F.relu(self.bns[i](h))
             hs.append(h)
         h = torch.cat(hs, dim=-1)
+        embeddings = h.detach().clone()
         o = self.lin(h)
-        return o, h
+        return o, embeddings

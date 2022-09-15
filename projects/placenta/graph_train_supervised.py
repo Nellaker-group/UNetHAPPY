@@ -137,6 +137,8 @@ def main(
     data = Batch.from_data_list(datas)
     if model_type == "sup_shadow":
         del data.batch  # bug in pyg when using shadow model and Batch
+    elif model_type == "sup_sign":
+        data = SIGN(layers)(data)  # precompute SIGN fixed embeddings
 
     # Setup the dataloader which minibatches the graph
     train_loader, val_loader = graph_supervised.setup_dataloaders(
@@ -196,9 +198,6 @@ def main(
 
     # Train!
     try:
-        if model_type == "sup_sign":
-            data = SIGN(layers)(data)
-
         print("Training:")
         prev_best_val = 0
         for epoch in range(1, epochs + 1):
@@ -215,12 +214,7 @@ def main(
             logger.log_accuracy("train", epoch - 1, accuracy)
 
             if include_validation and (epoch % validation_step == 0 or epoch == 1):
-                if model_type == "sup_sign":
-                    val_accuracy = graph_supervised.validate_sign(
-                        model, data, val_loader, device
-                    )
-                    logger.log_accuracy("val", epoch - 1, val_accuracy)
-                elif model_type == "sup_mlp":
+                if model_type == "sup_sign" or model_type == "sup_mlp":
                     val_accuracy = graph_supervised.validate_mlp(
                         model, data, val_loader, device
                     )
