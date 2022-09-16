@@ -108,7 +108,7 @@ def process_knts(
     organ, predictions, embeddings, coords, confidence, tissues=None, verbose=True
 ):
     # Turn isolated knts into syn and group large knts into one point
-    (predictions, embeddings, coords, confidence, inds_to_remove,) = process_knt_cells(
+    predictions, embeddings, coords, confidence, inds_to_remove = process_knt_cells(
         predictions,
         embeddings,
         coords,
