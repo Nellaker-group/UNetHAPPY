@@ -1,0 +1,152 @@
+"""
+Class for saving model predictions on a whole slide image (WSI).
+Data is saved and read from a DB by the public interface.
+Saves coordinates which match the original WSI.
+This means predictions are scaled down.
+Before getting predictions, coords are scaled up to match model pixel sizes.
+
+Public functionality (listed in order) includes:
+- saving empty tiles
+- saving nuclei from tile data and box predictions
+- removing nuclei clusters from overlapped model predictions
+- saving these valid nuclei into final storage
+- saving cell classification at (x,y) from model predictions
+
+Parameters:
+file: MicroscopeFile object
+"""
+import numpy as np
+import sklearn.neighbors as sk
+from PIL import Image                                      # (pip install Pillow)
+import numpy as np                                         # (pip install numpy)
+from skimage import measure                                # (pip install scikit-image)
+from shapely.geometry import Polygon, MultiPolygon         # (pip install Shapely)
+
+import db.eval_runs_interface as db
+
+
+class PredictionSaver:
+    def __init__(self, microscopefile):
+        self.file = microscopefile
+        self.id = self.file.id
+        self.rescale_ratio = self.file.rescale_ratio
+
+    # Saving tiles which do not have predictions as caught by pixel colours
+    def save_empty(self, tile_indexes):
+        db.mark_finished_tiles(self.id, tile_indexes)
+
+    # Saves segmentation as a polygon, where it is stored as a string of a list of tuples with the coordinates
+    def save_seg(self, tile_index, polygons):
+        tile_x = str(self.file.tile_xy_list[tile_index][0])
+        tile_y = str(self.file.tile_xy_list[tile_index][1])        
+        polyID=0
+        coords = []
+        # emil
+        print("polygons:")
+        print(polygons)
+        if len(polygons[0]) == 0:
+            db.mark_finished_tiles(self.id, [tile_index])
+        else:
+            for poly in polygons:
+                item = {}
+                ## if it is a standalone polygon then it will have the type "Polygon" if it is a merged polygon, it will have the type "MultiPolygon"
+                ## returns a list of tuples with each (x,y)
+                if poly.type == 'Polygon':
+                    ## extract x and y of points along edge
+                    items["polyXY"] = str([(x,y) for x,y in poly.exterior.coords])
+                    items["polyID"] = polyID
+                if polyToAdd.type == 'MultiPolygon':
+                    tmpcoordslist = [list(x.exterior.coords) for x in polyToAdd.geoms]
+                    items["polyXY"] = str([x for xs in tmpcoordslist for x in xs])
+                    items["polyID"] = polyID
+                coords.append(item)
+                polyID += 1
+                ## coords will be a string of a list of lists in this case                
+        db.save_pred_workings(self.id, coords)
+        db.mark_finished_tiles(self.id, [tile_index])
+
+    # emil - should this function be here? This file stores the polygons after drawn on the mask
+    def draw_polygons_from_mask(self, mask, tile_index):
+        tile_x = str(self.file.tile_xy_list[tile_index][0])
+        tile_y = str(self.file.tile_xy_list[tile_index][1])
+        # emil
+        print("np.shape(mask):")
+        print(np.shape(mask))
+        print(mask.__class__)
+        print(mask)
+        w,h=np.shape(mask)    
+        padded_mask=np.zeros((w+2,h+2),dtype="uint8")    
+        padded_mask[1:(w+1),1:(h+1)] = mask           
+        # Find contours (boundary lines) around each sub-mask
+        # Note: there could be multiple contours if the object
+        # is partially occluded. (E.g. an elephant behind a tree)
+        contours = measure.find_contours(padded_mask, 0.5, positive_orientation="low")  
+        polygons = []
+        segmentations = []
+        for contour in contours:
+            # Flip from (row, col) representation to (x, y)
+            # and subtract the padding pixel
+            # Emil has added X and Y coordinates to get global WSI coordinates
+            for i in range(len(contour)):
+                row, col = contour[i]
+                contour[i] = (col - 1 + tile_x, row - 1 + tile_y)
+            # Make a polygon and simplify it
+            poly = Polygon(contour)
+            poly = poly.simplify(1.0, preserve_topology=False)
+            if(poly.is_empty):
+                # Go to next iteration, dont save empty values in list
+                continue
+            polygons.append(poly)
+            if poly.type == 'Polygon':
+                segmentation = np.array(poly.exterior.coords).ravel().tolist()
+            elif poly.type == 'MultiPolygon':
+                segmentation = np.array(poly.geoms).ravel().tolist()
+            segmentations.append(segmentation)
+        # checking that polygons are not contained in another polygon
+        polygonsKeep = []
+        segmentationsKeep = []
+        for j in range(0, len(polygons)):                
+            contained=False
+            intersected=False
+            for i in range(0, len(polygons)):
+                if polygons[j].contains(polygons[i]) and i != j:                
+                    contained=True
+                if polygons[j].intersects(polygons[i]) and i != j:
+                    intersected=True
+            if contained and intersected:
+                polygonsKeep.append(polygons[j])
+                segmentationsKeep.append(polygons[j])
+            elif not intersected and not contained:
+                polygonsKeep.append(polygons[j])
+                segmentationsKeep.append(polygons[j])
+        return polygonsKeep, segmentationsKeep
+
+
+    def apply_nuclei_post_processing(self, overlap=False):
+        nuclei_preds = db.get_all_unvalidated_nuclei_preds(self.id)
+        # enil perhaps we can do the overlap thing here
+        if overlap:
+            pass
+            # emil do the overlap thing here
+            #nuclei_preds = self.cluster_multi_detections(nuclei_preds)
+        # and perhaps filter off too small and too big ones
+        db.validate_pred_workings(self.id, nuclei_preds)
+        self.file.mark_finished_nuclei()
+
+
+    # Inserts valid/non duplicate predictions into Predictions table
+    def commit_valid_seg_predictions(self):
+        db.commit_pred_workings(self.id)
+
+    @staticmethod
+    def filter_by_score(threshold, scores):
+        scores[scores > threshold] = 255
+        scores[scores <= threshold] = 0
+        return(scores)
+
+
+    ##########################################################################
+    ## EMIL
+    ## merge polygon method in here?
+    ## filter by size method in here?
+    ##########################################################################
