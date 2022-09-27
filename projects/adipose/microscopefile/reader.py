@@ -97,67 +97,20 @@ class BioFormatsFile(Reader):
             avail_img,
             out=full_img[:bounded_h, :bounded_w],
         )
-        return full_img
+        # emil
+        print("full_img")
+        print(full_img)
+        full_imgTMP = np.copy(full_img)
+        full_imgTMP[:, :, 0] = full_img[:, :, 2]
+        full_imgTMP[:, :, 1] = full_img[:, :, 1]
+        full_imgTMP[:, :, 2] = full_img[:, :, 0]
+        print("full_imgTMP")
+        print(full_imgTMP)
+        return full_imgTMP
+        # return full_img
 
     def stop_vm(self):
         javabridge.kill_vm()
-
-
-class OpenSlideFile(Reader):
-    def __init__(self, slide_path, file_type, lvl_x):
-        super().__init__(slide_path, lvl_x)
-        self.file_type = file_type
-
-    @property
-    def reader(self):
-        return openslide.OpenSlide(self.slide_path)
-
-    @property
-    def max_slide_width(self):
-        return self.reader.dimensions[0]
-
-    @property
-    def max_slide_height(self):
-        return self.reader.dimensions[1]
-
-    def get_pixel_size(self, pixel_size):
-        """Try to get the pixel size dimensions out of the metadata"""
-        pix_x_size = False
-        try:
-            pix_x_size = float(self.reader.properties["openslide.mpp-x"])
-            pix_y_size = float(self.reader.properties["openslide.mpp-y"])
-        except:
-            pass
-        if pix_x_size:
-            assert pix_x_size == pix_y_size
-            return pix_y_size
-        else:
-            return pixel_size
-
-    def get_img(self, x, y, w, h, bound=True):
-        full_img = np.zeros((h, w, 3))
-        bounded_w = w
-        bounded_h = h
-        x = int(min(self.max_slide_width - 1, x))
-        y = int(min(self.max_slide_height - 1, y))
-        if bound:
-            bounded_w = min(w, self.max_slide_width - x)
-            bounded_h = min(h, self.max_slide_height - y)
-
-        # Note: Weirdness with axis flipping in image (x,y)
-        # coords will be affected by this
-        #  W and H flipped in np array for image
-        avail_img = self.reader.read_region(
-            location=(x, y), level=self.lvl_x, size=(bounded_w, bounded_h)
-        )
-        avail_img = np.array(avail_img)[:, :, 0:3]
-
-        np.add(
-            full_img[:bounded_h, :bounded_w],
-            avail_img,
-            out=full_img[:bounded_h, :bounded_w],
-        )
-        return full_img
 
 
 class Libvips(Reader):

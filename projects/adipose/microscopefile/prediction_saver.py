@@ -41,25 +41,22 @@ class PredictionSaver:
         tile_y = str(self.file.tile_xy_list[tile_index][1])        
         polyID=0
         coords = []
-        # emil
-        print("polygons:")
-        print(polygons)
-        if len(polygons[0]) == 0:
+        if len(polygons) == 0:
             db.mark_finished_tiles(self.id, [tile_index])
         else:
             for poly in polygons:
-                item = {}
+                items = {}
                 ## if it is a standalone polygon then it will have the type "Polygon" if it is a merged polygon, it will have the type "MultiPolygon"
                 ## returns a list of tuples with each (x,y)
                 if poly.type == 'Polygon':
                     ## extract x and y of points along edge
                     items["polyXY"] = str([(x,y) for x,y in poly.exterior.coords])
                     items["polyID"] = polyID
-                if polyToAdd.type == 'MultiPolygon':
-                    tmpcoordslist = [list(x.exterior.coords) for x in polyToAdd.geoms]
+                if poly.type == 'MultiPolygon':
+                    tmpcoordslist = [list(x.exterior.coords) for x in poly.geoms]
                     items["polyXY"] = str([x for xs in tmpcoordslist for x in xs])
                     items["polyID"] = polyID
-                coords.append(item)
+                coords.append(items)
                 polyID += 1
                 ## coords will be a string of a list of lists in this case                
         db.save_pred_workings(self.id, coords)
@@ -67,15 +64,12 @@ class PredictionSaver:
 
     # emil - should this function be here? This file stores the polygons after drawn on the mask
     def draw_polygons_from_mask(self, mask, tile_index):
-        tile_x = str(self.file.tile_xy_list[tile_index][0])
-        tile_y = str(self.file.tile_xy_list[tile_index][1])
-        # emil
-        print("np.shape(mask):")
-        print(np.shape(mask))
-        print(mask.__class__)
-        print(mask)
+        tile_x = self.file.tile_xy_list[tile_index][0]
+        tile_y = self.file.tile_xy_list[tile_index][1]
         w,h=np.shape(mask)    
+        # emil
         padded_mask=np.zeros((w+2,h+2),dtype="uint8")    
+        #padded_mask=np.zeros((w+2,h+2),dtype="float32")    
         padded_mask[1:(w+1),1:(h+1)] = mask           
         # Find contours (boundary lines) around each sub-mask
         # Note: there could be multiple contours if the object
@@ -97,14 +91,8 @@ class PredictionSaver:
                 # Go to next iteration, dont save empty values in list
                 continue
             polygons.append(poly)
-            if poly.type == 'Polygon':
-                segmentation = np.array(poly.exterior.coords).ravel().tolist()
-            elif poly.type == 'MultiPolygon':
-                segmentation = np.array(poly.geoms).ravel().tolist()
-            segmentations.append(segmentation)
         # checking that polygons are not contained in another polygon
         polygonsKeep = []
-        segmentationsKeep = []
         for j in range(0, len(polygons)):                
             contained=False
             intersected=False
@@ -115,11 +103,9 @@ class PredictionSaver:
                     intersected=True
             if contained and intersected:
                 polygonsKeep.append(polygons[j])
-                segmentationsKeep.append(polygons[j])
             elif not intersected and not contained:
                 polygonsKeep.append(polygons[j])
-                segmentationsKeep.append(polygons[j])
-        return polygonsKeep, segmentationsKeep
+        return polygonsKeep
 
 
     def apply_nuclei_post_processing(self, overlap=False):

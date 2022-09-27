@@ -6,6 +6,9 @@ from torch.utils.data import IterableDataset
 
 from happy.utils.image_utils import process_image
 
+# emil
+import matplotlib.pyplot as plt
+
 
 class MSDataset(IterableDataset, ABC):
     def __init__(self, microscopefile, remaining_data, transform=None):
@@ -51,8 +54,11 @@ class SegDataset(MSDataset):
             target_h=self.target_height,
             tile_range=(iter_start, iter_end),
         ):
+
             if not empty_tile:
-                img = process_image(img).astype(np.float32) / 255.0
+                # emil
+                # img = process_image(img).astype(np.float32) / 255.0
+                img = process_image(img).astype(np.float32) 
             sample = {
                 "img": img,
                 "tile_index": tile_index,
@@ -71,6 +77,8 @@ class SegDataset(MSDataset):
             img = self.file.get_tile_by_coords(
                 _dict["tile_x"], _dict["tile_y"], target_w, target_h
             )
+            # emil - saving each tile
+            plt.imsave("/well/lindgren/users/swf744/git/HAPPY/projects/adipose/tmpDump"+str(_dict["tile_x"])+"_"+str( _dict["tile_y"])+"_"+str( _dict["tile_index"])+".png", img)            
             if self.file._img_is_empty(img):
                 yield None, _dict["tile_index"], True
             else:

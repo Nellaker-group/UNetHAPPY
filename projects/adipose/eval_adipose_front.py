@@ -18,6 +18,7 @@ def main(
     slide_id: Optional[int] = None,
     seg_num_workers: int = 1,
     score_threshold: float = 0.8,
+    # emil chainged batch to 1
     seg_batch_size: int = 2,
     run_segment_pipeline: bool = True,
     # emil
@@ -87,7 +88,7 @@ def segment_eval_pipeline(
 ):
     # emil this is inside the eval_adipose.py
     # Load model weights and push to device
-    model = eval_adipose.setup_model(model_id, device, 2, 3, 1)
+    model = eval_adipose.setup_model(model_id, device, 1, 3, 1)
     
     # Load dataset and dataloader
     # emil hardcoded overlap of 0  

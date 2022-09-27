@@ -134,10 +134,12 @@ def save_pred_workings(run_id, coords):
     # I put the db.atomic as this is apparently faster according to the peewee documentation
     # coords is a list of dicts with the keys according to the columns of the database
     # coords looks like this [ (items["polyXY"], items["polyID"]), ... ]
+    # emil
+    fields = [UnvalidatedPredictionString.run, UnvalidatedPredictionString.polyID, UnvalidatedPredictionString.polyXY]    
+    data = [(run_id, coords[i]["polyID"], coords[i]["polyXY"]) for i in range(len(coords))]
     with database.atomic():
-        for coord in coords:
-            UnvalidatedPredictionString.create(**coord)
-    UnvalidatedPredictionString.execute()
+        for batch in chunked(data, 10):
+            UnvalidatedPredictionString.insert_many(batch, fields=fields).execute()
 
 # right now this does the same as save_pred_workings() - however that should probably change
 def commit_pred_workings(run_id, coords):

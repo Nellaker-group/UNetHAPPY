@@ -43,8 +43,9 @@ class Prediction(BaseModel):
 
 
 class PredictionString(BaseModel):
-    run = ForeignKeyField(EvalRun, backref="predictions")
+    run = ForeignKeyField(EvalRun, backref="predictions_string")
     polyXY = TextField()
+    polyID = IntegerField()
 
     class Meta:
         primary_key = CompositeKey("run", "polyXY")
@@ -72,8 +73,9 @@ class UnvalidatedPrediction(BaseModel):
 
 
 class UnvalidatedPredictionString(BaseModel):
-    run = ForeignKeyField(EvalRun, backref="unvalidated_predictions")
+    run = ForeignKeyField(EvalRun, backref="unvalidated_predictions_string")
     polyXY = TextField()
+    polyID =  IntegerField()
     is_valid = BooleanField(default=False)
 
     class Meta:

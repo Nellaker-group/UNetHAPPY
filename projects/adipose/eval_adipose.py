@@ -14,6 +14,9 @@ from data.transforms.transforms import Normalizer, Resizer
 from db.msfile_interface import get_msfile
 import db.eval_runs_interface as db
 
+# emil
+import matplotlib.pyplot as plt
+
 # emil first method that is being called in main file
 # Load model weights and push to device
 def setup_model(model_id, device, n_class, inputChannels, channelsMultiplier):
@@ -24,16 +27,10 @@ def setup_model(model_id, device, n_class, inputChannels, channelsMultiplier):
     if model_architecture.upper() == "UNET":
         # emil loads the model imported from happy/models/
         model = UNet(n_class, inputChannels, channelsMultiplier)
-        # emil
-        print("model_weights_path:")
-        print(model_weights_path)
-        print("device:")
-        print(device)
         numberDevice = device.split(":")[1]
-        print(numberDevice)
-        state_dict = torch.load(model_weights_path)
+        # emil
         # state_dict = torch.load(model_weights_path)
-        # emil - END
+        model.load_state_dict(torch.load(model_weights_path))
         # Removes the module string from the keys if it's there
     else:
         raise ValueError(f"{model_architecture} not supported")
@@ -123,8 +120,12 @@ def run_seg_eval(
                             input = torch.from_numpy(
                                 np.expand_dims(non_empty_imgs[i], axis=0)
                             ).to(device)
-                            # emil we dont need no labels
-                            #labels = labels.to(device)
+
+                            # emil
+                            label = torch.from_numpy(
+                                np.expand_dims(np.zeros((1024,1024)), axis=0)
+                            ).to(device)
+
                             # Predict
                             pred = model(input)
                             pred = torch.sigmoid(pred)
@@ -137,33 +138,23 @@ def run_seg_eval(
                             pred_filtered = pred_saver.filter_by_score(
                                 score_threshold, pred
                             )
-
-                            # emil
-                            print("np.shape(pred):")
-                            print(np.shape(pred))
-                            # emil
-                            print("np.shape(pred_filtered):")
-                            print(np.shape(pred_filtered))
-                            # emil
-                            print("np.shape(non_empty_imgs[i]):")
-                            print(np.shape(non_empty_imgs[i]))
+                            # emil saves predictions
+                            plt.imsave("/well/lindgren/users/swf744/git/HAPPY/projects/adipose/tmpPred_"+str(tile_indexes[~empty_mask][i])+".png", pred[0][0])
 
                             pred_polygons = pred_saver.draw_polygons_from_mask(
-                                # emil 
+                                # emil - this should probably be fixed
                                 # pred_filtered, i
                                 pred_filtered[0][0], i
                             )
-                            # emil
-                            print("pred_polygons:")
-                            print(pred_polygons)
 
                             pred_saver.save_seg(non_empty_ind, pred_polygons)
+                            #pred_saver.save_seg(non_empty_ind, pred_polygons)
                             pbar.update()
                 else:
                     early_break = True
                     break
 
-    if not early_break and not pred_saver.file.nucs_done:
+    if not early_break and not pred_saver.file.segs_done:
         pred_saver.apply_nuclei_post_processing(cluster=True, remove_edges=True)
         pred_saver.commit_valid_nuclei_predictions()
 

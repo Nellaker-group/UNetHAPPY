@@ -36,6 +36,8 @@ def get_msfile(
         )
         print(f"no run id given, making new run with id {run.id}")
     else:
+        # emil
+        print("AM I HERE 2?")
         run = EvalRun.get_or_none(EvalRun.id == run_id)
         if not run:
             # Creates a new run with a new run_id (supplied run_id wasn't valid)

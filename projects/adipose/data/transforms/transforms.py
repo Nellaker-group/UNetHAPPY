@@ -42,11 +42,7 @@ class Resizer(object):
         return sample
 
     def _resize_image(self, image, min_side_scale, max_side_scale):
-        #emil
-        print("image.shape:")
-        print(image.shape)
         rows, cols, _ = image.shape
-
         if rows > cols:
             scaled_row_size = int(round(rows * max_side_scale))
             scaled_col_size = int(round(cols * min_side_scale))
@@ -95,8 +91,11 @@ def _compute_scale(rows, cols, min_side, max_side):
 class Normalizer(object):
     def __init__(
         self,
-        mean=np.array([[[0.485, 0.456, 0.406]]]),
-        std=np.array([[[0.229, 0.224, 0.225]]]),
+        # emil - changed to normalisation values from my PyTorchUnet respository
+        mean = 220.70493876783155 ,
+        std = 21.15594532104987,
+        #mean=np.array([[[0.485, 0.456, 0.406]]]),
+        #std=np.array([[[0.229, 0.224, 0.225]]]),
     ):
         self.mean = mean
         self.std = std
@@ -105,13 +104,15 @@ class Normalizer(object):
         image = sample["img"]
         # Normalising requires image to be float32 and returns the image as float32
         if image.dtype == np.uint8:
-            image = (image / 255).astype(np.float32)
+            # emil
+            # image = (image / 255).astype(np.float32)
+            image = (image).astype(np.float32)
         sample.update({"img": _normalise_image(image, self.mean, self.std)})
         return sample
 
 
 def _normalise_image(image, mean, std):
-    return (image.astype(np.float32) - mean) / std
+    return (image.astype(np.float32) - mean) / (std + 1e-10)
 
 
 class UnNormalizer(object):

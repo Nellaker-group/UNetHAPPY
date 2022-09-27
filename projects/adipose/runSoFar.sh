@@ -8,4 +8,4 @@
 
 ## also that I overwrote some of files for example the one where the predictions are stored eval_runs.py or something like that...?
 
-python eval_adipose_front.py --project-name test --organ-name adipose --seg-model-id 1 --slide-id 1 
+python eval_adipose_front.py --project-name test --organ-name adipose --seg-model-id 1 --slide-id 1 --slide-id 3
