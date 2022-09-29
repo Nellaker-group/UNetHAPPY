@@ -93,9 +93,8 @@ def run_seg_eval(
                     empty_mask = np.array(batch["empty_tile"])
                     tile_indexes = np.array(batch["tile_index"])
                     empty_inds = tile_indexes[empty_mask]
-                    # emil - just to make small dataset to work one
                     #non_empty_inds = tile_indexes[~empty_mask]
-                    non_empty_inds = tile_indexes[~empty_mask][0:2]
+                    non_empty_inds = tile_indexes[~empty_mask]
 
                     # if there are empty tiles in the batch, save them as empty
                     if empty_inds.size > 0:
@@ -113,6 +112,15 @@ def run_seg_eval(
                         # Get scale factor
                         scale = np.array(batch["scale"])[~empty_mask][0]
 
+                        # emil - get if shifted tile
+                        shifted_tiles = np.array(batch["shifted"])[~empty_mask]
+                        print("")
+                        print("")
+                        print("shifted_tiles")
+                        print(shifted_tiles)
+                        print("")
+                        print("")
+
                         # Network can't be fed batches of images
                         # as it returns predictions in one array
                         for i, non_empty_ind in enumerate(non_empty_inds):
@@ -121,6 +129,8 @@ def run_seg_eval(
                                 np.expand_dims(non_empty_imgs[i], axis=0)
                             ).to(device)
 
+                            print("np.shape(non_empty_imgs[i])")
+                            print(np.shape(non_empty_imgs[i]))
                             # emil
                             label = torch.from_numpy(
                                 np.expand_dims(np.zeros((1024,1024)), axis=0)
@@ -138,18 +148,24 @@ def run_seg_eval(
                             pred_filtered = pred_saver.filter_by_score(
                                 score_threshold, pred
                             )
+
+                            # emil
+                            print("np.shape(pred_filtered):")
+                            print(np.shape(pred_filtered))
+
                             # emil saves predictions
-                            plt.imsave("/well/lindgren/users/swf744/git/HAPPY/projects/adipose/tmpPred_"+str(tile_indexes[~empty_mask][i])+".png", pred[0][0])
+                            plt.imsave("/well/lindgren/users/swf744/git/HAPPY/projects/adipose/tmpPred_"+str(tile_indexes[~empty_mask][i])+".png", pred_filtered[0])
 
                             pred_polygons = pred_saver.draw_polygons_from_mask(
                                 # emil - this should probably be fixed
                                 # pred_filtered, i
-                                pred_filtered[0][0], i
+                                pred_filtered, i
                             )
 
                             pred_saver.save_seg(non_empty_ind, pred_polygons)
                             #pred_saver.save_seg(non_empty_ind, pred_polygons)
                             pbar.update()
+
                 else:
                     early_break = True
                     break

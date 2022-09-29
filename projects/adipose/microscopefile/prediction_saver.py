@@ -66,11 +66,10 @@ class PredictionSaver:
     def draw_polygons_from_mask(self, mask, tile_index):
         tile_x = self.file.tile_xy_list[tile_index][0]
         tile_y = self.file.tile_xy_list[tile_index][1]
-        w,h=np.shape(mask)    
+        w,h=np.shape(mask[0])    
         # emil
         padded_mask=np.zeros((w+2,h+2),dtype="uint8")    
-        #padded_mask=np.zeros((w+2,h+2),dtype="float32")    
-        padded_mask[1:(w+1),1:(h+1)] = mask           
+        padded_mask[1:(w+1),1:(h+1)] = mask[0]
         # Find contours (boundary lines) around each sub-mask
         # Note: there could be multiple contours if the object
         # is partially occluded. (E.g. an elephant behind a tree)
@@ -126,9 +125,10 @@ class PredictionSaver:
 
     @staticmethod
     def filter_by_score(threshold, scores):
-        scores[scores > threshold] = 255
-        scores[scores <= threshold] = 0
-        return(scores)
+        flatScores = scores[0]
+        flatScores[flatScores > threshold] = 255
+        flatScores[flatScores <= threshold] = 0
+        return(flatScores)
 
 
     ##########################################################################

@@ -96,7 +96,7 @@ def segment_eval_pipeline(
     #    slide_id, run_id, model_id, batch_size, overlap=200, num_workers=num_workers
     #)
     dataloader, pred_saver = eval_adipose.setup_data(
-        slide_id, run_id, model_id, batch_size, overlap=0, num_workers=num_workers
+        slide_id, run_id, model_id, batch_size, overlap=512, num_workers=num_workers
     )
     # Predict segment
     eval_adipose.run_seg_eval(
