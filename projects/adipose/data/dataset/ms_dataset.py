@@ -51,12 +51,12 @@ class SegDataset(MSDataset):
     def _iter_data(self, iter_start, iter_end):
         # emil
         # for img, tile_index, empty_tile in self._get_dataset_section(
-        for img, tile_index, empty_tile, shifted in self._get_dataset_section(        
+        for img, tile_index, empty_tile in self._get_dataset_section(        
             target_w=self.target_width,
             target_h=self.target_height,
             tile_range=(iter_start, iter_end),
         ):
-            # emil add shifted value describing if it org shift (it is true) or not (it isfalse)
+
             if not empty_tile:
                 # emil
                 # img = process_image(img).astype(np.float32) / 255.0
@@ -67,8 +67,7 @@ class SegDataset(MSDataset):
                 "empty_tile": empty_tile,
                 "scale": None,
                 "annot": np.array([[0.0, 0.0, 0.0, 0.0, 0.0]]),
-                # emil
-                "shifted": shifted
+                "dim": (self.target_height,self.target_width),
             }
             if self.transform and not empty_tile:
                 sample = self.transform(sample)
@@ -77,18 +76,16 @@ class SegDataset(MSDataset):
     # Generator to create a dataset of tiles within a range
     def _get_dataset_section(self, target_w, target_h, tile_range):
         tile_coords = self.remaining_data[tile_range[0] : tile_range[1]]
+        # emil
         for _dict in tile_coords:
-
             img = self.file.get_tile_by_coords(
                 _dict["tile_x"], _dict["tile_y"], target_w, target_h
             )
             # emil - saving each tile
-            plt.imsave("/well/lindgren/users/swf744/git/HAPPY/projects/adipose/tmpDump"+str(_dict["tile_x"])+"_"+str( _dict["tile_y"])+"_"+str( _dict["tile_index"])+".png", img)                        
-            # emil - whether org tiling or overlap tiling
-            shifted = not (_dict["tile_x"] % target_w == 0 and _dict["tile_y"] % target_h == 0)
+            plt.imsave("/well/lindgren/users/swf744/git/HAPPY/projects/adipose/tmpTiles/tmpTiles"+str(_dict["tile_x"])+"_"+str( _dict["tile_y"])+"_"+str( _dict["tile_index"])+".png", img)
             if self.file._img_is_empty(img):
-                yield None, _dict["tile_index"], True, shifted
+                yield None, _dict["tile_index"], True
             else:
-                yield img, _dict["tile_index"], False, shifted
+                yield img, _dict["tile_index"], False
 
 

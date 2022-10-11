@@ -130,16 +130,36 @@ def stringListTuple2coordinates(string):
 
 
 # I store my polygons as strings of a list of tuples with the coordinates
-def save_pred_workings(run_id, coords):
+def save_pred_workings(run_id, coords, tile_index):
     # I put the db.atomic as this is apparently faster according to the peewee documentation
     # coords is a list of dicts with the keys according to the columns of the database
     # coords looks like this [ (items["polyXY"], items["polyID"]), ... ]
-    # emil
-    fields = [UnvalidatedPredictionString.run, UnvalidatedPredictionString.polyID, UnvalidatedPredictionString.polyXY]    
-    data = [(run_id, coords[i]["polyID"], coords[i]["polyXY"]) for i in range(len(coords))]
+    fields = [UnvalidatedPredictionString.run, UnvalidatedPredictionString.polyID, UnvalidatedPredictionString.polyXY, UnvalidatedPredictionString.tile_index]    
+    data = [(run_id, coords[i]["polyID"], coords[i]["polyXY"], tile_index) for i in range(len(coords))]
     with database.atomic():
         for batch in chunked(data, 10):
             UnvalidatedPredictionString.insert_many(batch, fields=fields).execute()
+
+def get_all_unvalidated_seg_preds(run_id):
+    preds = (
+        UnvalidatedPredictionString.select(UnvalidatedPredictionString.polyXY)
+        .where(UnvalidatedPredictionString.run == run_id)
+    )
+    # emil
+    print("preds")
+    print(preds[0])
+    print(preds[0:3])
+    print(preds.__class__)
+    preds2 = list(preds)
+    print("preds2")
+    print(preds2[0])
+    print(preds2[0:3])
+    print(preds2.__class__)
+    listie = [dic.polyXY for dic in preds2] 
+    return listie
+    # turns list of dicts into a dict of lists
+    #return {k: [dic[k] for dic in preds] for k in preds[0]}
+
 
 # right now this does the same as save_pred_workings() - however that should probably change
 def commit_pred_workings(run_id, coords):

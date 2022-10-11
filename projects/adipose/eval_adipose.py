@@ -109,17 +109,9 @@ def run_seg_eval(
                         non_empty_imgs = np.array(
                             batch["img"].cpu().numpy()[~empty_mask]
                         )
+
                         # Get scale factor
                         scale = np.array(batch["scale"])[~empty_mask][0]
-
-                        # emil - get if shifted tile
-                        shifted_tiles = np.array(batch["shifted"])[~empty_mask]
-                        print("")
-                        print("")
-                        print("shifted_tiles")
-                        print(shifted_tiles)
-                        print("")
-                        print("")
 
                         # Network can't be fed batches of images
                         # as it returns predictions in one array
@@ -133,7 +125,7 @@ def run_seg_eval(
                             print(np.shape(non_empty_imgs[i]))
                             # emil
                             label = torch.from_numpy(
-                                np.expand_dims(np.zeros((1024,1024)), axis=0)
+                                np.expand_dims(np.zeros(batch['dim'][i]), axis=0)
                             ).to(device)
 
                             # Predict
@@ -149,12 +141,8 @@ def run_seg_eval(
                                 score_threshold, pred
                             )
 
-                            # emil
-                            print("np.shape(pred_filtered):")
-                            print(np.shape(pred_filtered))
-
                             # emil saves predictions
-                            plt.imsave("/well/lindgren/users/swf744/git/HAPPY/projects/adipose/tmpPred_"+str(tile_indexes[~empty_mask][i])+".png", pred_filtered[0])
+                            plt.imsave("/well/lindgren/users/swf744/git/HAPPY/projects/adipose/tmpPred/tmpPred_"+str(tile_indexes[~empty_mask][i])+".png", pred_filtered[0])
 
                             pred_polygons = pred_saver.draw_polygons_from_mask(
                                 # emil - this should probably be fixed
@@ -171,7 +159,7 @@ def run_seg_eval(
                     break
 
     if not early_break and not pred_saver.file.segs_done:
-        pred_saver.apply_nuclei_post_processing(cluster=True, remove_edges=True)
+        pred_saver.apply_seg_post_processing(overlap=True)
         pred_saver.commit_valid_nuclei_predictions()
 
 

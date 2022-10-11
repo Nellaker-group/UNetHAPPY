@@ -48,7 +48,7 @@ class PredictionString(BaseModel):
     polyID = IntegerField()
 
     class Meta:
-        primary_key = CompositeKey("run", "polyXY")
+        primary_key = CompositeKey("run", "polyXY", "polyID")
 
 
 class TileState(BaseModel):
@@ -76,7 +76,8 @@ class UnvalidatedPredictionString(BaseModel):
     run = ForeignKeyField(EvalRun, backref="unvalidated_predictions_string")
     polyXY = TextField()
     polyID =  IntegerField()
+    tile_index = IntegerField()
     is_valid = BooleanField(default=False)
 
     class Meta:
-        primary_key = CompositeKey("run", "polyXY")
+        primary_key = CompositeKey("run", "polyXY","polyID","tile_index")

@@ -97,17 +97,7 @@ class BioFormatsFile(Reader):
             avail_img,
             out=full_img[:bounded_h, :bounded_w],
         )
-        # emil
-        print("full_img")
-        print(full_img)
-        full_imgTMP = np.copy(full_img)
-        full_imgTMP[:, :, 0] = full_img[:, :, 2]
-        full_imgTMP[:, :, 1] = full_img[:, :, 1]
-        full_imgTMP[:, :, 2] = full_img[:, :, 0]
-        print("full_imgTMP")
-        print(full_imgTMP)
         return full_imgTMP
-        # return full_img
 
     def stop_vm(self):
         javabridge.kill_vm()
