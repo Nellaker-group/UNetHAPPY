@@ -145,20 +145,9 @@ def get_all_unvalidated_seg_preds(run_id):
         UnvalidatedPredictionString.select(UnvalidatedPredictionString.polyXY)
         .where(UnvalidatedPredictionString.run == run_id)
     )
-    # emil
-    print("preds")
-    #print(preds[0])
-    #print(preds[0:3])
-    print(preds.__class__)
     preds2 = list(preds)
-    print("preds2")
-    #print(preds2[0])
-    #print(preds2[0:3])
-    print(preds2.__class__)
     listie = [dic.polyXY for dic in preds2] 
     return listie
-    # turns list of dicts into a dict of lists
-    #return {k: [dic[k] for dic in preds] for k in preds[0]}
 
 
 # right now this does the same as save_pred_workings() - however that should probably change
