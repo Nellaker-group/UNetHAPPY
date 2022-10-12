@@ -71,11 +71,6 @@ def get_msfile_by_run(run_id):
 def _init_msfile(run):
     full_slide_path = str(Path(run.slide.lab.slides_dir) / run.slide.slide_name)
     reader = Reader.new(full_slide_path, run.slide.lvl_x)
-    ## emil 
-    print("run.pixel_size:")
-    print(run.pixel_size)
-    print("run.slide.pixel_size:")
-    print(run.slide.pixel_size)
     return MicroscopeFile(
         run.id,
         reader,

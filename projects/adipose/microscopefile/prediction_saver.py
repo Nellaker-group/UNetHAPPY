@@ -21,38 +21,10 @@ from PIL import Image                                      # (pip install Pillow
 import numpy as np                                         # (pip install numpy)
 from skimage import measure                                # (pip install scikit-image)
 from shapely.geometry import Polygon, MultiPolygon, shape  # (pip install Shapely)
-from shapely.ops import unary_union
-from geojson import Point, Feature, FeatureCollection, dump
 
 import db.eval_runs_interface as db
-
-def merge_polys(new_poly, all_polys):
-    all_polys_list = []
-    for existing_poly in all_polys:
-        if new_poly.intersects(existing_poly):
-            new_poly = unary_union([new_poly, existing_poly])
-        else:
-            all_polys_list.append(existing_poly)
-    all_polys_list.append(new_poly)
-    return all_polys_list
-
-def writeToGeoJSON(masterList, filename):
-    number=0
-    features = []
-    for poly in masterList: 
-        if poly.type == 'Polygon':
-            features.append(Feature(geometry=Polygon([(x,y) for x,y in poly.exterior.coords]), properties={"id": str(number)}))
-        if poly.type == 'MultiPolygon':            
-            mycoordslist = [list(x.exterior.coords) for x in poly.geoms]
-            ll=[x for xs in mycoordslist for x in xs]
-            features.append(Feature(geometry=Polygon(ll), properties={"id": str(number)}))
-        number+=1
-    feature_collection = FeatureCollection(features)        
-    ## I add another key to the FeatureCollection dictionary where it can look up max ID, so it knows which ID to work on when adding elements
-    feature_collection["maxID"]=number
-    with open(filename,"w") as outfile:
-        dump(feature_collection, outfile) 
-    outfile.close()
+import data.geojsoner as gj
+import data.merge_polygons as mp
 
 class PredictionSaver:
     def __init__(self, microscopefile):
@@ -93,8 +65,6 @@ class PredictionSaver:
 
     # emil - should this function be here? This file stores the polygons after drawn on the mask
     def draw_polygons_from_mask(self, mask, tile_index):
-        tile_x = self.file.tile_xy_list[tile_index][0]
-        tile_y = self.file.tile_xy_list[tile_index][1]
         w,h=np.shape(mask[0])    
         # emil
         padded_mask=np.zeros((w+2,h+2),dtype="uint8")    
@@ -111,7 +81,7 @@ class PredictionSaver:
             # Emil has added X and Y coordinates to get global WSI coordinates
             for i in range(len(contour)):
                 row, col = contour[i]
-                contour[i] = (col - 1 + tile_x, row - 1 + tile_y)
+                contour[i] = (col - 1, row - 1)
             # Make a polygon and simplify it
             poly = Polygon(contour)
             poly = poly.simplify(1.0, preserve_topology=False)
@@ -145,36 +115,16 @@ class PredictionSaver:
             poly=Polygon([(x,y) for x,y in db.stringListTuple2coordinates(seg)])
             seg_list.append(poly)
 
-        print("seg_list[0]")
-        print(seg_list[0])
-        print(seg_list[9000])
-        print(seg_list[9000].__class__)
-        print(len(seg_list))
-        
         merged_polys_list = []
-
-        tmp = 0
-        for poly in seg_list:
-            merged_polys_list = merge_polys(poly, merged_polys_list)
-            tmp += 1
-
-        print("tmp")
-        print(tmp)
-        # emil perhaps we can do the overlap thing here
         if overlap:            
-            pass
+            for poly in seg_list:
+                merged_polys_list = mp.merge_polys(poly, merged_polys_list)
 
-        print("merged_polys_list")
-        print(merged_polys_list[0])
-        print(len(merged_polys_list))
-        
+        gj.writeToGeoJSON(merged_polys_list, "merged_polys_list.geojson")
 
-        writeToGeoJSON(merged_polys_list, "merged_polys_list.geojson")
-
-            # emil do the overlap thing here
-            #nuclei_preds = self.cluster_multi_detections(nuclei_preds)
+        #nuclei_preds = self.cluster_multi_detections(nuclei_preds)
         # and perhaps filter off too small and too big ones
-        db.validate_pred_workings(self.id, nuclei_preds)
+        db.validate_pred_workings(self.id, seg_preds)
         self.file.mark_finished_nuclei()
 
 

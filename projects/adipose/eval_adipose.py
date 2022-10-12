@@ -85,6 +85,9 @@ def run_seg_eval(
     early_break = False
     tiles_to_evaluate = db.get_num_remaining_tiles(pred_saver.id)
     model.eval()
+    # emil 
+    tmpCounter = 0
+    # emil - END
     with torch.no_grad():
         with tqdm(total=tiles_to_evaluate) as pbar:
             for batch in dataset:
@@ -121,9 +124,6 @@ def run_seg_eval(
                                 np.expand_dims(non_empty_imgs[i], axis=0)
                             ).to(device)
 
-                            print("np.shape(non_empty_imgs[i])")
-                            print(np.shape(non_empty_imgs[i]))
-                            # emil
                             label = torch.from_numpy(
                                 np.expand_dims(np.zeros(batch['dim'][i]), axis=0)
                             ).to(device)
@@ -158,10 +158,14 @@ def run_seg_eval(
                     early_break = True
                     break
 
-    if not early_break and not pred_saver.file.segs_done:
-        pred_saver.apply_seg_post_processing(overlap=True)
-        pred_saver.commit_valid_nuclei_predictions()
+    pred_saver.apply_seg_post_processing(overlap=True)
+    pred_saver.commit_valid_nuclei_predictions()
 
+    # emil
+    #if not early_break and not pred_saver.file.segs_done:
+    #    pred_saver.apply_seg_post_processing(overlap=True)
+    #    pred_saver.commit_valid_nuclei_predictions()
+    # emil - END
 
 def clean_up(pred_saver):
     ms_file = pred_saver.file

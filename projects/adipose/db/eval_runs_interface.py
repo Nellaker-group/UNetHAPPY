@@ -147,13 +147,13 @@ def get_all_unvalidated_seg_preds(run_id):
     )
     # emil
     print("preds")
-    print(preds[0])
-    print(preds[0:3])
+    #print(preds[0])
+    #print(preds[0:3])
     print(preds.__class__)
     preds2 = list(preds)
     print("preds2")
-    print(preds2[0])
-    print(preds2[0:3])
+    #print(preds2[0])
+    #print(preds2[0:3])
     print(preds2.__class__)
     listie = [dic.polyXY for dic in preds2] 
     return listie
