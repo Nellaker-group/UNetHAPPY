@@ -107,7 +107,7 @@ class PredictionSaver:
 
 
 
-    def apply_seg_post_processing(self, overlap=False):
+    def apply_seg_post_processing(self, overlap=True):
         seg_preds = db.get_all_unvalidated_seg_preds(self.id)
         seg_list = []
 
@@ -120,12 +120,25 @@ class PredictionSaver:
             for poly in seg_list:
                 merged_polys_list = mp.merge_polys(poly, merged_polys_list)
 
-        gj.writeToGeoJSON(merged_polys_list, "merged_polys_list.geojson")
+        merged_coords = []
+        polyID=0
+        for poly in merged_polys_list:
+            items = {}
+            if poly.type == 'Polygon':
+                ## extract x and y of points along edge
+                items["polyXY"] = str([(x,y) for x,y in poly.exterior.coords])
+                items["polyID"] = polyID
+            if poly.type == 'MultiPolygon':
+                tmpcoordslist = [x.exterior.coords for x in poly.geoms]
+                items["polyXY"] = str([(x,y) for x,y in tmpcoordslist])
+                items["polyID"] = polyID
+            merged_coords.append(items)
+            polyID += 1
 
         #nuclei_preds = self.cluster_multi_detections(nuclei_preds)
         # and perhaps filter off too small and too big ones
-        db.validate_pred_workings(self.id, seg_preds)
-        self.file.mark_finished_nuclei()
+        db.validate_pred_workings(self.id, merged_coords)
+        self.file.mark_finished_seg()
 
 
     # Inserts valid/non duplicate predictions into Predictions table

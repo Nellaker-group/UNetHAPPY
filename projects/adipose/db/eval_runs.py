@@ -29,7 +29,7 @@ class EvalRun(BaseModel):
     subsect_w = IntegerField(null=True)
     subsect_h = IntegerField(null=True)
     embeddings_path = TextField(null=True)
-    segs_done = BooleanField(default=False)
+    seg_done = BooleanField(default=False)
 
 
 class Prediction(BaseModel):
@@ -44,11 +44,11 @@ class Prediction(BaseModel):
 
 class PredictionString(BaseModel):
     run = ForeignKeyField(EvalRun, backref="predictions_string")
-    polyXY = TextField()
     polyID = IntegerField()
+    polyXY = TextField()
 
     class Meta:
-        primary_key = CompositeKey("run", "polyXY", "polyID")
+        primary_key = CompositeKey("run", "polyXY")
 
 
 class TileState(BaseModel):
@@ -80,4 +80,4 @@ class UnvalidatedPredictionString(BaseModel):
     is_valid = BooleanField(default=False)
 
     class Meta:
-        primary_key = CompositeKey("run", "polyXY","polyID","tile_index")
+        primary_key = CompositeKey("run", "polyXY","tile_index")

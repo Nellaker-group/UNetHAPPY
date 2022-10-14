@@ -20,7 +20,7 @@ class MicroscopeFile:
         subsect_y,
         subsect_h,
         subsect_w,
-        segs_done,
+        seg_done,
     ):
         self.id = id
         self.reader = reader
@@ -33,7 +33,7 @@ class MicroscopeFile:
         self.subsect_y = subsect_y
         self.subsect_h = subsect_h
         self.subsect_w = subsect_w
-        self.segs_done = segs_done
+        self.seg_done = seg_done
 
         self.slide_pixel_size = self.reader.get_pixel_size(slide_pixel_size)
         self.rescale_ratio = self._get_rescale_ratio()
@@ -41,10 +41,10 @@ class MicroscopeFile:
         self.max_slide_height = self.reader.max_slide_height
 
         # STATE
-        if segs_done:
+        if seg_done:
             print("This evaluation run has been completed. Nuclei and cells are done")
 
-        if not segs_done:
+        if not seg_done:
             if db.run_state_exists(id):
                 print("getting tile coordinates from db")
                 self.tile_xy_list = db.get_run_state(id)
@@ -69,13 +69,9 @@ class MicroscopeFile:
             num_rows, num_columns = self._get_num_rows_cols(w, h, max_x, max_y, overlap)
             return num_rows * num_columns
 
-    def mark_finished_nuclei(self):
-        self.nucs_done = True
-        db.mark_nuclei_as_done(self.id)
-
-    def mark_finished_cells(self):
-        self.cells_done = True
-        db.mark_cells_as_done(self.id)
+    def mark_finished_seg(self):
+        self.seg_done = True
+        db.mark_seg_as_done(self.id)
 
     # Returns rescaled image at (x,y) coords with specified width and height
     def get_tile_by_coords(self, x, y, w, h):

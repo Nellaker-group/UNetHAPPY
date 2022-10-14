@@ -84,5 +84,5 @@ def _init_msfile(run):
         run.subsect_y,
         run.subsect_h,
         run.subsect_w,
-        run.segs_done,
+        run.seg_done,
     )

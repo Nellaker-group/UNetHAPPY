@@ -111,7 +111,7 @@ def mark_finished_tiles(run_id, tile_indexes):
         query.execute()
 
 
-def mark_segment_as_done(run_id):
+def mark_seg_as_done(run_id):
     eval_run = EvalRun.get_by_id(run_id)
     eval_run.seg_done = True
     eval_run.save()
@@ -160,17 +160,14 @@ def commit_pred_workings(run_id, coords):
 
 # this should probably be utilised at some point
 def validate_pred_workings(run_id, valid_coords):
-    print(f"marking {len(valid_coords)} nuclei as valid ")
-    batch = 100000
+    # valid_coords looks like this [ (items["polyXY"], items["polyID"]), ... ]
+    print(f"marking {len(valid_coords)} polygons as valid ")
+    fields = [PredictionString.run, PredictionString.polyID, PredictionString.polyXY]
+    data = [(run_id, valid_coords[i]["polyID"], valid_coords[i]["polyXY"]) for i in range(len(valid_coords))]
     with database.atomic():
-        for i in range(0, len(valid_coords), batch):
-            coords_vl = ValuesList(valid_coords[i : i + batch], columns=("x", "y"))
-            rhs = EnclosedNodeList([coords_vl])
-            query = UnvalidatedPrediction.update(is_valid=True).where(
-                (UnvalidatedPrediction.run == run_id)
-                & (Tuple(UnvalidatedPrediction.x, UnvalidatedPrediction.y) << rhs)
-            )
-            query.execute()
+        for batch in chunked(data, 10):
+            PredictionString.insert_many(batch, fields=fields).execute()
+
 
 
 def commit_pred_workingsOLD(run_id):

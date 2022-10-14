@@ -85,9 +85,6 @@ def run_seg_eval(
     early_break = False
     tiles_to_evaluate = db.get_num_remaining_tiles(pred_saver.id)
     model.eval()
-    # emil 
-    tmpCounter = 0
-    # emil - END
     with torch.no_grad():
         with tqdm(total=tiles_to_evaluate) as pbar:
             for batch in dataset:
@@ -141,31 +138,20 @@ def run_seg_eval(
                                 score_threshold, pred
                             )
 
-                            # emil saves predictions
-                            plt.imsave("/well/lindgren/users/swf744/git/HAPPY/projects/adipose/tmpPred/tmpPred_"+str(tile_indexes[~empty_mask][i])+".png", pred_filtered[0])
-
                             pred_polygons = pred_saver.draw_polygons_from_mask(
-                                # emil - this should probably be fixed
-                                # pred_filtered, i
                                 pred_filtered, i
                             )
 
                             pred_saver.save_seg(non_empty_ind, pred_polygons)
-                            #pred_saver.save_seg(non_empty_ind, pred_polygons)
                             pbar.update()
 
                 else:
                     early_break = True
                     break
 
-    pred_saver.apply_seg_post_processing(overlap=True)
-    pred_saver.commit_valid_nuclei_predictions()
-
-    # emil
-    #if not early_break and not pred_saver.file.segs_done:
-    #    pred_saver.apply_seg_post_processing(overlap=True)
-    #    pred_saver.commit_valid_nuclei_predictions()
-    # emil - END
+    if not early_break and not pred_saver.file.seg_done:
+        pred_saver.apply_seg_post_processing(overlap=True)
+        #pred_saver.commit_valid_seg_predictions()
 
 def clean_up(pred_saver):
     ms_file = pred_saver.file

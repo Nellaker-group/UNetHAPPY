@@ -16,7 +16,7 @@ def main(
     seg_model_id: Optional[int] = None,
     run_id: Optional[int] = None,
     slide_id: Optional[int] = None,
-    seg_num_workers: int = 1,
+    seg_num_workers: int = 10,
     score_threshold: float = 0.8,
     # emil chainged batch to 1
     seg_batch_size: int = 2,
