@@ -150,6 +150,16 @@ def get_all_unvalidated_seg_preds(run_id):
     return listie
 
 
+def get_all_validated_seg_preds(run_id):
+    preds = (
+        PredictionString.select(PredictionString.polyXY)
+        .where(PredictionString.run == run_id)
+    )
+    preds2 = list(preds)
+    listie = [dic.polyXY for dic in preds2] 
+    return listie
+
+
 # right now this does the same as save_pred_workings() - however that should probably change
 def commit_pred_workings(run_id, coords):
     with database.atomic():
@@ -235,3 +245,10 @@ def get_nuclei_in_range(run_id, min_x, min_y, max_x, max_y):
         )
         .tuples()
     )
+
+
+
+def get_slide_name(run_id):    
+    eval = EvalRun.get_by_id(run_id)
+    slide = Slide.get_by_id(eval.slide_id)
+    return(slide.slide_name)
