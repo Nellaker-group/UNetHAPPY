@@ -54,7 +54,8 @@ class PredictionSaver:
                     items["polyXY"] = str([(x+tile_x,y+tile_y) for x,y in poly.exterior.coords])
                     items["polyID"] = polyID
                 if poly.type == 'MultiPolygon':
-                    tmpcoordslist = [x.exterior.coords for x in poly.geoms]
+                    coordslist = [x.exterior.coords for x in poly.geoms]
+                    tmpcoordslist=[x for xs in coordslist for x in xs]
                     items["polyXY"] = str([(x+tile_x,y+tile_y) for x,y in tmpcoordslist])
                     items["polyID"] = polyID
                 coords.append(items)
@@ -113,7 +114,7 @@ class PredictionSaver:
 
         for seg in seg_preds:            
             poly=Polygon([(x,y) for x,y in db.stringListTuple2coordinates(seg)])
-            seg_list.append(poly)
+            seg_list.append(poly)                
 
         merged_polys_list = []
         if overlap:            
@@ -129,7 +130,8 @@ class PredictionSaver:
                 items["polyXY"] = str([(x,y) for x,y in poly.exterior.coords])
                 items["polyID"] = polyID
             if poly.type == 'MultiPolygon':
-                tmpcoordslist = [x.exterior.coords for x in poly.geoms]
+                coordslist = [x.exterior.coords for x in poly.geoms]
+                tmpcoordslist=[x for xs in coordslist for x in xs]
                 items["polyXY"] = str([(x,y) for x,y in tmpcoordslist])
                 items["polyID"] = polyID
             merged_coords.append(items)

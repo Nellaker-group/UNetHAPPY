@@ -151,6 +151,7 @@ def run_seg_eval(
 
     if not early_break and not pred_saver.file.seg_done:
         pred_saver.apply_seg_post_processing(overlap=True)
+        # emil let this function do something
         #pred_saver.commit_valid_seg_predictions()
 
 def clean_up(pred_saver):
