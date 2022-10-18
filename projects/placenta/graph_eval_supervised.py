@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Optional, List
+import time
 
 import typer
 import torch
@@ -18,7 +19,7 @@ from happy.utils.utils import get_device, get_project_dir
 from happy.organs.organs import get_organ
 from graphs.graphs.create_graph import get_raw_data, setup_graph, process_knts
 from graphs.graphs.embeddings import fit_umap, plot_cell_graph_umap, plot_tissue_umap
-from graphs.graphs.utils import get_feature
+from graphs.graphs.utils import get_feature, set_seed
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
 from graphs.graphs.create_graph import get_groundtruth_patch
@@ -26,13 +27,13 @@ from graphs.graphs.graph_supervised import (
     inference,
     setup_node_splits,
     evaluate,
+    evaluation_plots,
     inference_mlp,
 )
 
-np.random.seed(2)
-
 
 def main(
+    seed: int = 0,
     project_name: str = "placenta",
     organ_name: str = "placenta",
     exp_name: str = typer.Option(...),
@@ -56,6 +57,7 @@ def main(
     tissue_label_tsv: Optional[str] = None,
     verbose: bool = True,
 ):
+    set_seed(seed)
     device = get_device()
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
@@ -163,6 +165,7 @@ def main(
         )
 
     # Run inference and get predicted labels for nodes
+    timer_start = time.time()
     if model_type == "sup_mlp" or model_type == "sup_sign":
         out, graph_embeddings, predicted_labels = inference_mlp(
             model, data, eval_loader, device
@@ -171,6 +174,8 @@ def main(
         out, graph_embeddings, predicted_labels = inference(
             model, x, eval_loader, device
         )
+    timer_end = time.time()
+    print(f"total time: {timer_end - timer_start:.4f} s")
 
     # restrict to only data in patch_files using val_mask
     val_nodes = data.val_mask
@@ -206,17 +211,12 @@ def main(
     # Print some prediction count info
     tissue_label_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
     _print_prediction_stats(predicted_labels, tissue_label_mapping)
+    _print_prediction_stats(tissue_class, tissue_label_mapping)
 
     # Evaluate against ground truth tissue annotations
     if tissue_label_tsv is not None:
-        evaluate(
-            tissue_class,
-            predicted_labels,
-            out,
-            organ,
-            save_path,
-            remove_unlabelled,
-        )
+        evaluate(tissue_class, predicted_labels, out, organ, remove_unlabelled)
+        evaluation_plots(tissue_class, predicted_labels, out, organ, save_path)
 
     # Visualise cluster labels on graph patch
     print("Generating image")
@@ -254,7 +254,7 @@ def _print_prediction_stats(predicted_labels, tissue_label_mapping):
     for label in unique:
         unique_labels.append(tissue_label_mapping[label])
     unique_counts = dict(zip(unique_labels, counts))
-    print(f"Predictions per label: {unique_counts}")
+    print(f"Counts per label: {unique_counts}")
 
 
 def _save_tissue_preds_as_tsv(predicted_labels, coords, save_path):

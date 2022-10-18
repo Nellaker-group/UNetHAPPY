@@ -22,6 +22,8 @@ from sklearn.metrics import (
     cohen_kappa_score,
     roc_auc_score,
     matthews_corrcoef,
+    recall_score,
+    precision_score,
 )
 import numpy as np
 import pandas as pd
@@ -651,7 +653,7 @@ def inference_mlp(model, data, eval_loader, device):
     return out, graph_embeddings, predicted_labels
 
 
-def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabelled):
+def evaluate(tissue_class, predicted_labels, out, organ, remove_unlabelled):
     tissue_ids = [tissue.id for tissue in organ.tissues]
     if remove_unlabelled:
         tissue_ids = tissue_ids[1:]
@@ -659,6 +661,7 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
     accuracy = accuracy_score(tissue_class, predicted_labels)
     balanced_accuracy = balanced_accuracy_score(tissue_class, predicted_labels)
     top_2_accuracy = top_k_accuracy_score(tissue_class, out, k=2, labels=tissue_ids)
+    top_3_accuracy = top_k_accuracy_score(tissue_class, out, k=3, labels=tissue_ids)
     f1_macro = f1_score(tissue_class, predicted_labels, average="macro")
     cohen_kappa = cohen_kappa_score(tissue_class, predicted_labels)
     mcc = matthews_corrcoef(tissue_class, predicted_labels)
@@ -679,6 +682,7 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
     print("-----------------------")
     print(f"Accuracy: {accuracy:.6f}")
     print(f"Top 2 accuracy: {top_2_accuracy:.6f}")
+    print(f"Top 3 accuracy: {top_3_accuracy:.6f}")
     print(f"Balanced accuracy: {balanced_accuracy:.6f}")
     print(f"F1 macro score: {f1_macro:.6f}")
     print(f"Cohen's Kappa score: {cohen_kappa:.6f}")
@@ -687,20 +691,73 @@ def evaluate(tissue_class, predicted_labels, out, organ, run_path, remove_unlabe
     print(f"Weighted ROC AUC macro: {weighted_roc_auc:.6f}")
     print("-----------------------")
 
+
+def evaluation_plots(tissue_class, predicted_labels, out, organ, run_path):
+    # Order by counts and category
+    sort_inds = [1, 2, 4, 0, 3, 5, 6, 7, 8]
+
+    tissue_mapping = {tissue.id: tissue.name for tissue in organ.tissues}
+    tissue_colours = {tissue.id: tissue.colourblind_colour for tissue in organ.tissues}
+
+    recalls = recall_score(tissue_class, predicted_labels, average=None)[sort_inds]
+    precisions = precision_score(tissue_class, predicted_labels, average=None)[
+        sort_inds
+    ]
+    print("Plotting recall and precision bar plots")
+    plt.rcParams["figure.dpi"] = 600
+    r_df = pd.DataFrame(recalls)
+    plt.figure(figsize=(10, 3))
+    sns.set(style="white", font_scale=1.2)
+    colours = [tissue_colours[n] for n in np.unique(tissue_class)[sort_inds]]
+    ax = sns.barplot(data=r_df.T, palette=colours)
+    ax.set(ylabel="Recall", xticklabels=[])
+    ax.tick_params(bottom=False)
+    sns.despine(bottom=True)
+    plt.savefig(run_path / "recalls.png")
+    plt.close()
+    plt.clf()
+
+    p_df = pd.DataFrame(precisions)
+    plt.rcParams["figure.dpi"] = 600
+    plt.figure(figsize=(3, 10))
+    sns.set(style="white", font_scale=1.2)
+    ax = sns.barplot(data=p_df.T, palette=colours, orient="h")
+    ax.set(xlabel="Precision", yticklabels=[])
+    ax.tick_params(left=False)
+    sns.despine(left=True)
+    plt.savefig(run_path / "precisions.png")
+    plt.close()
+    plt.clf()
+
+    print("Plotting tissue counts bar plot")
+    _, tissue_counts = np.unique(tissue_class, return_counts=True)
+    l_df = pd.DataFrame(tissue_counts[sort_inds])
+    plt.rcParams["figure.dpi"] = 600
+    plt.figure(figsize=(10, 3))
+    sns.set(style="white", font_scale=1.2)
+    ax = sns.barplot(data=l_df.T, palette=colours)
+    ax.set(ylabel="Count", xticklabels=[])
+    ax.tick_params(bottom=False)
+    sns.despine(bottom=True)
+    plt.savefig(run_path / "tissue_counts.png")
+    plt.close()
+    plt.clf()
+
     print("Plotting confusion matrices")
     cm_df, cm_df_props = get_tissue_confusion_matrix(
-        organ, predicted_labels, tissue_class, proportion_label=True
+        organ, predicted_labels, tissue_class, proportion_label=False
     )
+    sorted_labels = [tissue_mapping[n] for n in np.unique(tissue_class)[sort_inds]]
     plt.figure(figsize=(10, 8))
-    sns.set(font_scale=1.1)
-    plot_confusion_matrix(cm_df, "All Tissues", run_path, "d")
+    sns.set(font_scale=1)
+    plot_confusion_matrix(cm_df, "All Tissues", run_path, "d", reorder=sorted_labels)
     plt.figure(figsize=(10, 8))
-    sns.set(font_scale=1.1)
-    plot_confusion_matrix(cm_df_props, "All Tissues Proportion", run_path, ".2f")
+    sns.set(font_scale=1)
+    plot_confusion_matrix(
+        cm_df_props, "All Tissues Proportion", run_path, ".2f", reorder=sorted_labels
+    )
 
     print("Plotting pr curves")
-    tissue_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
-    tissue_colours = {tissue.id: tissue.colourblind_colour for tissue in organ.tissues}
     plot_tissue_pr_curves(
         tissue_mapping,
         tissue_colours,

@@ -6,15 +6,12 @@ import pandas as pd
 
 from happy.organs.organs import get_organ
 import happy.db.eval_runs_interface as db
-from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
 from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
 from projects.placenta.graphs.graphs.create_graph import (
     get_groundtruth_patch,
-    process_knts,
     get_raw_data,
 )
 from happy.utils.utils import get_project_dir
-from happy.hdf5.utils import filter_by_cell_type
 import h5py
 
 
@@ -64,19 +61,6 @@ def main(
             "plots/grouped_tissue.tsv", sep="\t", encoding="utf-8", index=False
         )
 
-    predictions, embeddings, coords, confidence = filter_by_cell_type(
-        predictions, embeddings, coords, confidence, "KNT", organ
-    )
-
-    visualize_points(
-        organ,
-        "plots/grouped_KNT.png",
-        coords,
-        labels=predictions,
-        width=width,
-        height=height,
-    )
-
     if make_tsv:
         print(f"Making tsv file...")
         label_predictions = [cell_label_mapping[x] for x in predictions]
@@ -86,20 +70,12 @@ def main(
         df.to_csv("plots/grouped_knt_cells.tsv", sep="\t", index=False)
 
         print(f"Making h5py file...")
-        total_cells = len(predictions)
         new_h5_path = f"plots/run_{run_id}"
-        with h5py.File(new_h5_path, "w-") as f:
-            f.create_dataset("predictions", (total_cells,), dtype="int8")
-            f.create_dataset("embeddings", (total_cells, 64), dtype="float32")
-            f.create_dataset("confidence", (total_cells,), dtype="float16")
-            f.create_dataset("coords", (total_cells, 2), dtype="uint32")
-
-        with h5py.File(new_h5_path, "r+") as f:
-            end = len(predictions)
-            f["predictions"][0:end] = predictions
-            f["embeddings"][0:end] = embeddings
-            f["confidence"][0:end] = confidence
-            f["coords"][0:end] = coords
+        with h5py.File(new_h5_path, "w") as f:
+            f.create_dataset("predictions", data=predictions, dtype="int8")
+            f.create_dataset("embeddings", data=embeddings, dtype="float32")
+            f.create_dataset("confidence", data=confidence, dtype="float16")
+            f.create_dataset("coords", data=coords, dtype="uint32")
 
 
 if __name__ == "__main__":
