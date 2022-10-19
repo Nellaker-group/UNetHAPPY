@@ -22,7 +22,7 @@ def setup_run(project_dir, exp_name, dataset_type):
 
 
 def get_cell_confusion_matrix(organ, pred, truth, proportion_label=False):
-    cell_labels = [cell.label for cell in organ.cells]
+    cell_labels = [cell.name for cell in organ.cells]
     cell_ids = {cell.id for cell in organ.cells}
 
     unique_values_in_pred = set(pred)
