@@ -299,7 +299,7 @@ def visualize_points(
         point_size = 1 if len(pos) >= 10000 else 2
 
     figsize = _calc_figsize(pos, width, height)
-    fig = plt.figure(figsize=figsize, dpi=150)
+    fig = plt.figure(figsize=figsize, dpi=300)
 
     if edge_index is not None:
         line_collection = []

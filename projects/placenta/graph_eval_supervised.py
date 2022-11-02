@@ -211,10 +211,10 @@ def main(
     # Print some prediction count info
     tissue_label_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
     _print_prediction_stats(predicted_labels, tissue_label_mapping)
-    _print_prediction_stats(tissue_class, tissue_label_mapping)
 
     # Evaluate against ground truth tissue annotations
     if tissue_label_tsv is not None:
+        _print_prediction_stats(tissue_class, tissue_label_mapping)
         evaluate(tissue_class, predicted_labels, out, organ, remove_unlabelled)
         evaluation_plots(tissue_class, predicted_labels, out, organ, save_path)
 
@@ -258,6 +258,7 @@ def _print_prediction_stats(predicted_labels, tissue_label_mapping):
 
 
 def _save_tissue_preds_as_tsv(predicted_labels, coords, save_path):
+    print("Saving all tissue predictions as a tsv")
     tissue_preds_df = pd.DataFrame(
         {
             "x": coords[:, 0].numpy().astype(int),

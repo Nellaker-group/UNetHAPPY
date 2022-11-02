@@ -13,26 +13,26 @@ from projects.placenta.results.labelbox.path_mapping import PATHOLOGIST_MAPPING
 
 
 ALL_LABELBOX_LABELS = [
-    "villus_sprout",
     "terminal_villi",
     "mature_intermediary_villi",
-    "anchoring_villi",
     "stem_villi",
+    "villus_sprout",
+    "anchoring_villi",
     "chorion_amnion",
     "basal_plate_septa",
     "fibrin",
     "avascular_villi",
 ]
 MODEL_LABELS = [
-    "Sprout",
-    "TVilli",
-    "MIVilli",
-    "AVilli",
-    "SVilli",
-    "Chorion",
-    "Maternal",
+    "Terminal Villi",
+    "Mature Intermediate Villi",
+    "Stem Villi",
+    "Villus Sprout",
+    "Anchoring Villi",
+    "Chorionic Plate",
+    "Basal Plate/Septum",
     "Fibrin",
-    "Avascular",
+    "Avascular Villi",
 ]
 
 
@@ -260,7 +260,7 @@ def pathologist_confusion(combined_majority_df):
         .fillna(0)
         .astype(float)
     )
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(10, 10))
     sns.set(font_scale=1.1)
     plt.rcParams["figure.dpi"] = 600
     ax = sns.heatmap(
