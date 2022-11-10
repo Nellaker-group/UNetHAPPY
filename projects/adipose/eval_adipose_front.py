@@ -21,9 +21,7 @@ def main(
     # emil chainged batch to 1
     seg_batch_size: int = 2,
     run_segment_pipeline: bool = True,
-    # emil
-    # get_cuda_device_num: bool = False,
-    get_cuda_device_num: bool = True,
+    get_cuda_device_num: bool = False,
 ):
     """Runs inference over a WSI for segment detection, cell classification, or both.
 

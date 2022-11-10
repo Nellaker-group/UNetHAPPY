@@ -26,6 +26,9 @@ import db.eval_runs_interface as db
 import data.geojsoner as gj
 import data.merge_polygons as mp
 
+# emil
+import pickle
+
 class PredictionSaver:
     def __init__(self, microscopefile):
         self.file = microscopefile
@@ -112,18 +115,20 @@ class PredictionSaver:
         seg_preds = db.get_all_unvalidated_seg_preds(self.id)
         seg_list = []
 
-        for seg in seg_preds:            
+        for seg in seg_preds:
             poly=Polygon([(x,y) for x,y in db.stringListTuple2coordinates(seg)])
-            seg_list.append(poly)                
+            seg_list.append(poly) 
+            
+        with open('coords_by_tile.obj', 'wb') as f:
+            pickle.dump(seg_list, f)
 
         merged_polys_list = []
         if overlap:            
-            for poly in seg_list:
-                merged_polys_list = mp.merge_polys(poly, merged_polys_list)
+            merged_polys_list = merge_polys(seg_list)
 
         merged_coords = []
         polyID=0
-        for poly in merged_polys_list:
+        for poly in merged_polys_list[0]:
             items = {}
             if poly.type == 'Polygon':
                 ## extract x and y of points along edge

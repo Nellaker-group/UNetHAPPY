@@ -134,7 +134,7 @@ def save_pred_workings(run_id, coords, tile_index):
     # I put the db.atomic as this is apparently faster according to the peewee documentation
     # coords is a list of dicts with the keys according to the columns of the database
     # coords looks like this [ (items["polyXY"], items["polyID"]), ... ]
-    fields = [UnvalidatedPredictionString.run, UnvalidatedPredictionString.polyID, UnvalidatedPredictionString.polyXY, UnvalidatedPredictionString.tile_index]    
+    fields = [UnvalidatedPredictionString.run, UnvalidatedPredictionString.polyID, UnvalidatedPredictionString.polyXY, UnvalidatedPredictionString.tile_index]
     data = [(run_id, coords[i]["polyID"], coords[i]["polyXY"], tile_index) for i in range(len(coords))]
     with database.atomic():
         for batch in chunked(data, 10):
