@@ -18,8 +18,10 @@ def merge_polys(new_poly, all_polys):
 # new faster version of the polygon merger - written by Phil and Chris
 def merge_polysV2(polys, debug = False):
 
+    # iniate data frame of all initial polygons
     bounds = pd.DataFrame([[*poly.bounds,False,-1] for poly in polys],columns=['min_x','min_y','max_x', 'max_y','checked','merge_start'])
     n_polys = bounds.shape[0]
+    # sort values to make binary search in pandas faster
     min_x_sorted = bounds.min_x.sort_values()
     min_y_sorted = bounds.min_y.sort_values()
     max_x_sorted = bounds.max_x.sort_values()
@@ -32,6 +34,7 @@ def merge_polysV2(polys, debug = False):
 
         #see https://stackoverflow.com/questions/31617845/how-to-select-rows-in-a-dataframe-between-two-values-in-python-pandas
 
+        #pandas series works like an R vector
         #a rectangle overlaps poly rectangle if all are true
         #min_x left of poly rect max_x
         min_x_lte_poly_max_x = pd.Series([False] * n_polys)
@@ -50,7 +53,8 @@ def merge_polysV2(polys, debug = False):
         shortlist_mask = min_x_lte_poly_max_x & max_x_gte_poly_min_x & min_y_lte_poly_max_y & max_y_gte_poly_min_y & ~bounds.checked
 
         return shortlist_mask
-
+    #check each candidate poly if intersects,
+    #recurses if box around target poly has grown - and find new candidates via get_shortlist_mask
     def find_and_merge(start_index,poly,report_recursion=0):
         if report_recursion:
             print('recursion depth %d' % report_recursion)
@@ -170,4 +174,68 @@ number of 1:1 matches %d; number of 1:many matches %d; number of missed matches 
 
     print('Completed unit tests of merge_poly')
 
+
+############################################################
+############################################################
+
+# new faster version of the polygon merger - written by Emil (with inspiration from Phil and Chris's code) using STRtree from shapely
+def merge_polysV3(polys, debug = False):
+    #shapely STRtree for searching through - returns a list of all geometries in the strtree whose extents intersect the extent of geom (poly)
+    poly_tree = STRtree(polys)
+    #for keeping track of what has been merged already
+    merged=pd.Series([False for i in range(len(polys))])
+    # for getting indexes of the polygons from STRtree (from shapely's website)
+    index_by_id = dict((id(pt), i) for i, pt in enumerate(polys))
+
+    def get_shortlist_mask(poly):
+        #get all the candidate polygons using the STRtree
+        shortlist_mask_tmp = poly_tree.query(poly)
+        #getting the indexes of the queried polygons
+        indexes = [index_by_id[id(pt)] for pt in shortlist_mask_tmp]
+        #for keeping track of polygons in query
+        counter = 0
+        shortlist_mask = []
+        #go through polygons and remove those already been merged
+        for poly in shortlist_mask_tmp:
+            #check if polygon has already been merged - because candidate polygons might have been merged - using the merged and the indexes of merged polygons
+            if not merged[indexes[counter]]:
+                shortlist_mask.append((poly,indexes[counter]))                     
+            counter += 1
+        return shortlist_mask
+
+    #check each candidate poly if intersects,
+    #recurses if box around target poly has grown - and find new candidates via get_shortlist_mask
+    def find_and_merge(poly,report_recursion=0):
+        if report_recursion:
+            print('recursion depth %d' % report_recursion)
+            report_recursion += 1
+        original_bounds = poly.bounds
+        #loop through candidates from STRtree (list of polygons)
+        for candidate_poly, candidate_index in get_shortlist_mask(poly):
+            
+            if poly.intersects(candidate_poly):
+                #marks that this polygon has been merged - because polygon once it is merged is no longer needed - the merged one is
+                merged[candidate_index] = True
+                if report_recursion:
+                    print('merge %d' % (candidate_index))
+                poly = unary_union([poly,candidate_poly])
+        if poly.bounds != original_bounds: #only need to recurse if bounds/boxes have actually changed (complete subsumption won't change bounds)
+            #recurses on the function with the new merged polygon and the updated indexes of merged polygons
+            poly = find_and_merge(poly,report_recursion=report_recursion)
+        return(poly)
+
+    report_recursion = 0
+    output_list = []
+    #it goes through all polygons
+    for index in range(len(polys)):
+        #if polygon has already been merged - do not bother - polygon once it is merged is no longer needed - the merged one is
+        if not merged[index]:
+            if debug:
+                print('poly %d' % index)
+                report_recursion = 1
+            merged[index] = True
+            output_list.append(find_and_merge(polys[index],report_recursion=report_recursion))
+        elif debug:
+            print('poly %d skipped (already checked)' % index)
+    return(output_list)
 

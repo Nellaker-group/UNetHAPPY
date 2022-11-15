@@ -54,12 +54,12 @@ class PredictionSaver:
                 ## returns a list of tuples with each (x,y)
                 if poly.type == 'Polygon':
                     ## extract x and y of points along edge
-                    items["polyXY"] = str([(x+tile_x,y+tile_y) for x,y in poly.exterior.coords])
+                    items["polyXY"] = str([(x*self.rescale_ratio+tile_x,y*self.rescale_ratio+tile_y) for x,y in poly.exterior.coords])
                     items["polyID"] = polyID
                 if poly.type == 'MultiPolygon':
                     coordslist = [x.exterior.coords for x in poly.geoms]
                     tmpcoordslist=[x for xs in coordslist for x in xs]
-                    items["polyXY"] = str([(x+tile_x,y+tile_y) for x,y in tmpcoordslist])
+                    items["polyXY"] = str([(x*self.rescale_ratio+tile_x,y*self.rescale_ratio+tile_y) for x,y in tmpcoordslist])
                     items["polyID"] = polyID
                 coords.append(items)
                 polyID += 1
@@ -121,10 +121,16 @@ class PredictionSaver:
             
         with open('coords_by_tile.obj', 'wb') as f:
             pickle.dump(seg_list, f)
+                        
+        print("list of polygons is this long:")
+        print(len(seg_list))
 
         merged_polys_list = []
         if overlap:            
-            merged_polys_list = merge_polys(seg_list)
+            merged_polys_list = mp.merge_polysV3(seg_list)
+
+        with open('coords_by_tile_merged.obj', 'wb') as f:
+            pickle.dump(merged_polys_list[0], f)
 
         merged_coords = []
         polyID=0

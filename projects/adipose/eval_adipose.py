@@ -48,7 +48,7 @@ def setup_data(slide_id, run_id, model_id, batch_size, overlap, num_workers):
     # emil the data like seg_model_id is being fed to an EvalRun database (happy/db/eval_runs.py) that is created by the get_msfile function, where all the starting parameters are given 
     # emil hardcoded target pixelsize
     ms_file = get_msfile(
-        slide_id=slide_id, run_id=run_id, seg_model_id=model_id, overlap=overlap, pixel_size = 0.4942
+        slide_id=slide_id, run_id=run_id, seg_model_id=model_id, overlap=overlap, pixel_size = 0.2500
     )
     # emil creates a PredictionSaver object from the happy/microscopefile/prediction_saver.py - it takes a microscope file as an input object 
     # emil it has several methods for storing the predictions to the databases - i need to change this to save the segmentation!!! and perhaps be able to do some post processing
