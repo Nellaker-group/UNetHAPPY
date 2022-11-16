@@ -30,6 +30,8 @@ def main(
     villus_only: bool = True,
     line_plot: bool = False,
 ):
+    """Plot cell type proportions within each tissue type for one WSI."""
+
     # Create database connection
     db.init()
     organ = get_organ("placenta")

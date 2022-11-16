@@ -27,6 +27,10 @@ def main(
     group_knts: bool = False,
     trained_with_grouped_knts: bool = False,
 ):
+    """Plot the distribution of cell and tissue types across multiple WSIs.
+    This will plot a line plot with an offset swarm plot where each point is each WSI.
+    """
+
     # Create database connection
     db.init()
     organ = get_organ("placenta")

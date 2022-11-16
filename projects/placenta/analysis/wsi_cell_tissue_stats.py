@@ -25,6 +25,8 @@ def main(
     group_knts: bool = False,
     trained_with_grouped_knts: bool = False,
 ):
+    """Plot cell type proportions within each tissue type for one WSI."""
+
     # Create database connection
     db.init()
     organ = get_organ("placenta")
