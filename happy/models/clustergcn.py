@@ -5,9 +5,10 @@ from torch_geometric.nn import SAGEConv, ClusterGCNConv, norm, JumpingKnowledge
 
 
 class ClusterGCN(nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
+    def __init__(self, in_channels, hidden_channels, out_channels, dropout, num_layers):
         super(ClusterGCN, self).__init__()
         self.num_layers = num_layers
+        self.dropout = dropout
         self.convs = nn.ModuleList()
         self.bns = nn.ModuleList()
 
@@ -23,7 +24,7 @@ class ClusterGCN(nn.Module):
             if i != len(self.convs) - 1:
                 x = self.bns[i](x)
                 x = F.relu(x)
-                x = F.dropout(x, p=0.5, training=self.training)
+                x = F.dropout(x, p=self.dropout, training=self.training)
         return F.log_softmax(x, dim=-1)
 
     def inference(self, x_all, subgraph_loader, device):
@@ -51,9 +52,10 @@ class ClusterGCN(nn.Module):
 
 
 class JumpingClusterGCN(nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers):
+    def __init__(self, in_channels, hidden_channels, out_channels, dropout, num_layers):
         super(JumpingClusterGCN, self).__init__()
         self.num_layers = num_layers
+        self.dropout = dropout
         self.convs = nn.ModuleList()
         self.bns = nn.ModuleList()
         self.jump = JumpingKnowledge(mode='cat')
@@ -71,12 +73,12 @@ class JumpingClusterGCN(nn.Module):
             x = conv(x, edge_index)
             x = self.bns[i](x)
             x = F.relu(x)
-            x = F.dropout(x, p=0.5, training=self.training)
+            x = F.dropout(x, p=self.dropout, training=self.training)
             xs.append(x)
         x = self.jump(xs)
         x = self.lin1(x)
         x = F.relu(x)
-        x = F.dropout(x, p=0.5, training=self.training)
+        x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.lin2(x)
         return F.log_softmax(x, dim=-1)
 

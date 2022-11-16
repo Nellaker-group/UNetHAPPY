@@ -2,8 +2,8 @@ from typing import Optional, List
 
 import typer
 import torch
-from torch_geometric.transforms import ToUndirected
-from torch_geometric.utils import add_self_loops
+from torch_geometric.transforms import ToUndirected, SIGN
+from torch_geometric.utils import add_self_loops, degree
 from torch_geometric.data import Batch
 
 from happy.utils.utils import get_device
@@ -12,7 +12,7 @@ from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
 from graphs.graphs.enums import FeatureArg, MethodArg, SupervisedModelsArg
-from graphs.graphs.utils import get_feature, send_graph_to_device, save_model
+from graphs.graphs.utils import get_feature, send_graph_to_device, set_seed
 from graphs.graphs import graph_supervised
 from graphs.graphs.create_graph import (
     get_raw_data,
@@ -21,10 +21,12 @@ from graphs.graphs.create_graph import (
     process_knts,
 )
 
+
 device = get_device()
 
 
 def main(
+    seed: int = 0,
     project_name: str = "placenta",
     organ_name: str = "placenta",
     exp_name: str = typer.Option(...),
@@ -33,9 +35,9 @@ def main(
     y_min: int = 0,
     width: int = -1,
     height: int = -1,
-    k: int = 6,
+    k: int = 5,
     feature: FeatureArg = FeatureArg.embeddings,
-    group_knts: bool = False,
+    group_knts: bool = True,
     pretrained: Optional[str] = None,
     top_conf: bool = False,
     model_type: SupervisedModelsArg = SupervisedModelsArg.sup_graphsage,
@@ -44,14 +46,16 @@ def main(
     num_neighbours: int = 10,
     epochs: int = 50,
     layers: int = typer.Option(...),
+    hidden_units: int = 256,
+    dropout: float = 0.5,
     learning_rate: float = 0.001,
-    weighted_loss: bool = False,
+    weighted_loss: bool = True,
     use_custom_weights: bool = True,
-    vis: bool = True,
+    vis: bool = False,
     label_type: str = "full",
     tissue_label_tsvs: List[str] = typer.Option([]),
-    val_patch_files: Optional[List[str]] = None,
-    test_patch_files: Optional[List[str]] = None,
+    val_patch_files: Optional[List[str]] = [],
+    test_patch_files: Optional[List[str]] = [],
     mask_unlabelled: bool = True,
     include_validation: bool = True,
     validation_step: int = 25,
@@ -59,19 +63,16 @@ def main(
     model_type = model_type.value
     graph_method = graph_method.value
     feature = feature.value
+    set_seed(seed)
 
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
     organ = get_organ(organ_name)
 
-    if val_patch_files is not None:
-        val_patch_files = [
-            project_dir / "config" / file for file in val_patch_files
-        ]
-    if test_patch_files is not None:
-        test_patch_files = [
-            project_dir / "config" / file for file in test_patch_files
-        ]
+    if len(val_patch_files) > 0:
+        val_patch_files = [project_dir / "config" / file for file in val_patch_files]
+    if len(test_patch_files) > 0:
+        test_patch_files = [project_dir / "config" / file for file in test_patch_files]
 
     # Setup recording of stats per batch and epoch
     logger = Logger(
@@ -101,13 +102,16 @@ def main(
                 organ, predictions, embeddings, coords, confidence, tissue_class
             )
         # Covert input cell data into a graph
-        feature_data = get_feature(feature, predictions, embeddings)
+        feature_data = get_feature(feature, predictions, embeddings, organ)
         data = setup_graph(coords, k, feature_data, graph_method, loop=False)
         data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
         data = ToUndirected()(data)
         data.edge_index, data.edge_attr = add_self_loops(
             data["edge_index"], data["edge_attr"], fill_value="mean"
         )
+        if model_type.split("_")[1] == "graphsaint":
+            row, col = data.edge_index
+            data.edge_weight = 1.0 / degree(col, data.num_nodes)[col]
 
         # Split nodes into unlabelled, training and validation sets
         if run_id == 56:
@@ -120,7 +124,7 @@ def main(
                 test_patch_files,
             )
         else:
-            if include_validation and val_patch_files == None:
+            if include_validation and len(val_patch_files) == 0:
                 data = graph_supervised.setup_node_splits(
                     data, tissue_class, mask_unlabelled, include_validation=True
                 )
@@ -132,6 +136,10 @@ def main(
 
     # Combine multiple graphs into a single graph
     data = Batch.from_data_list(datas)
+    if model_type == "sup_shadow":
+        del data.batch  # bug in pyg when using shadow model and Batch
+    elif model_type == "sup_sign":
+        data = SIGN(layers)(data)  # precompute SIGN fixed embeddings
 
     # Setup the dataloader which minibatches the graph
     train_loader, val_loader = graph_supervised.setup_dataloaders(
@@ -143,7 +151,14 @@ def main(
 
     # Setup the model
     model = graph_supervised.setup_model(
-        model_type, data, device, layers, len(organ.tissues), pretrained_path
+        model_type,
+        data,
+        device,
+        layers,
+        len(organ.tissues),
+        hidden_units,
+        dropout,
+        pretrained_path,
     )
 
     # Setup training parameters
@@ -156,10 +171,32 @@ def main(
         device,
         weighted_loss,
         use_custom_weights,
+        data=data,  # So that the SIGN dataloader can be used
     )
 
-    # Saves each run by its timestamp
+    # Saves each run by its timestamp and record params for the run
     run_path = setup_run(project_dir, f"{model_type}/{exp_name}", "graph")
+    params = graph_supervised.collect_params(
+        seed,
+        organ_name,
+        exp_name,
+        run_ids,
+        x_min,
+        y_min,
+        width,
+        height,
+        k,
+        feature,
+        graph_method,
+        batch_size,
+        num_neighbours,
+        learning_rate,
+        epochs,
+        layers,
+        weighted_loss,
+        use_custom_weights,
+    )
+    params.to_csv(run_path / "params.csv", index=False)
 
     # Train!
     try:
@@ -173,73 +210,39 @@ def main(
                 criterion,
                 train_loader,
                 device,
+                data=data,  # So that the SIGN dataloader can be used
             )
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
 
             if include_validation and (epoch % validation_step == 0 or epoch == 1):
-                train_accuracy, val_accuracy = graph_supervised.validate(
-                    model, data, val_loader, device
-                )
-                logger.log_accuracy("train_inf", epoch - 1, train_accuracy)
-                logger.log_accuracy("val", epoch - 1, val_accuracy)
+                if model_type == "sup_sign" or model_type == "sup_mlp":
+                    val_accuracy = graph_supervised.validate_mlp(
+                        model, data, val_loader, device
+                    )
+                    logger.log_accuracy("val", epoch - 1, val_accuracy)
+                else:
+                    train_accuracy, val_accuracy = graph_supervised.validate(
+                        model, data, val_loader, device
+                    )
+                    logger.log_accuracy("train_inf", epoch - 1, train_accuracy)
+                    logger.log_accuracy("val", epoch - 1, val_accuracy)
 
                 # Save new best model
                 if val_accuracy >= prev_best_val:
-                    save_model(model, run_path / f"{epoch}_graph_model.pt")
+                    graph_supervised.save_state(run_path, logger, model, epoch)
                     print("Saved best model")
                     prev_best_val = val_accuracy
 
     except KeyboardInterrupt:
-        save_hp = input("Would you like to save the hyperparameters anyway? y/n: ")
+        save_hp = input("Would you like to save anyway? y/n: ")
         if save_hp == "y":
             # Save the fully trained model
-            graph_supervised.save_state(
-                run_path,
-                logger,
-                model,
-                organ_name,
-                exp_name,
-                run_ids,
-                x_min,
-                y_min,
-                width,
-                height,
-                k,
-                feature,
-                top_conf,
-                graph_method,
-                batch_size,
-                num_neighbours,
-                learning_rate,
-                epochs,
-                layers,
-                label_type,
-            )
+            graph_supervised.save_state(run_path, logger, model, epoch)
 
     # Save the fully trained model
-    graph_supervised.save_state(
-        run_path,
-        logger,
-        model,
-        organ_name,
-        exp_name,
-        run_ids,
-        x_min,
-        y_min,
-        width,
-        height,
-        k,
-        feature,
-        top_conf,
-        graph_method,
-        batch_size,
-        num_neighbours,
-        learning_rate,
-        epochs,
-        layers,
-        label_type,
-    )
+    graph_supervised.save_state(run_path, logger, model, "final")
+    print("Saved final model")
 
 
 if __name__ == "__main__":

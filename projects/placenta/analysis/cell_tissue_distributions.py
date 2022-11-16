@@ -3,7 +3,7 @@ from typing import List
 import typer
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import matplotlib, matplotlib.pyplot as plt
 import seaborn as sns
 
 from happy.organs.organs import get_organ
@@ -30,7 +30,7 @@ def main(
     # Create database connection
     db.init()
     organ = get_organ("placenta")
-    cell_label_mapping = {cell.id: cell.label for cell in organ.cells}
+    cell_label_mapping = {cell.id: cell.name for cell in organ.cells}
     project_dir = get_project_dir(project_name)
 
     cell_prop_dfs = []
@@ -83,6 +83,9 @@ def main(
             tissue_df = tissue_df.loc[
                 ~tissue_df.index.isin(inds_to_remove)
             ].reset_index(drop=True)
+
+        tissue_names_mapping = {tissue.label: tissue.name for tissue in organ.tissues}
+        tissue_df["class"] = tissue_df["class"].map(tissue_names_mapping)
         unique_tissues, tissue_counts = np.unique(
             tissue_df["class"], return_counts=True
         )
@@ -95,19 +98,30 @@ def main(
     cell_df = pd.concat(cell_prop_dfs)
     args_to_sort = np.argsort([cell.structural_id for cell in organ.cells])
     cell_df = cell_df[cell_df.columns[args_to_sort]]
-    cell_colours = {cell.label: cell.colourblind_colour for cell in organ.cells}
+    cell_colours = {cell.name: cell.colourblind_colour for cell in organ.cells}
 
     tissue_df = pd.concat(tissue_prop_dfs)
-    tissue_labels = [tissue.label for tissue in organ.tissues]
+    tissue_labels = [tissue.name for tissue in organ.tissues]
     args_to_sort = [
         np.where(tissue_df.columns.to_numpy() == np.array(tissue_labels)[:, None])[1]
     ]
     tissue_df = tissue_df[tissue_df.columns[args_to_sort]]
+    tissue_df = tissue_df[
+        [
+            "Terminal Villi",
+            "Mature Intermediate Villi",
+            "Stem Villi",
+            "Villus Sprout",
+            "Anchoring Villi",
+            "Chorionic Plate",
+            "Basal Plate/Septum",
+            "Fibrin",
+            "Avascular Villi",
+        ]
+    ]
     tissue_colours = {
-        tissue.label: tissue.colourblind_colour for tissue in organ.tissues
+        tissue.name: tissue.colourblind_colour for tissue in organ.tissues
     }
-    print(cell_df)
-    print(tissue_df)
 
     plot_box_and_whisker(cell_df, "plots/cell_proportions.png", "Cell", cell_colours)
 
@@ -119,7 +133,7 @@ def main(
         (0.09, 0.25),
         (None, None),
         (None, None),
-        (0.0, 0.09),
+        (0.0, 0.10),
         (0.0, 0.0249),
     ]
     plot_box_and_whisker(
@@ -127,42 +141,83 @@ def main(
         "plots/tissue_proportions.png",
         "Tissue",
         tissue_colours,
-        expectation=TISSUE_EXPECTATION,
     )
 
 
-def plot_box_and_whisker(df, save_path, entity, colours, expectation=None):
-    sns.set(style="whitegrid")
-    plt.subplots(figsize=(10, 8), dpi=400)
-    ax = sns.boxplot(data=df, palette=colours, whis=[0, 100])
-    sns.swarmplot(data=df, color=".25")
+def plot_box_and_whisker(
+    df, save_path, entity, colours, box=False, swarm=False, expectation=None
+):
+    sns.set_style("white")
+    plt.subplots(figsize=(8, 8), dpi=400)
+    if swarm:
+        if box:
+            sns.boxplot(data=df, palette=colours, whis=[0, 100])
+            ax = sns.swarmplot(data=df, color=".25")
+        else:
+            ax = sns.swarmplot(data=df, palette=colours)
+    else:
+        ax = sns.swarmplot(data=df, color=".5")
+        _offset_swarm(ax, 0.3)
+
+        melted_df = pd.melt(df.reset_index(drop=True).T.reset_index(), id_vars="index")
+        ax = sns.lineplot(
+            data=melted_df,
+            x="index",
+            y="value",
+            hue="index",
+            marker="o",
+            err_style="bars",
+            palette=colours,
+            markersize=15,
+            legend=False,
+        )
+        ax.lines[0].set_linestyle("")
+
     plt.ylim(top=0.62)
     ax.set(ylabel=f"Proportion of {entity}s Across WSIs")
     ax.set(xlabel=f"{entity} Labels")
+    plt.xticks(rotation=90)
     plt.tight_layout()
     if expectation is not None:
-        for i, (low, high) in enumerate(expectation):
-            if low is not None:
-                ax.hlines(
-                    y=low,
-                    xmin=i - 0.5,
-                    xmax=i + 0.5,
-                    color="lime",
-                    linestyles="dashed",
-                    linewidth=3,
-                )
-            if high is not None:
-                ax.hlines(
-                    y=high,
-                    xmin=i - 0.5,
-                    xmax=i + 0.5,
-                    color="lime",
-                    linestyles="dashed",
-                    linewidth=3,
-                )
+        _add_expectation(ax, expectation)
     plt.savefig(save_path)
     plt.close()
     plt.clf()
+
+
+def _offset_swarm(ax, offset):
+    path_collections = [
+        child
+        for child in ax.get_children()
+        if isinstance(child, matplotlib.collections.PathCollection)
+    ]
+    for path_collection in path_collections:
+        x, y = np.array(path_collection.get_offsets()).T
+        xnew = x + offset
+        offsets = list(zip(xnew, y))
+        path_collection.set_offsets(offsets)
+
+
+def _add_expectation(ax, expectation):
+    for i, (low, high) in enumerate(expectation):
+        if low is not None:
+            ax.hlines(
+                y=low,
+                xmin=i - 0.5,
+                xmax=i + 0.5,
+                color="lime",
+                linestyles="dashed",
+                linewidth=3,
+            )
+        if high is not None:
+            ax.hlines(
+                y=high,
+                xmin=i - 0.5,
+                xmax=i + 0.5,
+                color="lime",
+                linestyles="dashed",
+                linewidth=3,
+            )
 
 
 if __name__ == "__main__":

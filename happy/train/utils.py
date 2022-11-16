@@ -22,7 +22,7 @@ def setup_run(project_dir, exp_name, dataset_type):
 
 
 def get_cell_confusion_matrix(organ, pred, truth, proportion_label=False):
-    cell_labels = [cell.label for cell in organ.cells]
+    cell_labels = [cell.name for cell in organ.cells]
     cell_ids = {cell.id for cell in organ.cells}
 
     unique_values_in_pred = set(pred)
@@ -60,7 +60,7 @@ def get_cell_confusion_matrix(organ, pred, truth, proportion_label=False):
 
 def get_tissue_confusion_matrix(organ, pred, truth, proportion_label=False):
     tissue_ids = {tissue.id for tissue in organ.tissues}
-    tissue_labels = [tissue.label for tissue in organ.tissues]
+    tissue_labels = [tissue.name for tissue in organ.tissues]
 
     unique_values_in_pred = set(pred)
     unique_values_in_truth = set(truth)
@@ -111,12 +111,13 @@ def get_tissue_confusion_matrix(organ, pred, truth, proportion_label=False):
     return cm_df, cm_df_props
 
 
-def plot_confusion_matrix(cm, dataset_name, run_path, fmt="d"):
+def plot_confusion_matrix(cm, dataset_name, run_path, fmt="d", reorder=None):
     save_path = run_path / f"{dataset_name}_confusion_matrix.png"
-
+    if reorder is not None:
+        cm = cm[reorder]
+        cm = cm.reindex(reorder)
     plt.rcParams["figure.dpi"] = 600
     sns.heatmap(cm, annot=True, cmap="Blues", square=True, cbar=False, fmt=fmt)
-    # plt.title(f"Classification for {dataset_name} Validation")
     plt.ylabel("True Label")
     plt.xlabel("Predicted Label")
     plt.tight_layout()
@@ -213,29 +214,10 @@ def plot_tissue_pr_curves(id_to_label, colours, ground_truth, preds, scores, sav
         average_precision[i] = average_precision_score(
             ground_truth[:, ground_truth_label_map[i]], scores[:, i - 1]
         )
-
-    # Compute micro-average ROC curve and ROC area but remove unused classes
-    # if 0 in unique_values_in_both:
-    #     ground_truth = ground_truth[:, 1:]
-    #     scores = scores[:, 1:]
-    # precision["micro"], recall["micro"], _ = precision_recall_curve(
-    #     ground_truth.ravel(), scores.ravel()
-    # )
-    # average_precision["micro"] = average_precision_score(
-    #     ground_truth, scores, average="micro"
-    # )
-
-    # Plot Precision-Recall curve for each class
     plt.clf()
     sns.set(style="white")
     plt.figure(figsize=(9, 6), dpi=600)
     ax = plt.subplot(111)
-    # plt.plot(
-    #     recall["micro"],
-    #     precision["micro"],
-    #     label=f"mavg ({average_precision['micro']:0.2f})",
-    #     color="black",
-    # )
     for i in unique_values_in_truth:
         plt.plot(
             recall[i],
@@ -243,7 +225,6 @@ def plot_tissue_pr_curves(id_to_label, colours, ground_truth, preds, scores, sav
             label=f"{id_to_label[i]} ({average_precision[i]:0.2f})",
             color=colours[i],
         )
-
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
     plt.xlabel("Recall")

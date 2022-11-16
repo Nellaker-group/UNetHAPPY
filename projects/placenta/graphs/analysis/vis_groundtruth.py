@@ -14,7 +14,6 @@ def main(
     y_min: int = 0,
     width: int = -1,
     height: int = -1,
-    label_type: str = "full",
     tissue_label_tsv: str = "139_tissue_points.tsv",
     remove_unlabelled: bool = False,
     slide_name: str = "slide_139-2019-09-09 11.15.35.ndpi",
@@ -23,7 +22,7 @@ def main(
     organ = get_organ(organ_name)
 
     xs, ys, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
+        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv
     )
 
     if remove_unlabelled:

@@ -241,7 +241,7 @@ def vis_delaunay(data, plot_name, save_dir, organ, width, height):
     point_size = 1 if len(delaunay.edges) >= 10000 else 2
 
     figsize = _calc_figsize(data.pos, width, height)
-    fig = plt.figure(figsize=figsize, dpi=150)
+    fig = plt.figure(figsize=figsize, dpi=300)
     plt.triplot(delaunay, linewidth=0.5, color="black")
     plt.scatter(
         data.pos[:, 0], data.pos[:, 1], marker=".", s=point_size, zorder=1000, c=colours
@@ -299,7 +299,7 @@ def visualize_points(
         point_size = 1 if len(pos) >= 10000 else 2
 
     figsize = _calc_figsize(pos, width, height)
-    fig = plt.figure(figsize=figsize, dpi=150)
+    fig = plt.figure(figsize=figsize, dpi=300)
 
     if edge_index is not None:
         line_collection = []

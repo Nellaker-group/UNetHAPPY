@@ -63,7 +63,7 @@ def main(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
 
-    feature_data = get_feature(feature.value, predictions, embeddings)
+    feature_data = get_feature(feature.value, predictions, embeddings, organ)
     data = setup_graph(coords, k, feature_data, graph_method.value)
     x = data.x.to(device)
     edge_index = data.edge_index.to(device)

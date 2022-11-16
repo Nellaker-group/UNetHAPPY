@@ -1,11 +1,17 @@
 from pathlib import Path
 from typing import Optional, List
+import time
 
 import typer
 import torch
-from torch_geometric.transforms import ToUndirected
+from torch_geometric.transforms import ToUndirected, SIGN
 from torch_geometric.utils import add_self_loops
-from torch_geometric.loader import NeighborSampler, NeighborLoader
+from torch_geometric.loader import (
+    NeighborSampler,
+    NeighborLoader,
+    ShaDowKHopSampler,
+    DataLoader,
+)
 import numpy as np
 import pandas as pd
 
@@ -13,16 +19,21 @@ from happy.utils.utils import get_device, get_project_dir
 from happy.organs.organs import get_organ
 from graphs.graphs.create_graph import get_raw_data, setup_graph, process_knts
 from graphs.graphs.embeddings import fit_umap, plot_cell_graph_umap, plot_tissue_umap
-from graphs.graphs.utils import get_feature
+from graphs.graphs.utils import get_feature, set_seed
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
 from graphs.graphs.create_graph import get_groundtruth_patch
-from graphs.graphs.graph_supervised import inference, setup_node_splits, evaluate
-
-np.random.seed(2)
+from graphs.graphs.graph_supervised import (
+    inference,
+    setup_node_splits,
+    evaluate,
+    evaluation_plots,
+    inference_mlp,
+)
 
 
 def main(
+    seed: int = 0,
     project_name: str = "placenta",
     organ_name: str = "placenta",
     exp_name: str = typer.Option(...),
@@ -34,24 +45,27 @@ def main(
     width: int = -1,
     height: int = -1,
     val_patch_files: Optional[List[str]] = None,
-    k: int = 6,
+    k: int = 5,
     feature: FeatureArg = FeatureArg.embeddings,
-    group_knts: bool = False,
+    group_knts: bool = True,
     top_conf: bool = False,
-    model_type: str = "graphsage",
+    model_type: str = "sup_graphsage",
     graph_method: MethodArg = MethodArg.k,
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
     label_type: str = "full",
     tissue_label_tsv: Optional[str] = None,
+    verbose: bool = True,
 ):
+    set_seed(seed)
     device = get_device()
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
     patch_files = [project_dir / "config" / file for file in val_patch_files]
 
+    print("Begin graph construction...")
     predictions, embeddings, coords, confidence = get_raw_data(
-        project_name, run_id, x_min, y_min, width, height, top_conf
+        project_name, run_id, x_min, y_min, width, height, top_conf, verbose=verbose
     )
     # Get ground truth manually annotated data
     _, _, tissue_class = get_groundtruth_patch(
@@ -67,11 +81,19 @@ def main(
     # Covert isolated knts into syn and turn groups into a single knt point
     if group_knts:
         predictions, embeddings, coords, confidence, tissue_class = process_knts(
-            organ, predictions, embeddings, coords, confidence, tissue_class
+            organ,
+            predictions,
+            embeddings,
+            coords,
+            confidence,
+            tissue_class,
+            verbose=verbose,
         )
     # Covert input cell data into a graph
-    feature_data = get_feature(feature, predictions, embeddings)
-    data = setup_graph(coords, k, feature_data, graph_method, loop=False)
+    feature_data = get_feature(feature, predictions, embeddings, organ)
+    data = setup_graph(
+        coords, k, feature_data, graph_method, loop=False, verbose=verbose
+    )
     data = ToUndirected()(data)
     data.edge_index, data.edge_attr = add_self_loops(
         data["edge_index"], data["edge_attr"], fill_value="mean"
@@ -79,7 +101,10 @@ def main(
     pos = data.pos
     x = data.x.to(device)
 
-    data = setup_node_splits(data, tissue_class, remove_unlabelled, True, patch_files)
+    data = setup_node_splits(
+        data, tissue_class, remove_unlabelled, True, patch_files, verbose=verbose
+    )
+    print("Graph construction complete")
 
     # Setup trained model
     pretrained_path = (
@@ -97,6 +122,9 @@ def main(
         if model_name == "graph_model.pt"
         else f"model_{model_name.split('_')[0]}"
     )
+
+    if model_type == "sup_sign":
+        data = SIGN(model.num_layers)(data)  # precompute SIGN fixed embeddings
 
     # Setup paths
     save_path = (
@@ -116,6 +144,17 @@ def main(
         )
         eval_loader.data.num_nodes = data.num_nodes
         eval_loader.data.n_id = torch.arange(data.num_nodes)
+    elif model_type == "sup_shadow":
+        eval_loader = ShaDowKHopSampler(
+            data,
+            depth=6,
+            num_neighbors=5,
+            node_idx=None,
+            batch_size=4000,
+            shuffle=False,
+        )
+    elif model_type == "sup_sign" or model_type == "sup_mlp":
+        eval_loader = DataLoader(range(data.num_nodes), batch_size=512, shuffle=False)
     else:
         eval_loader = NeighborSampler(
             data.edge_index,
@@ -126,14 +165,24 @@ def main(
         )
 
     # Run inference and get predicted labels for nodes
-    out, graph_embeddings, predicted_labels = inference(model, x, eval_loader, device)
+    timer_start = time.time()
+    if model_type == "sup_mlp" or model_type == "sup_sign":
+        out, graph_embeddings, predicted_labels = inference_mlp(
+            model, data, eval_loader, device
+        )
+    else:
+        out, graph_embeddings, predicted_labels = inference(
+            model, x, eval_loader, device
+        )
+    timer_end = time.time()
+    print(f"total time: {timer_end - timer_start:.4f} s")
 
     # restrict to only data in patch_files using val_mask
     val_nodes = data.val_mask
     predicted_labels = predicted_labels[val_nodes]
-    graph_embeddings = graph_embeddings[val_nodes]
     out = out[val_nodes]
     pos = pos[val_nodes]
+    graph_embeddings = graph_embeddings[val_nodes] if plot_umap else graph_embeddings
     tissue_class = (
         tissue_class[val_nodes] if tissue_label_tsv is not None else tissue_class
     )
@@ -165,14 +214,9 @@ def main(
 
     # Evaluate against ground truth tissue annotations
     if tissue_label_tsv is not None:
-        evaluate(
-            tissue_class,
-            predicted_labels,
-            out,
-            organ,
-            save_path,
-            remove_unlabelled,
-        )
+        _print_prediction_stats(tissue_class, tissue_label_mapping)
+        evaluate(tissue_class, predicted_labels, out, organ, remove_unlabelled)
+        evaluation_plots(tissue_class, predicted_labels, out, organ, save_path)
 
     # Visualise cluster labels on graph patch
     print("Generating image")
@@ -210,10 +254,11 @@ def _print_prediction_stats(predicted_labels, tissue_label_mapping):
     for label in unique:
         unique_labels.append(tissue_label_mapping[label])
     unique_counts = dict(zip(unique_labels, counts))
-    print(f"Predictions per label: {unique_counts}")
+    print(f"Counts per label: {unique_counts}")
 
 
 def _save_tissue_preds_as_tsv(predicted_labels, coords, save_path):
+    print("Saving all tissue predictions as a tsv")
     tissue_preds_df = pd.DataFrame(
         {
             "x": coords[:, 0].numpy().astype(int),
