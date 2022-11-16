@@ -1,23 +1,7 @@
 import numpy as np
-import pandas as pd
 import cv2
 
 from PIL import ImageColor
-
-
-def annot_to_regular_boxes(annot_path, save_path, box_width, box_height):
-    df = pd.read_csv(annot_path, names=["path", "x1", "y1", "x2", "y2", "class"])
-    centre_xs = ((df["x2"] - df["x1"]) / 2) + df["x1"]
-    centre_ys = ((df["y2"] - df["y1"]) / 2) + df["y1"]
-    new_x1 = (centre_xs - box_width).astype(int)
-    new_y1 = (centre_ys - box_height).astype(int)
-    new_x2 = (centre_xs + box_width).astype(int)
-    new_y2 = (centre_ys + box_height).astype(int)
-    df["x1"] = new_x1
-    df["y1"] = new_y1
-    df["x2"] = new_x2
-    df["y2"] = new_y2
-    df.to_csv(save_path, header=False, index=False)
 
 
 def draw_centre(img, x1, y1, x2, y2, label_name, organ, cell=True, colour=None):

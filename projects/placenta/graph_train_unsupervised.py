@@ -6,7 +6,7 @@ import torch
 
 from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir

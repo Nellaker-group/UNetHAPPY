@@ -14,7 +14,7 @@ from sklearn.metrics import (
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 import happy.db.eval_runs_interface as db
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
@@ -34,7 +34,7 @@ def main(
     db.init()
     organ = get_organ("placenta")
     project_dir = get_project_dir(project_name)
-    patch_files = [project_dir / "config" / file for file in patch_files]
+    patch_files = [project_dir / "graph_splits" / file for file in patch_files]
 
     # print tissue predictions from tsv file
     pretrained_path = (
@@ -44,7 +44,7 @@ def main(
         / model_type
         / exp_name
         / model_weights_dir
-        / "eval"
+        / "cell_infer"
         / model_name
         / f"run_{run_id}"
     )

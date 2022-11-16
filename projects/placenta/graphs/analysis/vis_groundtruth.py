@@ -4,7 +4,7 @@ import numpy as np
 from projects.placenta.graphs.graphs.create_graph import get_groundtruth_patch
 from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
 from happy.utils.utils import get_project_dir
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 
 
 def main(
@@ -41,7 +41,7 @@ def main(
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}"
     save_path = save_dir / plot_name
 
-    colours_dict = {tissue.id: tissue.colourblind_colour for tissue in organ.tissues}
+    colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
     colours = [colours_dict[label] for label in tissue_class]
     visualize_points(
         organ,

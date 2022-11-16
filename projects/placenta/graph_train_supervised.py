@@ -7,7 +7,7 @@ from torch_geometric.utils import add_self_loops, degree
 from torch_geometric.data import Batch
 
 from happy.utils.utils import get_device
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
@@ -20,9 +20,6 @@ from graphs.graphs.create_graph import (
     get_groundtruth_patch,
     process_knts,
 )
-
-
-device = get_device()
 
 
 def main(
@@ -60,6 +57,8 @@ def main(
     include_validation: bool = True,
     validation_step: int = 25,
 ):
+    device = get_device()
+
     model_type = model_type.value
     graph_method = graph_method.value
     feature = feature.value
@@ -70,9 +69,13 @@ def main(
     organ = get_organ(organ_name)
 
     if len(val_patch_files) > 0:
-        val_patch_files = [project_dir / "config" / file for file in val_patch_files]
+        val_patch_files = [
+            project_dir / "graph_splits" / file for file in val_patch_files
+        ]
     if len(test_patch_files) > 0:
-        test_patch_files = [project_dir / "config" / file for file in test_patch_files]
+        test_patch_files = [
+            project_dir / "graph_splits" / file for file in test_patch_files
+        ]
 
     # Setup recording of stats per batch and epoch
     logger = Logger(

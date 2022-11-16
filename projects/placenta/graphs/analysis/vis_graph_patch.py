@@ -10,8 +10,8 @@ from matplotlib.collections import LineCollection
 from torch_geometric.data import Data
 
 import happy.db.eval_runs_interface as db
-from happy.organs.organs import get_organ
-from happy.hdf5.utils import (
+from happy.organs import get_organ
+from happy.utils.hdf5 import (
     get_datasets_in_patch,
     filter_by_confidence,
     filter_by_cell_type,
@@ -228,7 +228,7 @@ def vis_voronoi(data, plot_name, save_dir, organ, show_points=False):
 
 
 def vis_delaunay(data, plot_name, save_dir, organ, width, height):
-    colours_dict = {cell.id: cell.colourblind_colour for cell in organ.cells}
+    colours_dict = {cell.id: cell.colour for cell in organ.cells}
     colours = [colours_dict[label] for label in data.x]
 
     # Specify save graph vis location
@@ -292,7 +292,7 @@ def visualize_points(
     point_size=None,
 ):
     if colours is None:
-        colours_dict = {cell.id: cell.colourblind_colour for cell in organ.cells}
+        colours_dict = {cell.id: cell.colour for cell in organ.cells}
         colours = [colours_dict[label] for label in labels]
 
     if point_size is None:

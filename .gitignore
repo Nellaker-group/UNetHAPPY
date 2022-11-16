@@ -191,12 +191,13 @@ out/
 # Custom
 **/annotations
 **/annotatedImages
-**/datasets
 **/pretrained_models
 **/placenta/visualisations
 **/results
 **/trained_models
-**/config
+**/graph_splits
+**/datasets
+!happy/data/datasets
 *.pth
 *.pt
 *.csv

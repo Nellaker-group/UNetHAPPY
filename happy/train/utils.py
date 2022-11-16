@@ -129,7 +129,7 @@ def plot_confusion_matrix(cm, dataset_name, run_path, fmt="d", reorder=None):
 def plot_cell_pr_curves(organ, ground_truth, scores, save_path, figsize=None):
     id_to_label = {cell.id: cell.label for cell in organ.cells}
     class_ids = np.unique(list(id_to_label.keys()))
-    colours = {cell.id: cell.colourblind_colour for cell in organ.cells}
+    colours = {cell.id: cell.colour for cell in organ.cells}
 
     ground_truth = label_binarize(ground_truth, classes=class_ids)
     scores = np.array(scores)

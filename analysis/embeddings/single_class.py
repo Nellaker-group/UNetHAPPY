@@ -6,8 +6,8 @@ import umap.plot
 from bokeh.plotting import show, save
 
 import happy.db.eval_runs_interface as db
-from happy.hdf5.utils import filter_hdf5, get_embeddings_file
-from happy.organs.organs import get_organ
+from happy.utils.hdf5 import filter_hdf5, get_embeddings_file
+from happy.organs import get_organ
 from utils import embeddings_results_path, setup
 from plots import plot_interactive, plot_cell_umap
 

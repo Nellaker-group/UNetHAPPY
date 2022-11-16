@@ -8,7 +8,7 @@ import pandas as pd
 import typer
 
 from happy.data.utils import draw_box, draw_centre, group_annotations_by_image
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 
 
 class ShapeArg(str, Enum):
@@ -29,7 +29,7 @@ def main(
     Args:
         project_name: name of the project dir to save visualisations to
         organ_name: name of organ
-        dataset_name: the dataset to visualise predictions for
+        dataset_name: the datasets to visualise predictions for
         annot_file: name of annotation file from which to get ground truth
         shape: one of 'box' or 'point' for visualising the prediction
         num_images: max number of images to generate. If None does all of them.

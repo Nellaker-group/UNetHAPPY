@@ -2,8 +2,8 @@ import albumentations as al
 from torchvision import transforms
 
 from happy.data.transforms.agumentations import AlbAugmenter, StainAugment
-from happy.data.dataset.cell_dataset import CellDataset
-from happy.data.dataset.nuclei_dataset import NucleiDataset
+from happy.data.datasets.cell_dataset import CellDataset
+from happy.data.datasets.nuclei_dataset import NucleiDataset
 from happy.data.transforms.transforms import Normalizer, Resizer
 from happy.data.transforms.utils.color_conversion import get_rgb_matrices
 
@@ -35,16 +35,15 @@ def setup_cell_datasets(
     dataset_names,
     image_size,
     multiple_val_sets,
-    oversampled,
     test_set=False,
 ):
     if not test_set:
         # Create the datasets from all directories specified in dataset_names
         dataset_train = get_cell_dataset(
-            organ, "train", annot_dir, dataset_names, image_size, oversampled
+            organ, "train", annot_dir, dataset_names, image_size
         )
         dataset_val = get_cell_dataset(
-            organ, "val", annot_dir, dataset_names, image_size, False
+            organ, "val", annot_dir, dataset_names, image_size
         )
         datasets = {"train": dataset_train, "val_all": dataset_val}
         # Create validation datasets from all directories specified in dataset_names
@@ -52,12 +51,12 @@ def setup_cell_datasets(
         if multiple_val_sets:
             for dataset_name in dataset_names:
                 dataset_val_dict[dataset_name] = get_cell_dataset(
-                    organ, "val", annot_dir, dataset_name, image_size, False
+                    organ, "val", annot_dir, dataset_name, image_size
                 )
             datasets.update(dataset_val_dict)
     else:
         dataset_test = get_cell_dataset(
-            organ, "test", annot_dir, dataset_names, image_size, False
+            organ, "test", annot_dir, dataset_names, image_size
         )
         datasets = {"test": dataset_test}
     print("Dataset configured")
@@ -76,7 +75,7 @@ def get_nuclei_dataset(split, annot_dir, dataset_names):
     return dataset
 
 
-def get_cell_dataset(organ, split, annot_dir, dataset_names, image_size, oversampled):
+def get_cell_dataset(organ, split, annot_dir, dataset_names, image_size):
     augmentations = True if split == "train" else False
     transform = _setup_transforms(augmentations, image_size=image_size, nuclei=False)
     dataset = CellDataset(
@@ -84,7 +83,6 @@ def get_cell_dataset(organ, split, annot_dir, dataset_names, image_size, oversam
         annotations_dir=annot_dir,
         dataset_names=dataset_names,
         split=split,
-        oversampled_train=oversampled,
         transform=transform,
     )
     return dataset

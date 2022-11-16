@@ -14,9 +14,8 @@ class Hyperparameters:
         epochs,
         batch,
         learning_rate,
-        init_from_coco,
+        init_from_inc,
         frozen,
-        vis,
     ):
         self.exp_name = exp_name
         self.annot_dir = annot_dir
@@ -26,9 +25,8 @@ class Hyperparameters:
         self.epochs = epochs
         self.batch = batch
         self.learning_rate = learning_rate
-        self.init_from_coco = init_from_coco
+        self.init_from_inc = init_from_inc
         self.frozen = frozen
-        self.vis = vis
 
     def to_csv(self, path):
         d = {
@@ -40,9 +38,8 @@ class Hyperparameters:
             "epochs": [self.epochs],
             "batch": [self.batch],
             "learning_rate": [self.learning_rate],
-            "init_from_coco": [self.init_from_coco],
+            "init_from_inc": [self.init_from_inc],
             "frozen": [self.frozen],
-            "vis": [self.vis],
         }
         hp_df = pd.DataFrame(data=d)
         path = Path(path)
@@ -63,9 +60,8 @@ class Hyperparameters:
             dict_hp_data["epochs"],
             dict_hp_data["batch"],
             dict_hp_data["learning_rate"],
-            dict_hp_data["init_from_coco"],
+            dict_hp_data["init_from_inc"],
             dict_hp_data["frozen"],
-            dict_hp_data["vis"],
         )
         return hp
 
@@ -86,9 +82,7 @@ class Hyperparameters:
             self.batch = args.batch
         if args.learning_rate:
             self.learning_rate = args.learning_rate
-        if args.init_from_coco:
-            self.init_from_coco = args.init_from_coco
+        if args.init_from_inc:
+            self.init_from_inc = args.init_from_inc
         if args.frozen:
             self.frozen = args.frozen
-        if args.vis:
-            self.vis = args.vis

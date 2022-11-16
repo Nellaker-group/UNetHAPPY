@@ -4,10 +4,10 @@ import typer
 import numpy as np
 import pandas as pd
 
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 import happy.db.eval_runs_interface as db
-from happy.hdf5.utils import get_datasets_in_patch, get_embeddings_file
+from happy.utils.hdf5 import get_datasets_in_patch, get_embeddings_file
 from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
 from projects.placenta.graphs.graphs.create_graph import get_groundtruth_patch
 from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
@@ -26,10 +26,10 @@ def main(
     db.init()
     organ = get_organ("placenta")
     cell_label_mapping = {cell.id: cell.label for cell in organ.cells}
-    cell_colours_mapping = {cell.label: cell.colourblind_colour for cell in organ.cells}
+    cell_colours_mapping = {cell.label: cell.colour for cell in organ.cells}
     tissue_label_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
     project_dir = get_project_dir(project_name)
-    patch_files = [project_dir / "config" / file for file in patch_files]
+    patch_files = [project_dir / "graph_splits" / file for file in patch_files]
 
     cell_dfs = []
     tissue_dfs = []

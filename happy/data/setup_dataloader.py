@@ -1,7 +1,7 @@
 from torch.utils.data.sampler import BatchSampler, WeightedRandomSampler
 from torch.utils.data import DataLoader
 
-from happy.data.samplers.samplers import GroupSampler
+from happy.data.samplers import GroupSampler
 from happy.data.transforms.collaters import cell_collater, collater
 
 

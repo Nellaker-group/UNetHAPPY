@@ -5,6 +5,7 @@ Colour deconvolution reference:
     cytology and histology / the International Academy of Cytology [and]
     American Society of Cytology, vol. 23, no. 4, pp. 291-9, Aug. 2001.
 """
+
 import numpy as np
 from scipy import linalg
 from skimage.util.dtype import img_as_float

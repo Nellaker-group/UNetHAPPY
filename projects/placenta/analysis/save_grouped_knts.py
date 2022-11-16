@@ -4,7 +4,7 @@ import typer
 import numpy as np
 import pandas as pd
 
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 import happy.db.eval_runs_interface as db
 from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
 from projects.placenta.graphs.graphs.create_graph import (

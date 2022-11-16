@@ -14,7 +14,7 @@ import numpy as np
 
 from happy.utils.utils import get_device
 from happy.utils.utils import get_project_dir
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from graphs.graphs.create_graph import get_raw_data, setup_graph
 from graphs.graphs.embeddings import (
     get_graph_embeddings,
@@ -92,7 +92,7 @@ def main(
     )
 
     # Setup paths
-    save_path = Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs
+    save_path = Path(*pretrained_path.parts[:-1]) / "cell_infer" / model_epochs
     save_path.mkdir(parents=True, exist_ok=True)
     cluster_save_path = save_path / clustering_method / f"{num_clusters}_clusters"
     cluster_save_path.mkdir(parents=True, exist_ok=True)

@@ -11,12 +11,12 @@ import h5py
 
 from happy.db.msfile_interface import get_msfile
 from happy.microscopefile.prediction_saver import PredictionSaver
-from happy.data.dataset.ms_dataset import CellDataset
+from happy.data.datasets.ms_dataset import CellDataset
 from happy.data.transforms.collaters import cell_collater
 from happy.data.transforms.transforms import Normalizer, Resizer
 from happy.utils.graceful_killer import GracefulKiller
 from happy.models.model_builder import build_cell_classifer
-from happy.hdf5.utils import get_embeddings_file
+from happy.utils.hdf5 import get_embeddings_file
 import happy.db.eval_runs_interface as db
 
 
@@ -38,18 +38,13 @@ def setup_model(model_id, out_features, device):
     return model, model_architecture
 
 
-# Load dataset and dataloader
-def setup_data(
-    run_id, model_id, model_architecture, batch_size, num_workers, cell_saving=True
-):
+# Load datasets and dataloader
+def setup_data(run_id, model_id, model_architecture, batch_size, num_workers):
     ms_file = get_msfile(run_id=run_id, cell_model_id=model_id)
     pred_saver = PredictionSaver(ms_file)
-    print("loading dataset")
+    print("loading datasets")
     image_size = (224, 224) if model_architecture == "resnet-50" else (299, 299)
-    if not cell_saving:
-        remaining_data = np.array(db.get_all_prediction_coordinates(ms_file.id))
-    else:
-        remaining_data = np.array(db.get_remaining_cells(ms_file.id))
+    remaining_data = np.array(db.get_remaining_cells(ms_file.id))
     dataset = CellDataset(
         ms_file,
         remaining_data,
@@ -65,7 +60,7 @@ def setup_data(
             ]
         ),
     )
-    print("dataset loaded")
+    print("datasets loaded")
     print("creating dataloader")
     dataloader = DataLoader(
         dataset,
@@ -78,7 +73,7 @@ def setup_data(
 
 
 # Setup or get path to embeddings hdf5 save location
-def setup_embedding_saving(project_name, run_id, cell_saving=True):
+def setup_embedding_saving(project_name, run_id):
     embeddings_path = get_embeddings_file(project_name, run_id)
     if not os.path.isfile(embeddings_path):
         total_cells = db.get_total_num_nuclei(run_id)
@@ -87,24 +82,15 @@ def setup_embedding_saving(project_name, run_id, cell_saving=True):
             f.create_dataset("embeddings", (total_cells, 64), dtype="float32")
             f.create_dataset("confidence", (total_cells,), dtype="float16")
             f.create_dataset("coords", (total_cells, 2), dtype="uint32")
-    elif not cell_saving:
-        raise ValueError(
-            "Embeddings file already exists. Please move it for a no save run"
-        )
     return embeddings_path
 
 
 # Predict cell classes loop
-def run_cell_eval(
-    dataset, cell_model, pred_saver, embeddings_path, device, cell_saving=True
-):
+def run_cell_eval(dataset, cell_model, pred_saver, embeddings_path, device):
     # object for graceful shutdown. Current loop finishes on SIGINT or SIGTERM
     killer = GracefulKiller()
     early_break = False
-    if not cell_saving:
-        remaining = len(db.get_all_prediction_coordinates(pred_saver.id))
-    else:
-        remaining = db.get_num_remaining_cells(pred_saver.id)
+    remaining = db.get_num_remaining_cells(pred_saver.id)
     cell_model.eval()
 
     def copy_data(module, input, output):
@@ -147,15 +133,14 @@ def run_cell_eval(
                         f["coords"][start:end] = batch["coord"]
                     remaining -= num_to_save
 
-                    if cell_saving:
-                        # save the class predictions of the batch
-                        pred_saver.save_cells(batch["coord"], predicted)
+                    # save the class predictions of the batch
+                    pred_saver.save_cells(batch["coord"], predicted)
                     pbar.update(dataset.batch_size)
                 else:
                     early_break = True
                     break
 
-    if not early_break and cell_saving:
+    if not early_break:
         pred_saver.finished_cells()
 
 

@@ -2,7 +2,7 @@ import sklearn.neighbors as sk
 import matplotlib.pyplot as plt
 import numpy as np
 
-from happy.hdf5.utils import filter_by_cell_type
+from happy.utils.hdf5 import filter_by_cell_type
 
 
 def process_knt_cells(

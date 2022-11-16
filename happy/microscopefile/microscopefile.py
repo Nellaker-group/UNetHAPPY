@@ -6,11 +6,33 @@ import happy.db.eval_runs_interface as db
 
 
 class MicroscopeFile:
+    """In memory class representing a run over a whole slide image.
+
+    This specifies how to read the slide file, how to tile the slide with or without
+    overlap, how to scale between the pixel size of the slide and a target pixel
+    size that a model has been trained with, whether to run over subsections of
+    the slide, and how much of the slide's nuclei and cell predictions are done.
+
+    Args:
+        id: the evalrun id from the database
+        reader: a Reader object which knows which slide reading library to use
+        width: the desired width of tiles for nuclei detection
+        height: the desired height of tiles for nuclei detection
+        target_pixel_size: the pixel size that the model was trained with
+        slide_pixel_size: the pixel size of the slide
+        overlap: the amount of overlap between tiles
+        subsect_x: the x coordinate of the top left corner of the subsection
+        subsect_y: the y coordinate of the top left corner of the subsection
+        subsect_h: the height of the subsection
+        subsect_w: the width of the subsection
+        nucs_done: whether nuclei detection has been done for this slide
+        cells_done: whether cell classification has been done for this slide
+    """
+
     def __init__(
         self,
         id,
         reader,
-        slide_path,
         width,
         height,
         target_pixel_size,
@@ -25,7 +47,6 @@ class MicroscopeFile:
     ):
         self.id = id
         self.reader = reader
-        self.slide_path = slide_path
         self.target_tile_width = width
         self.target_tile_height = height
         self.target_pixel_size = target_pixel_size

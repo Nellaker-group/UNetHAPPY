@@ -13,7 +13,7 @@ import seaborn as sns
 import numpy as np
 import torch
 
-from happy.hdf5.utils import (
+from happy.utils.hdf5 import (
     get_embeddings_file,
     get_datasets_in_patch,
     filter_by_confidence,
@@ -267,7 +267,7 @@ def get_list_of_subgraphs(
     tiles.drop(nodeless_tiles.index, inplace=True)
     tiles.reset_index(drop=True, inplace=True)
 
-    # Create a dataset of subgraphs based on the tile nodes
+    # Create a datasets of subgraphs based on the tile nodes
     tiles_node_inds = tiles["node_inds"].to_numpy()
     removed_tiles = list(nodeless_tiles.index)
     return make_tile_graph_dataset(tiles_node_inds, data, max_tiles), removed_tiles

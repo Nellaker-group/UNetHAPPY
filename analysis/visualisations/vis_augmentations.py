@@ -13,7 +13,7 @@ from torchvision import transforms
 from happy.data.transforms.agumentations import AlbAugmenter, StainAugment
 from happy.data.transforms.transforms import Normalizer, Resizer, unnormalise_image
 from happy.data.transforms.utils.color_conversion import get_rgb_matrices
-from happy.data.dataset.nuclei_dataset import NucleiDataset
+from happy.data.datasets.nuclei_dataset import NucleiDataset
 from happy.data.setup_dataloader import get_dataloader
 from happy.data.transforms.collaters import collater
 from happy.data.utils import draw_centre
@@ -27,13 +27,13 @@ def main(
     num_images: int = 10,
     plot_groundtruth: bool = True,
 ):
-    """Visualises the effect of augmentations across nuclei dataset
+    """Visualises the effect of augmentations across nuclei datasets
 
     Args:
         project_name: name of the project dir to save visualisations to
         annot_dir: relative path to annotations
-        split: the dataset split to run over
-        dataset_name: the dataset who's validation set to evaluate over
+        split: the datasets split to run over
+        dataset_name: the datasets who's validation set to evaluate over
         num_images: the number of images to evaluate
         plot_groundtruth: whether to overlay groundtruth points on image after aug
     """

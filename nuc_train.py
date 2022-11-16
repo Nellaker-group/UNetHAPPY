@@ -1,10 +1,10 @@
-from pathlib import Path
 from typing import List, Optional
+import os
 
 import typer
 
-from happy.utils.hyperparameters import Hyperparameters
-from happy.utils.utils import get_device
+from happy.train.hyperparameters import Hyperparameters
+from happy.utils.utils import get_device, get_project_dir
 from happy.logger.logger import Logger
 from happy.train import nuc_train, utils
 
@@ -23,15 +23,15 @@ def main(
     learning_rate: float = 1e-4,
     decay_gamma: float = 1,
     step_size: int = 20,
-    init_from_coco: bool = False,
+    init_from_inc: bool = False,
     frozen: bool = True,
     vis: bool = True,
     get_cuda_device_num: bool = False,
 ):
     """For training a nuclei detection model
 
-    Multiple dataset can be combined by passing in 'dataset_names' multiple times with
-    the correct dataset directory name.
+    Multiple datasets can be combined by passing in 'dataset_names' multiple times with
+    the correct datasets directory name.
 
     Visualising the batch and epoch level training stats requires having a visdom
     server running on port 8998.
@@ -40,7 +40,7 @@ def main(
         project_name: name of the project dir to save results to
         exp_name: name of the experiment directory to save results to
         annot_dir: relative path to annotations
-        dataset_names: name of directory containing one dataset
+        dataset_names: name of directory containing one datasets
         model_name: architecture name (currently just 'retinanet')
         pre_trained: path to pretrained weights if starting from local weights
         num_workers: number of workers for parallel processing
@@ -50,14 +50,13 @@ def main(
         learning_rate: learning rate which decreases every 8 epochs
         decay_gamma: amount to decay learning rate by. Set to 1 for no decay.
         step_size: epoch at which to apply learning rate decay.
-        init_from_coco: whether to use coco pretrained weights
+        init_from_inc: whether to use imagenet pretrained weights
         frozen: whether to freeze most of the layers. True for only fine-tuning
         vis: whether to send stats to visdom for visualisation
-        get_cuda_device_num: if you want the code to choose a gpu
+        get_cuda_device_num: True if you want the code to choose a gpu
     """
     device = get_device(get_cuda_device_num)
 
-    # TODO: reimplement loading hps from file later (with database)
     hp = Hyperparameters(
         exp_name,
         annot_dir,
@@ -67,17 +66,15 @@ def main(
         epochs,
         batch,
         learning_rate,
-        init_from_coco,
+        init_from_inc,
         frozen,
-        vis,
     )
     multiple_val_sets = True if len(hp.dataset_names) > 1 else False
-    project_dir = (
-        Path(__file__).absolute().parent.parent.parent / "projects" / project_name
-    )
+    project_dir = get_project_dir(project_name)
+    os.chdir(str(project_dir))
 
     # Setup the model. Can be pretrained from coco or own weights.
-    model = nuc_train.setup_model(hp.init_from_coco, device, frozen, pre_trained)
+    model = nuc_train.setup_model(hp.init_from_inc, device, frozen, pre_trained)
 
     # Get all datasets and dataloaders, including separate validation datasets
     dataloaders = nuc_train.setup_data(
@@ -91,7 +88,7 @@ def main(
 
     # Setup recording of stats per batch and epoch
     logger = Logger(
-        list(dataloaders.keys()), ["loss", "Precision", "Recall", "F1"], hp.vis
+        list(dataloaders.keys()), ["loss", "Precision", "Recall", "F1"], vis
     )
 
     # Save each run by it's timestamp
@@ -103,7 +100,7 @@ def main(
         print(
             f"Training on datasets {hp.dataset_names} for {hp.epochs} epochs, "
             f"with lr of {hp.learning_rate}, batch size {hp.batch}, and init from coco "
-            f"is {hp.init_from_coco}"
+            f"is {hp.init_from_inc}"
         )
         nuc_train.train(
             epochs, model, dataloaders, optimizer, logger, scheduler, run_path, device

@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from happy.data.transforms.collaters import collater
 from happy.microscopefile import prediction_saver
-from happy.data.dataset.ms_dataset import NucleiDataset
+from happy.data.datasets.ms_dataset import NucleiDataset
 from happy.models import retinanet
 from happy.utils.graceful_killer import GracefulKiller
 from happy.utils.utils import load_weights
@@ -34,18 +34,18 @@ def setup_model(model_id, device):
     return model
 
 
-# Load dataset and dataloader
+# Load datasets and dataloader
 def setup_data(slide_id, run_id, model_id, batch_size, overlap, num_workers):
     ms_file = get_msfile(
         slide_id=slide_id, run_id=run_id, nuc_model_id=model_id, overlap=overlap
     )
     pred_saver = prediction_saver.PredictionSaver(ms_file)
-    print("loading dataset")
+    print("loading datasets")
     remaining_data = np.array(db.get_remaining_tiles(ms_file.id))
     curr_data_set = NucleiDataset(
         ms_file, remaining_data, transform=transforms.Compose([Normalizer(), Resizer()])
     )
-    print("dataset loaded")
+    print("datasets loaded")
     print("creating dataloader")
     dataloader = DataLoader(
         curr_data_set,
@@ -83,7 +83,7 @@ def run_nuclei_eval(
                             pred_saver.save_empty([empty_ind])
 
                     # if there are non-empty tiles in the batch,
-                    # eval model and save predictions
+                    # cell_infer model and save predictions
                     if non_empty_inds.size > 0:
                         # filter out indices without images
                         non_empty_imgs = np.array(
@@ -96,11 +96,11 @@ def run_nuclei_eval(
                         # as it returns predictions in one array
                         for i, non_empty_ind in enumerate(non_empty_inds):
                             # run network on non-empty images/tiles
-                            input = torch.from_numpy(
+                            model_input = torch.from_numpy(
                                 np.expand_dims(non_empty_imgs[i], axis=0)
                             ).to(device)
 
-                            scores, labels, boxes = model(input, device)
+                            scores, labels, boxes = model(model_input, device)
                             scores = scores.cpu().numpy()
                             boxes = boxes.cpu().numpy()
 

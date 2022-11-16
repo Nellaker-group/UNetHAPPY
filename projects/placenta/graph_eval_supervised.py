@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 from happy.utils.utils import get_device, get_project_dir
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from graphs.graphs.create_graph import get_raw_data, setup_graph, process_knts
 from graphs.graphs.embeddings import fit_umap, plot_cell_graph_umap, plot_tissue_umap
 from graphs.graphs.utils import get_feature, set_seed
@@ -61,7 +61,7 @@ def main(
     device = get_device()
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
-    patch_files = [project_dir / "config" / file for file in val_patch_files]
+    patch_files = [project_dir / "graph_splits" / file for file in val_patch_files]
 
     print("Begin graph construction...")
     predictions, embeddings, coords, confidence = get_raw_data(
@@ -128,13 +128,13 @@ def main(
 
     # Setup paths
     save_path = (
-        Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs / f"run_{run_id}"
+        Path(*pretrained_path.parts[:-1]) / "cell_infer" / model_epochs / f"run_{run_id}"
     )
     save_path.mkdir(parents=True, exist_ok=True)
     conf_str = "_top_conf" if top_conf else ""
     plot_name = f"{val_patch_files[0].split('.csv')[0]}_{conf_str}"
 
-    # Dataloader for eval, feeds in whole graph
+    # Dataloader for cell_infer, feeds in whole graph
     if model_type == "sup_graphsage":
         eval_loader = NeighborLoader(
             data,
@@ -220,7 +220,7 @@ def main(
 
     # Visualise cluster labels on graph patch
     print("Generating image")
-    colours_dict = {tissue.id: tissue.colourblind_colour for tissue in organ.tissues}
+    colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
     colours = [colours_dict[label] for label in predicted_labels]
     visualize_points(
         organ,

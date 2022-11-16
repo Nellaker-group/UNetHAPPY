@@ -64,7 +64,7 @@ def get_msfile(
     return _init_msfile(run)
 
 
-# returns an ms_file object from existing eval run
+# returns an ms_file object from existing cell_infer run
 def get_msfile_by_run(run_id):
     run = EvalRun.get_by_id(run_id)
     return _init_msfile(run)
@@ -76,7 +76,6 @@ def _init_msfile(run):
     return MicroscopeFile(
         run.id,
         reader,
-        full_slide_path,
         run.tile_width,
         run.tile_height,
         run.pixel_size,

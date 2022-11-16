@@ -20,7 +20,7 @@ from projects.placenta.graphs.graphs.enums import MethodArg
 from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
 from projects.placenta.graphs.analysis.vis_patch_predictions import visualize_patches
 from projects.placenta.graphs.graphs.utils import remove_far_nodes, get_tile_coordinates
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 
 
@@ -66,7 +66,7 @@ def main(
         data["pos"][:, 0], data["pos"][:, 1], tile_width, tile_height
     )
 
-    # Create a dataset of subgraphs based on tiles
+    # Create a datasets of subgraphs based on tiles
     num_tiles = len(xy_list) if num_tiles == -1 else num_tiles
     tile_graphs, nodeless_tiles = get_list_of_subgraphs(
         data,

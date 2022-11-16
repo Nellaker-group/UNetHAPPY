@@ -1,20 +1,3 @@
-"""
-Class for saving model predictions on a whole slide image (WSI).
-Data is saved and read from a DB by the public interface.
-Saves coordinates which match the original WSI.
-This means predictions are scaled down.
-Before getting predictions, coords are scaled up to match model pixel sizes.
-
-Public functionality (listed in order) includes:
-- saving empty tiles
-- saving nuclei from tile data and box predictions
-- removing nuclei clusters from overlapped model predictions
-- saving these valid nuclei into final storage
-- saving cell classification at (x,y) from model predictions
-
-Parameters:
-file: MicroscopeFile object
-"""
 import numpy as np
 import sklearn.neighbors as sk
 
@@ -22,6 +5,16 @@ import happy.db.eval_runs_interface as db
 
 
 class PredictionSaver:
+    """Class for saving model predictions on a whole slide image (WSI).
+
+    Data is saved and read from a DB by the public interface. Saved coordinates match
+    the original WSI. This means predictions are scaled to the pixel size of the
+    original WSI. Before getting predictions, coords are scaled up to model pixel sizes.
+
+    Args:
+        file: MicroscopeFile object
+    """
+
     def __init__(self, microscopefile):
         self.file = microscopefile
         self.id = self.file.id
@@ -157,30 +150,5 @@ class PredictionSaver:
             scores_sort = np.argsort(-scores)[:max_detections]
             # select detections
             return boxes[indices[scores_sort], :]
-        else:
-            return np.array([])
-
-    @staticmethod
-    def filter_by_box_size(min_size, max_size, boxes):
-        # removes boxes outside of a mix and max size
-        indices = np.where(
-            np.logical_and(
-                (
-                    np.logical_and(
-                        ((boxes[:, 2] - boxes[:, 0]) < max_size),
-                        ((boxes[:, 3] - boxes[:, 1]) < max_size),
-                    )
-                ),
-                (
-                    np.logical_and(
-                        ((boxes[:, 2] - boxes[:, 0]) > min_size),
-                        ((boxes[:, 3] - boxes[:, 1]) > min_size),
-                    )
-                ),
-            )
-        )[0]
-
-        if indices.shape[0] > 0:
-            return boxes[indices]
         else:
             return np.array([])

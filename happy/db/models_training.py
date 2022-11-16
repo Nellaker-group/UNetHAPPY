@@ -9,7 +9,7 @@ class TrainRun(BaseModel):
     run_name = TextField()
     timestamp = DateTimeField(formats="%Y-%m-%d %H:%M", default=datetime.utcnow())
     type = TextField()
-    pre_trained_path = TextField()
+    pre_trained_path = TextField(null=True)
     num_epochs = IntegerField()
     batch_size = IntegerField()
     init_lr = FloatField()

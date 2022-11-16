@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from happy.train.utils import get_tissue_confusion_matrix, plot_confusion_matrix
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 from projects.placenta.graphs.graphs.create_graph import get_groundtruth_patch
 
@@ -41,7 +41,7 @@ def main(
         / model_type
         / exp_name
         / model_weights_dir
-        / "eval"
+        / "cell_infer"
         / model_name
     )
     tissue_df = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")
