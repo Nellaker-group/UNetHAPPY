@@ -1,6 +1,7 @@
 import time
 from collections import OrderedDict
 from pathlib import Path
+import random
 
 import GPUtil
 import numpy as np
@@ -8,6 +9,11 @@ import skimage.color
 import skimage.io
 import torch
 
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
 
 def set_gpu_device():
     print(GPUtil.showUtilization())

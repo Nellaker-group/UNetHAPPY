@@ -4,7 +4,7 @@ import typer
 import matplotlib.pyplot as plt
 import torch
 
-from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
+from happy.graph.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
 from happy.organs import get_organ
 from happy.logger.logger import Logger
@@ -42,7 +42,6 @@ def main(
     plot_pre_embeddings: bool = False,
     num_curriculum: int = 0,
     simple_curriculum: bool = False,
-    label_type: str = "full",
     tissue_label_tsv: Optional[str] = None,
 ):
     project_dir = get_project_dir(project_name)
@@ -58,7 +57,7 @@ def main(
     )
     feature_data = get_feature(feature.value, predictions, embeddings, organ)
     _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
+        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv
     )
 
     # Create the graph from the raw data

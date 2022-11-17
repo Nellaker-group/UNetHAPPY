@@ -17,12 +17,17 @@ import pandas as pd
 
 from happy.utils.utils import get_device, get_project_dir
 from happy.organs import get_organ
-from graphs.graphs.create_graph import get_raw_data, setup_graph, process_knts
+from happy.graph.create_graph import (
+    get_raw_data,
+    setup_graph,
+    process_knts,
+    get_groundtruth_patch,
+)
 from graphs.graphs.embeddings import fit_umap, plot_cell_graph_umap, plot_tissue_umap
-from graphs.graphs.utils import get_feature, set_seed
+from graphs.graphs.utils import get_feature
+from utils.utils import set_seed
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
-from graphs.graphs.create_graph import get_groundtruth_patch
 from graphs.graphs.graph_supervised import (
     inference,
     setup_node_splits,
@@ -53,7 +58,6 @@ def main(
     graph_method: MethodArg = MethodArg.k,
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
-    label_type: str = "full",
     tissue_label_tsv: Optional[str] = None,
     verbose: bool = True,
 ):
@@ -76,7 +80,6 @@ def main(
         width,
         height,
         tissue_label_tsv,
-        label_type,
     )
     # Covert isolated knts into syn and turn groups into a single knt point
     if group_knts:
@@ -128,7 +131,10 @@ def main(
 
     # Setup paths
     save_path = (
-        Path(*pretrained_path.parts[:-1]) / "cell_infer" / model_epochs / f"run_{run_id}"
+        Path(*pretrained_path.parts[:-1])
+        / "cell_infer"
+        / model_epochs
+        / f"run_{run_id}"
     )
     save_path.mkdir(parents=True, exist_ok=True)
     conf_str = "_top_conf" if top_conf else ""

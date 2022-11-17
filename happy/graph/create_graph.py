@@ -22,12 +22,12 @@ from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_c
 
 
 def get_groundtruth_patch(
-    organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type="full"
+    organ, project_dir, x_min, y_min, width, height, annot_tsv
 ):
-    if not tissue_label_tsv:
-        print("No tissue label tsv supplied")
+    if not annot_tsv:
+        print("No tissue annotation tsv supplied")
         return None, None, None
-    tissue_label_path = project_dir / "results" / "tissue_annots" / tissue_label_tsv
+    tissue_label_path = project_dir / "results" / "tissue_annots" / annot_tsv
     if not os.path.exists(str(tissue_label_path)):
         print("No tissue label tsv found")
         return None, None, None
@@ -40,10 +40,7 @@ def get_groundtruth_patch(
     if x_min == 0 and y_min == 0 and width == -1 and height == -1:
         sort_args = np.lexsort((ys, xs))
         tissue_ids = np.array(
-            [
-                _get_id_by_tissue_name(organ, tissue_name, label_type)
-                for tissue_name in tissue_classes
-            ]
+            [organ.tissue_by_label(tissue_name).id for tissue_name in tissue_classes]
         )
         return xs[sort_args], ys[sort_args], tissue_ids[sort_args]
 
@@ -56,24 +53,11 @@ def get_groundtruth_patch(
     patch_tissue_classes = tissue_classes[mask]
 
     patch_tissue_ids = np.array(
-        [
-            _get_id_by_tissue_name(organ, tissue_name, label_type)
-            for tissue_name in patch_tissue_classes
-        ]
+        [organ.tissue_by_label(tissue_name).id for tissue_name in patch_tissue_classes]
     )
     sort_args = np.lexsort((patch_ys, patch_xs))
 
     return patch_xs[sort_args], patch_ys[sort_args], patch_tissue_ids[sort_args]
-
-
-def _get_id_by_tissue_name(organ, tissue_name, id_type):
-    if id_type == "full":
-        tissue_id = organ.tissue_by_label(tissue_name).id
-    elif id_type == "alt":
-        tissue_id = organ.tissue_by_label(tissue_name).alt_id
-    else:
-        tissue_id = organ.tissue_by_label(tissue_name).tissue_id
-    return tissue_id
 
 
 def get_raw_data(

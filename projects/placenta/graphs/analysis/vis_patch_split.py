@@ -1,14 +1,13 @@
 from typing import List
-import csv
 import time
 
 import typer
 import numpy as np
 import pandas as pd
 
-from projects.placenta.graphs.graphs.create_graph import get_groundtruth_patch
+from happy.graph.create_graph import get_groundtruth_patch
 from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
-from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
+from happy.graph.create_graph import get_nodes_within_tiles
 from happy.utils.utils import get_project_dir
 from happy.organs import get_organ
 
@@ -17,7 +16,6 @@ def main(
     project_name: str = "placenta",
     organ_name: str = "placenta",
     dataset_patch_files: List[str] = typer.Option([]),
-    label_type: str = "full",
     tissue_label_tsv: str = "96_tissue_points.tsv",
     slide_name: str = "slide_96-2019-09-05 22.47.40.ndpi",
 ):
@@ -25,7 +23,7 @@ def main(
     organ = get_organ(organ_name)
 
     xs, ys, tissue_class = get_groundtruth_patch(
-        organ, project_dir, 0, 0, -1, -1, tissue_label_tsv, label_type
+        organ, project_dir, 0, 0, -1, -1, tissue_label_tsv
     )
     tissue_class = np.zeros(tissue_class.shape)
 
@@ -45,7 +43,6 @@ def main(
                 row.width,
                 row.height,
                 tissue_label_tsv,
-                label_type,
             )
             tissue_class[patch_node_inds] = patch_tissue_class
     timer_end = time.time()

@@ -18,7 +18,7 @@ from happy.utils.hdf5 import (
     get_embeddings_file,
 )
 from happy.utils.utils import get_project_dir
-from projects.placenta.graphs.graphs.create_graph import (
+from happy.graph.create_graph import (
     make_k_graph,
     make_radius_k_graph,
     make_voronoi,

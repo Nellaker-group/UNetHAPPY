@@ -9,7 +9,7 @@ import seaborn as sns
 from happy.train.utils import get_tissue_confusion_matrix, plot_confusion_matrix
 from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
-from projects.placenta.graphs.graphs.create_graph import get_groundtruth_patch
+from happy.graph.create_graph import get_groundtruth_patch
 
 
 def main(
@@ -30,7 +30,7 @@ def main(
 
     # Get ground truth manually annotated data
     _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, "96_tissue_points.tsv", "full"
+        organ, project_dir, x_min, y_min, width, height, "96_tissue_points.tsv"
     )
 
     # print tissue predictions from tsv file

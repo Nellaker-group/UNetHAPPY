@@ -43,7 +43,7 @@ from happy.models.graphsaint import GraphSAINT
 from happy.models.shadow import ShaDowGCN
 from happy.models.sign import SIGN as SIGN_MLP
 from happy.models.mlp import MLP
-from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
+from happy.graph.create_graph import get_nodes_within_tiles
 
 
 def setup_node_splits(

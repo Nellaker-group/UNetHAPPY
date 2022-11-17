@@ -1,5 +1,4 @@
 from itertools import combinations
-from pathlib import Path
 
 import typer
 import torch
@@ -7,18 +6,19 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from matplotlib import patches
+from matplotlib.cm import get_cmap
 import seaborn as sns
 from sklearn_extra.cluster import KMedoids
 from sklearn.metrics.cluster import normalized_mutual_info_score, adjusted_rand_score
 
-from projects.placenta.graphs.graphs.create_graph import (
+from happy.graph.create_graph import (
     get_raw_data,
     setup_graph,
     get_list_of_subgraphs,
 )
 from projects.placenta.graphs.graphs.enums import MethodArg
 from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
-from projects.placenta.graphs.analysis.vis_patch_predictions import visualize_patches
 from projects.placenta.graphs.graphs.utils import remove_far_nodes, get_tile_coordinates
 from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
@@ -306,6 +306,43 @@ def _get_all_possible_cell_connections(organ):
     all_conns = list(combinations(cell_ids, 2))
     all_conns.extend([(_, _) for _ in cell_ids])
     return set(all_conns)
+
+
+def visualize_patches(
+    tile_coordinates, tile_width, tile_height, tile_labels, save_path
+):
+    cmap_colours = get_cmap("tab10").colors
+    keys = list(range(13))
+    colourmap = dict(zip(keys, cmap_colours))
+
+    min_x, min_y = tile_coordinates[:, 0].min(), tile_coordinates[:, 1].min()
+    max_x = tile_coordinates[:, 0].max() + tile_width
+    max_y = tile_coordinates[:, 1].max() + tile_height
+
+    if max_x > max_y:
+        max_y = max_x
+    else:
+        max_x = max_y
+
+    fig, ax = plt.subplots(1, figsize=(8, 8))
+    for i, tile in enumerate(tile_coordinates):
+        x, y = tile[0], tile[1]
+        rect = patches.Rectangle(
+            (x, y),
+            tile_width,
+            tile_height,
+            alpha=0.7,
+            facecolor=colourmap[tile_labels[i]],
+        )
+        ax.add_patch(rect)
+    ax.set_xlim(min_x, max_x)
+    ax.set_ylim(min_y, max_y)
+
+    plt.gca().invert_yaxis()
+    plt.axis("off")
+    fig.tight_layout()
+    plt.savefig(save_path)
+
 
 
 if __name__ == "__main__":

@@ -12,9 +12,10 @@ from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
 from graphs.graphs.enums import FeatureArg, MethodArg, SupervisedModelsArg
-from graphs.graphs.utils import get_feature, send_graph_to_device, set_seed
+from graphs.graphs.utils import get_feature, send_graph_to_device
+from utils.utils import set_seed
 from graphs.graphs import graph_supervised
-from graphs.graphs.create_graph import (
+from happy.graph.create_graph import (
     get_raw_data,
     setup_graph,
     get_groundtruth_patch,
@@ -49,7 +50,6 @@ def main(
     weighted_loss: bool = True,
     use_custom_weights: bool = True,
     vis: bool = False,
-    label_type: str = "full",
     tissue_label_tsvs: List[str] = typer.Option([]),
     val_patch_files: Optional[List[str]] = [],
     test_patch_files: Optional[List[str]] = [],
@@ -97,7 +97,6 @@ def main(
             width,
             height,
             tissue_label_tsvs[i],
-            label_type,
         )
         # Covert isolated knts into syn and turn groups into a single knt point
         if group_knts:
@@ -116,7 +115,9 @@ def main(
             row, col = data.edge_index
             data.edge_weight = 1.0 / degree(col, data.num_nodes)[col]
 
-        # Split nodes into unlabelled, training and validation sets
+        # Split nodes into unlabelled, training and validation sets. So far, validation
+        # and test sets are only defined for run_id 56. If there is training data in
+        # tissue_class for other runs, that data will also be used for training.
         if run_id == 56:
             data = graph_supervised.setup_node_splits(
                 data,

@@ -9,8 +9,8 @@ from happy.utils.utils import get_project_dir
 import happy.db.eval_runs_interface as db
 from happy.utils.hdf5 import get_datasets_in_patch, get_embeddings_file
 from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
-from projects.placenta.graphs.graphs.create_graph import get_groundtruth_patch
-from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
+from happy.graph.create_graph import get_groundtruth_patch
+from happy.graph.create_graph import get_nodes_within_tiles
 from projects.placenta.analysis.wsi_cell_tissue_stats import get_cells_within_tissues
 
 
