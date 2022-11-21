@@ -1,6 +1,7 @@
 import pandas as pd
 from shapely.ops import unary_union
 from shapely.geometry import Polygon
+from shapely.strtree import STRtree
 
 # old original version of the polygon merger
 def merge_polys(new_poly, all_polys):

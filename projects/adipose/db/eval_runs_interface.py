@@ -13,7 +13,8 @@ def init():
     db_name = "main.db"
     #emil
     #db_path = Path(__file__).parent.absolute() / db_name
-    db_path="/well/lindgren/users/swf744/git/HAPPY/projects/adipose/db/main.db"
+    #db_path="/well/lindgren/users/swf744/git/HAPPY/projects/adipose/db/main.db"
+    db_path="/well/lindgren/users/swf744/git/dev-happy/projects/adipose/db/main.db"
     print("db_path:")
     print(db_path)
     init_db(db_path)
