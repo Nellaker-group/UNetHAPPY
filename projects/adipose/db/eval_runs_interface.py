@@ -180,25 +180,6 @@ def validate_pred_workings(run_id, valid_coords):
             PredictionString.insert_many(batch, fields=fields).execute()
 
 
-
-def commit_pred_workingsOLD(run_id):
-    source = (
-        UnvalidatedPrediction.select(
-            UnvalidatedPrediction.run, UnvalidatedPrediction.x, UnvalidatedPrediction.y
-        )
-        .where(
-            (UnvalidatedPrediction.run == run_id)
-            & (UnvalidatedPrediction.is_valid == True)
-        )
-        .order_by(UnvalidatedPrediction.x, UnvalidatedPrediction.y.asc())
-    )
-
-    rows = Prediction.insert_from(
-        source, fields=[Prediction.run, Prediction.x, Prediction.y]
-    ).execute()
-    print(f"added {rows} nuclei predictions to Predictions table for eval run {run_id}")
-
-
 def get_num_remaining_tiles(run_id):
     return (
         TileState.select()
