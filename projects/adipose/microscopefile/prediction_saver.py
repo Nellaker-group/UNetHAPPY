@@ -115,6 +115,9 @@ class PredictionSaver:
         seg_preds = db.get_all_unvalidated_seg_preds(self.id)
         seg_list = []
 
+        # emil trying to get overlap into the mix
+        run = db.get_eval_run_by_id(self.id)
+
         for seg in seg_preds:
             poly=Polygon([(x,y) for x,y in db.stringListTuple2coordinates(seg)])
             seg_list.append(poly) 
@@ -131,7 +134,7 @@ class PredictionSaver:
         print(self.file.slide_path)
 
         slideName = self.file.slide_path.split("/")[-1].split(".")[0]
-        with open(slideName+'coords_by_tile_merged_overlap512.obj', 'wb') as f:
+        with open(slideName+'coords_by_tile_merged_overlap'+str(run.overlap)+'.obj', 'wb') as f:
             pickle.dump(merged_polys_list, f)
 
         merged_coords = []
