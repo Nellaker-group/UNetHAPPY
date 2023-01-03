@@ -9,7 +9,8 @@ import eval_adipose
 import db.eval_runs_interface as db
 
 
-# emil changed this to try and make it run
+# emil changed this to try and make it run 
+# emil added this to test if I can push to github
 def main(
     project_name: str = typer.Option(...),
     organ_name: str = typer.Option(...),

@@ -2,6 +2,7 @@ import pandas as pd
 from shapely.ops import unary_union
 from shapely.geometry import Polygon
 from shapely.strtree import STRtree
+from data.geojsoner import writeToGeoJSON
 
 # old original version of the polygon merger
 def merge_polys(new_poly, all_polys):
@@ -194,6 +195,7 @@ def merge_polysV3(polys, debug = False):
         #getting the indexes of the queried polygons
         indexes = [index_by_id[id(pt)] for pt in shortlist_mask_tmp]
         #for keeping track of polygons in query
+
         counter = 0
         shortlist_mask = []
         #go through polygons and remove those already been merged
@@ -219,7 +221,12 @@ def merge_polysV3(polys, debug = False):
                 merged[candidate_index] = True
                 if report_recursion:
                     print('merge %d' % (candidate_index))
-                poly = unary_union([poly,candidate_poly])
+                try:
+                    poly = unary_union([poly,candidate_poly])
+                except ValueError:
+                    # emil
+                    print("bad poly - candidate_index:")
+                    print(candidate_index)
         if poly.bounds != original_bounds: #only need to recurse if bounds/boxes have actually changed (complete subsumption won't change bounds)
             #recurses on the function with the new merged polygon and the updated indexes of merged polygons
             poly = find_and_merge(poly,report_recursion=report_recursion)

@@ -119,14 +119,6 @@ class PredictionSaver:
             poly=Polygon([(x,y) for x,y in db.stringListTuple2coordinates(seg)])
             seg_list.append(poly) 
             
-        # emil
-        print("self.file.slide_path")
-        print(self.file.slide_path)
-        
-        slideName = self.file.slide_path.split("/")[-1].split(".")[0]
-        with open(slideName+'coords_by_tile.obj', 'wb') as f:
-            pickle.dump(seg_list, f)
-                        
         print("list of polygons is this long:")
         print(len(seg_list))
 
@@ -134,7 +126,12 @@ class PredictionSaver:
         if overlap:            
             merged_polys_list = mp.merge_polysV3(seg_list)
 
-        with open('coords_by_tile_merged.obj', 'wb') as f:
+        # emil
+        print("self.file.slide_path")
+        print(self.file.slide_path)
+
+        slideName = self.file.slide_path.split("/")[-1].split(".")[0]
+        with open(slideName+'coords_by_tile_merged_overlap512.obj', 'wb') as f:
             pickle.dump(merged_polys_list, f)
 
         merged_coords = []
