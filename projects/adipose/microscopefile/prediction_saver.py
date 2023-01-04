@@ -26,8 +26,6 @@ import db.eval_runs_interface as db
 import data.geojsoner as gj
 import data.merge_polygons as mp
 
-# emil
-import pickle
 
 class PredictionSaver:
     def __init__(self, microscopefile):
@@ -134,8 +132,8 @@ class PredictionSaver:
         print(self.file.slide_path)
 
         slideName = self.file.slide_path.split("/")[-1].split(".")[0]
-        with open(slideName+'coords_by_tile_merged_overlap'+str(run.overlap)+'.obj', 'wb') as f:
-            pickle.dump(merged_polys_list, f)
+
+        gj.writeToGeoJSON(merged_polys_list, slideName+'coords_by_tile_merged_overlap'+str(run.overlap)+'.geojson')
 
         merged_coords = []
         polyID=0
