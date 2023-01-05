@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 import typer
 
@@ -14,7 +15,7 @@ def main(
     lab_country: str = typer.Option(...),
     primary_contact: str = typer.Option(...),
     slide_file_format: str = typer.Option(...),
-    pixel_size: float = typer.Option(...),
+    pixel_size: Optional[float] = None,
     has_notes: bool = False,
     has_clinical_data: bool = False,
 ):

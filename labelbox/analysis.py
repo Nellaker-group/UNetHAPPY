@@ -70,7 +70,7 @@ def main(
     combined_majority_df = combine_path_with_original(path_majority_df, original_df)
 
     if path_to_patches_file is not None:
-        all_new_annots = pd.read_csv(project_dir / "config" / path_to_patches_file)
+        all_new_annots = pd.read_csv(project_dir / "graph_splits" / path_to_patches_file)
         all_new_annots.new_annot = _map_to_labelbox_classes(all_new_annots.new_annot)
         xs = []
         ys = []

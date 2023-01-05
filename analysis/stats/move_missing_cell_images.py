@@ -4,7 +4,7 @@ import typer
 import pandas as pd
 
 from happy.utils.utils import get_project_dir
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 
 
 def main(

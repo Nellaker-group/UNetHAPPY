@@ -27,7 +27,7 @@ from happy.train.utils import (
     plot_confusion_matrix,
     plot_cell_pr_curves,
 )
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.train.cell_train import setup_data, setup_model
 
 
@@ -164,7 +164,7 @@ def main(
 
         if plot_cm:
             cell_mapping = {cell.id: cell.name for cell in organ.cells}
-            cell_colours = {cell.id: cell.colourblind_colour for cell in organ.cells}
+            cell_colours = {cell.id: cell.colour for cell in organ.cells}
 
             # Order by counts and category
             sort_inds = [3, 10, 0, 9, 1, 6, 4, 8, 2, 7, 5]

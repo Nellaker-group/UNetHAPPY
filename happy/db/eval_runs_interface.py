@@ -37,7 +37,7 @@ def get_eval_run_by_id(run_id):
     return eval_run
 
 
-# TODO: change this to always return a Path object
+# returns the path to the embeddings file for that run
 def get_embeddings_path(run_id, embeddings_dir=None):
     eval_run = EvalRun.get_by_id(run_id)
     if not eval_run.embeddings_path:

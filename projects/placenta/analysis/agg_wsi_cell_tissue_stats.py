@@ -7,10 +7,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 import happy.db.eval_runs_interface as db
-from happy.hdf5.utils import get_datasets_in_patch, get_embeddings_file
+from happy.utils.hdf5 import get_datasets_in_patch, get_embeddings_file
 from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
 
 
@@ -30,11 +30,13 @@ def main(
     villus_only: bool = True,
     line_plot: bool = False,
 ):
+    """Plot cell type proportions within each tissue type for one WSI."""
+
     # Create database connection
     db.init()
     organ = get_organ("placenta")
     cell_label_mapping = {cell.id: cell.label for cell in organ.cells}
-    cell_colours = {cell.label: cell.colourblind_colour for cell in organ.cells}
+    cell_colours = {cell.label: cell.colour for cell in organ.cells}
     project_dir = get_project_dir(project_name)
 
     # print tissue predictions from tsv file

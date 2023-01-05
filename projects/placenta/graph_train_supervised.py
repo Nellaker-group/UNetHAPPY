@@ -7,22 +7,20 @@ from torch_geometric.utils import add_self_loops, degree
 from torch_geometric.data import Batch
 
 from happy.utils.utils import get_device
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
 from graphs.graphs.enums import FeatureArg, MethodArg, SupervisedModelsArg
-from graphs.graphs.utils import get_feature, send_graph_to_device, set_seed
+from graphs.graphs.utils import get_feature, send_graph_to_device
+from utils.utils import set_seed
 from graphs.graphs import graph_supervised
-from graphs.graphs.create_graph import (
+from happy.graph.create_graph import (
     get_raw_data,
     setup_graph,
     get_groundtruth_patch,
     process_knts,
 )
-
-
-device = get_device()
 
 
 def main(
@@ -52,7 +50,6 @@ def main(
     weighted_loss: bool = True,
     use_custom_weights: bool = True,
     vis: bool = False,
-    label_type: str = "full",
     tissue_label_tsvs: List[str] = typer.Option([]),
     val_patch_files: Optional[List[str]] = [],
     test_patch_files: Optional[List[str]] = [],
@@ -60,6 +57,8 @@ def main(
     include_validation: bool = True,
     validation_step: int = 25,
 ):
+    device = get_device()
+
     model_type = model_type.value
     graph_method = graph_method.value
     feature = feature.value
@@ -70,9 +69,13 @@ def main(
     organ = get_organ(organ_name)
 
     if len(val_patch_files) > 0:
-        val_patch_files = [project_dir / "config" / file for file in val_patch_files]
+        val_patch_files = [
+            project_dir / "graph_splits" / file for file in val_patch_files
+        ]
     if len(test_patch_files) > 0:
-        test_patch_files = [project_dir / "config" / file for file in test_patch_files]
+        test_patch_files = [
+            project_dir / "graph_splits" / file for file in test_patch_files
+        ]
 
     # Setup recording of stats per batch and epoch
     logger = Logger(
@@ -94,7 +97,6 @@ def main(
             width,
             height,
             tissue_label_tsvs[i],
-            label_type,
         )
         # Covert isolated knts into syn and turn groups into a single knt point
         if group_knts:
@@ -113,7 +115,9 @@ def main(
             row, col = data.edge_index
             data.edge_weight = 1.0 / degree(col, data.num_nodes)[col]
 
-        # Split nodes into unlabelled, training and validation sets
+        # Split nodes into unlabelled, training and validation sets. So far, validation
+        # and test sets are only defined for run_id 56. If there is training data in
+        # tissue_class for other runs, that data will also be used for training.
         if run_id == 56:
             data = graph_supervised.setup_node_splits(
                 data,

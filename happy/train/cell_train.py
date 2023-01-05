@@ -20,7 +20,6 @@ def setup_data(
     num_workers,
     multiple_val_sets,
     val_batch,
-    oversampled=True,
     test_set=False,
 ):
     datasets = setup_cell_datasets(
@@ -29,7 +28,6 @@ def setup_data(
         hp.dataset_names,
         image_size,
         multiple_val_sets,
-        oversampled,
         test_set,
     )
     dataloaders = setup_dataloaders(False, datasets, num_workers, hp.batch, val_batch)
@@ -37,11 +35,11 @@ def setup_data(
 
 
 def setup_model(
-    model_name, init_from_coco, out_features, pre_trained_path, frozen, device
+    model_name, init_from_inc, out_features, pre_trained_path, frozen, device
 ):
     image_size = (299, 299) if model_name == "inceptionresnetv2" else (224, 224)
 
-    if init_from_coco:
+    if init_from_inc:
         model = build_cell_classifer(model_name, out_features)
     else:
         state_dict = torch.load(pre_trained_path, map_location=device)
@@ -163,7 +161,7 @@ def train(
         scheduler.step()
 
         # Calculate and plot confusion matrices for all validation sets
-        print("Evaluating dataset")
+        print("Evaluating datasets")
         prev_best_accuracy = validate_model(
             organ,
             logger,

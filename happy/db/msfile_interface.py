@@ -76,7 +76,6 @@ def _init_msfile(run):
     return MicroscopeFile(
         run.id,
         reader,
-        full_slide_path,
         run.tile_width,
         run.tile_height,
         run.pixel_size,

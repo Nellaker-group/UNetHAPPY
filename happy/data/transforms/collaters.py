@@ -18,16 +18,17 @@ def cell_collater(batch):
 
     # (batch, channel, x, y) for resnet that's (100, 224, 244, 3)
     transposed_imgs = [np.transpose(img, axes=[2, 1, 0]) for img in imgs]
-    tensor_imgs = torch.LongTensor(transposed_imgs)
+    tensor_imgs = torch.LongTensor(np.array(transposed_imgs))
 
     sample_dict.update({"img": tensor_imgs, "annot": torch.LongTensor(annots)})
 
     return sample_dict
 
 
-# adds padding to images and annotations. This is only needed if model was trained with this collater
-# when used for eval on microscopefiles, this checks for empty tiles by not passing through an image
-# when used for training, this checks for training images without annotations
+# adds padding to images and annotations. This is only needed if model was trained with
+# this collater when used for eval on a microscopefiles, this checks for empty tiles
+# and does not pass them to the model. When used for training, this checks for training
+# images without annotations
 def collater(batch):
     # take all possible keys
     sample_dict = {}

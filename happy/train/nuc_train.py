@@ -3,18 +3,18 @@ import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 
-from happy.train.calc_point_eval import evaluate_points_over_dataset
+from happy.train.point_eval import evaluate_points_over_dataset
 from happy.models import retinanet
 from happy.utils.utils import load_weights
 from happy.data.setup_data import setup_nuclei_datasets
 from happy.data.setup_dataloader import setup_dataloaders
 
 
-def setup_model(init_from_coco, device, frozen=True, pre_trained_path=None):
+def setup_model(init_from_inc, device, frozen=True, pre_trained_path=None):
     model = retinanet.build_retina_net(
-        num_classes=1, device=device, pretrained=init_from_coco, resnet_depth=101
+        num_classes=1, device=device, pretrained=init_from_inc, resnet_depth=101
     )
-    if not init_from_coco:
+    if not init_from_inc:
         state_dict = torch.load(pre_trained_path, map_location=device)
         model = load_weights(state_dict, model)
 
@@ -85,7 +85,7 @@ def train(epochs, model, dataloaders, optimizer, logger, scheduler, run_path, de
         scheduler.step()
 
         # Calculate and plot AP for all validation sets
-        print("Evaluating dataset")
+        print("Evaluating datasets")
         prev_best_f1 = validate_model(
             logger, epoch_num, prev_best_f1, model, run_path, dataloaders, device
         )

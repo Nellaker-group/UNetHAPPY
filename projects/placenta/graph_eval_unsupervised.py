@@ -14,8 +14,8 @@ import numpy as np
 
 from happy.utils.utils import get_device
 from happy.utils.utils import get_project_dir
-from happy.organs.organs import get_organ
-from graphs.graphs.create_graph import get_raw_data, setup_graph
+from happy.organs import get_organ
+from happy.graph.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from graphs.graphs.embeddings import (
     get_graph_embeddings,
     fit_umap,
@@ -26,7 +26,6 @@ from graphs.graphs.embeddings import (
 from graphs.graphs.utils import get_feature
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
-from graphs.graphs.create_graph import get_groundtruth_patch
 
 np.random.seed(2)
 
@@ -51,7 +50,6 @@ def main(
     clustering_method: str = "kmeans",
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
-    label_type: str = "full",
     tissue_label_tsv: Optional[str] = None,
 ):
     device = get_device()
@@ -71,7 +69,7 @@ def main(
 
     # Get ground truth manually annotated data
     _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
+        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv
     )
 
     # Setup trained model

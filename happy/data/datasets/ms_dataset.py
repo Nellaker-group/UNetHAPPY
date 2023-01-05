@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.utils.data import IterableDataset
 
-from happy.utils.image_utils import process_image
+from utils.utils import process_image
 
 
 class MSDataset(IterableDataset, ABC):
@@ -25,7 +25,7 @@ class MSDataset(IterableDataset, ABC):
         if worker_info is None:
             return self._iter_data(self.start, self.end)
         else:
-            # splits the dataset each worker gets proportional to the number of workers
+            # splits the datasets each worker gets proportional to the number of workers
             per_worker = int(
                 np.math.ceil((self.end - self.start) / float(worker_info.num_workers))
             )
@@ -64,7 +64,7 @@ class NucleiDataset(MSDataset):
                 sample = self.transform(sample)
             yield sample
 
-    # Generator to create a dataset of tiles within a range
+    # Generator to create a datasets of tiles within a range
     def _get_dataset_section(self, target_w, target_h, tile_range):
         tile_coords = self.remaining_data[tile_range[0] : tile_range[1]]
         for _dict in tile_coords:
@@ -92,7 +92,7 @@ class CellDataset(MSDataset):
                 sample = self.transform(sample)
             yield sample
 
-    # Generator to create a dataset of tiles with cell centres within a range
+    # Generator to create a datasets of tiles with cell centres within a range
     def _get_dataset_section(self, target_w, target_h, tile_range):
         # Returns 200x200 images by default for cell classifier centered on nuclei
         cell_coords = self.remaining_data[tile_range[0] : tile_range[1]]

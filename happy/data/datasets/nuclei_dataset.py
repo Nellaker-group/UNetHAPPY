@@ -1,49 +1,44 @@
-from collections import defaultdict
-from pathlib import Path
-
+import numpy as np
 import pandas as pd
 from PIL import Image
 from torch.utils.data import Dataset
 
-from happy.utils.image_utils import load_image
+from utils.utils import load_image
+from happy.data.utils import group_annotations_by_image
 
 
-class CellDataset(Dataset):
+class NucleiDataset(Dataset):
     def __init__(
         self,
-        organ,
         annotations_dir,
         dataset_names,
         split="train",
-        oversampled_train=False,
         transform=None,
     ):
         """
         Args:
-            organ (Organ): the organ to access the cell data from
             annotations_dir (Path): path to directory with all annotation files
             dataset_names (list): list of directory names of datasets
             split (string): One of "train", "val", "test", "all"
-            oversampled_train (bool): whether to use oversampled training dataset
             transform: transforms to apply to the data
         """
-        self.organ = organ
         self.annotations_dir = annotations_dir
+        self.dataset_names = dataset_names
         self.split = split
         self.transform = transform
 
         self.dataset_names = self._load_datasets(dataset_names)
         self.classes = self._load_classes()
-        self.all_annotations = self._load_annotations(oversampled_train)
+        self.ungrouped_annotations = self._load_annotations()
 
-        self.class_sampling_weights = self._get_class_sampling_weights()
+        self.all_annotations = group_annotations_by_image(self.ungrouped_annotations)
 
     def __len__(self):
         return len(self.all_annotations)
 
     def __getitem__(self, idx):
         img = load_image(self.all_annotations["image_path"][idx])
-        annot = self._get_class_in_image(idx)
+        annot = self.get_annotations_in_image(idx)
         sample = {"img": img, "annot": annot}
         if self.transform:
             sample = self.transform(sample)
@@ -56,34 +51,37 @@ class CellDataset(Dataset):
             return dataset_names
 
     def _load_classes(self):
-        return {cell.label: cell.id for cell in self.organ.cells}
+        return {"nucleus": 0}
 
-    def _load_annotations(self, oversampled_train):
+    def get_annotations_in_image(self, image_index):
+        # get ground truth annotations
+        image_data = self.all_annotations.iloc[image_index]
+
+        # for images without annotations
+        if np.isnan(image_data["x1"][0]):
+            return np.zeros((0, 5))
+
+        # extract all annotations in the image
+        x1s = np.array(image_data["x1"])
+        y1s = np.array(image_data["y1"])
+        x2s = np.array(image_data["x2"])
+        y2s = np.array(image_data["y2"])
+        class_names = np.array(image_data["class_name"])
+        class_names = np.vectorize(self.classes.get)(class_names)
+        return np.column_stack((x1s, y1s, x2s, y2s, class_names))
+
+    def _load_annotations(self):
         df_list = []
         for dataset_name in self.dataset_names:
-            # Get the file path and oversampled file if specified
-            dir_path = self.annotations_dir / dataset_name
-            if oversampled_train and self.split == "train":
-                file_name = f"{self.split}_oversampled_cell.csv"
-            else:
-                file_name = f"{self.split}_cell.csv"
-            file_path = dir_path / file_name
+            file_path = self.annotations_dir / dataset_name / f"{self.split}_nuclei.csv"
 
-            annotations = pd.read_csv(file_path, names=["image_path", "class_name"])
-            assert annotations.class_name.isin(self.classes.keys()).all()
+            annotations = pd.read_csv(
+                file_path, names=["image_path", "x1", "y1", "x2", "y2", "class_name"]
+            )
+            assert np.where(annotations["x1"] > annotations["x2"])[0].size == 0
+            assert np.where(annotations["y1"] > annotations["y2"])[0].size == 0
             df_list.append(annotations)
         return pd.concat(df_list, ignore_index=True)
-
-    def _get_class_in_image(self, image_index):
-        return self.classes[self.all_annotations["class_name"][image_index]]
-
-    def _get_class_sampling_weights(self):
-        cell_classes = self.all_annotations["class_name"]
-        class_counts = defaultdict(int)
-        for img_class in cell_classes:
-            class_counts[img_class] += 1
-        list_of_weights = [1 / class_counts[x] for x in cell_classes]
-        return list_of_weights
 
     def num_classes(self):
         return max(self.classes.values()) + 1

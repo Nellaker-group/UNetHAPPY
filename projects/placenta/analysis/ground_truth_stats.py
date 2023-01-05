@@ -4,13 +4,13 @@ import typer
 import numpy as np
 import pandas as pd
 
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 import happy.db.eval_runs_interface as db
-from happy.hdf5.utils import get_datasets_in_patch, get_embeddings_file
+from happy.utils.hdf5 import get_datasets_in_patch, get_embeddings_file
 from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
-from projects.placenta.graphs.graphs.create_graph import get_groundtruth_patch
-from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
+from happy.graph.create_graph import get_groundtruth_patch
+from happy.graph.create_graph import get_nodes_within_tiles
 from projects.placenta.analysis.wsi_cell_tissue_stats import get_cells_within_tissues
 
 
@@ -26,10 +26,10 @@ def main(
     db.init()
     organ = get_organ("placenta")
     cell_label_mapping = {cell.id: cell.label for cell in organ.cells}
-    cell_colours_mapping = {cell.label: cell.colourblind_colour for cell in organ.cells}
+    cell_colours_mapping = {cell.label: cell.colour for cell in organ.cells}
     tissue_label_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
     project_dir = get_project_dir(project_name)
-    patch_files = [project_dir / "config" / file for file in patch_files]
+    patch_files = [project_dir / "graph_splits" / file for file in patch_files]
 
     cell_dfs = []
     tissue_dfs = []
@@ -60,15 +60,17 @@ def main(
                 patches_df = pd.read_csv(file)
                 for row in patches_df.itertuples(index=False):
                     node_inds = get_nodes_within_tiles(
-                            (row.x, row.y), row.width, row.height, xs_tissue, ys_tissue
-                        )
+                        (row.x, row.y), row.width, row.height, xs_tissue, ys_tissue
+                    )
                     patch_node_inds.extend(node_inds)
                     if use_path_class:
                         path_class.extend([row.path_class] * len(node_inds))
         # Otherwise, use all tissue nodes and remove unlabelled
         else:
             patch_node_inds = tissue_class.nonzero()[0]
-            print(f"Removing {len(tissue_class) - len(patch_node_inds)} unlabelled nodes")
+            print(
+                f"Removing {len(tissue_class) - len(patch_node_inds)} unlabelled nodes"
+            )
 
         predictions = predictions[patch_node_inds]
         embeddings = embeddings[patch_node_inds]
@@ -104,17 +106,22 @@ def main(
 
         # # print tissue ground truth
         if not use_path_class:
-            tissue_df = pd.DataFrame({"x": xs_tissue, "y": ys_tissue, "Tissues": tissue_class})
-            tissue_df['Tissues'] = tissue_df['Tissues'].map(tissue_label_mapping)
+            tissue_df = pd.DataFrame(
+                {"x": xs_tissue, "y": ys_tissue, "Tissues": tissue_class}
+            )
+            tissue_df["Tissues"] = tissue_df["Tissues"].map(tissue_label_mapping)
         else:
             tissue_df = pd.DataFrame(
-                {"x": xs_tissue, "y": ys_tissue, "Tissues": path_class})
+                {"x": xs_tissue, "y": ys_tissue, "Tissues": path_class}
+            )
         # remove rows where knots were removed
         if group_knts:
-            tissue_df = tissue_df.loc[~tissue_df.index.isin(inds_to_remove)].reset_index(
-                drop=True
-            )
-        unique_tissues, tissue_counts = np.unique(tissue_df["Tissues"], return_counts=True)
+            tissue_df = tissue_df.loc[
+                ~tissue_df.index.isin(inds_to_remove)
+            ].reset_index(drop=True)
+        unique_tissues, tissue_counts = np.unique(
+            tissue_df["Tissues"], return_counts=True
+        )
         unique_tissue_counts = dict(zip(unique_tissues, tissue_counts))
         print(f"Num tissue predictions per label: {unique_tissue_counts}")
         tissue_proportions = [
@@ -140,7 +147,7 @@ def main(
         full_cell_df,
         full_tissue_df,
         cell_colours_mapping,
-        project_dir / "analysis" / "plots" / 'cells_in_tissues_gt.png',
+        project_dir / "analysis" / "plots" / "cells_in_tissues_gt.png",
         villus_only=False,
     )
 

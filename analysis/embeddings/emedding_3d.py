@@ -4,8 +4,8 @@ import typer
 import matplotlib.pyplot as plt
 import umap
 
-from happy.hdf5.utils import get_embeddings_file, get_hdf5_datasets
-from happy.organs.organs import get_organ
+from happy.utils.hdf5 import get_embeddings_file, get_hdf5_datasets
+from happy.organs import get_organ
 from plots import plot_3d
 
 

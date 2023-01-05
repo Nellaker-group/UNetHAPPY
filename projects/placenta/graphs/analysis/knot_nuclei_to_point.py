@@ -2,7 +2,7 @@ import sklearn.neighbors as sk
 import matplotlib.pyplot as plt
 import numpy as np
 
-from happy.hdf5.utils import filter_by_cell_type
+from happy.utils.hdf5 import filter_by_cell_type
 
 
 def process_knt_cells(
@@ -40,7 +40,12 @@ def process_knt_cells(
 
     # find KNT cells with no neighbors and turn them into SYN
     all_predictions, predictions = _convert_isolated_knt_into_syn(
-        all_predictions, predictions, cut_off_count, unique_indices, all_knt_inds, verbose=verbose
+        all_predictions,
+        predictions,
+        cut_off_count,
+        unique_indices,
+        all_knt_inds,
+        verbose=verbose,
     )
 
     # remove points with more than cut off neighbors and keep just one point
@@ -60,7 +65,9 @@ def process_knt_cells(
     all_coords = np.delete(all_coords, inds_to_remove_from_total, axis=0)
     all_confidence = np.delete(all_confidence, inds_to_remove_from_total, axis=0)
     if verbose:
-        print(f"Clustered {len(inds_to_remove_from_total)} KNT cells into a single point")
+        print(
+            f"Clustered {len(inds_to_remove_from_total)} KNT cells into a single point"
+        )
 
     return (
         all_predictions,
@@ -88,7 +95,12 @@ def _get_indices_in_radius(coords, radius):
 
 
 def _convert_isolated_knt_into_syn(
-    all_predictions, knt_predictions, cut_off_count, unique_indices, all_knt_inds, verbose=True
+    all_predictions,
+    knt_predictions,
+    cut_off_count,
+    unique_indices,
+    all_knt_inds,
+    verbose=True,
 ):
     lone_knt_indices = []
     lone_knt_indices_nested = [

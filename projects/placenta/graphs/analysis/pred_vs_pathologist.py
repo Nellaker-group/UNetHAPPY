@@ -1,8 +1,6 @@
 from typing import List
-from pathlib import Path
 
 import typer
-import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     accuracy_score,
@@ -14,10 +12,10 @@ from sklearn.metrics import (
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 import happy.db.eval_runs_interface as db
-from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
+from happy.graph.create_graph import get_nodes_within_tiles
 from happy.train.utils import plot_confusion_matrix, get_tissue_confusion_matrix
 
 
@@ -34,7 +32,7 @@ def main(
     db.init()
     organ = get_organ("placenta")
     project_dir = get_project_dir(project_name)
-    patch_files = [project_dir / "config" / file for file in patch_files]
+    patch_files = [project_dir / "graph_splits" / file for file in patch_files]
 
     # print tissue predictions from tsv file
     pretrained_path = (

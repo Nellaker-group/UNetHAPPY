@@ -1,5 +1,3 @@
-import random
-
 import torch
 from torch_geometric.utils.isolated import (
     contains_isolated_nodes,
@@ -7,12 +5,6 @@ from torch_geometric.utils.isolated import (
 )
 import numpy as np
 import pandas as pd
-
-
-def set_seed(seed):
-    torch.manual_seed(seed)
-    random.seed(seed)
-    np.random.seed(seed)
 
 
 def get_feature(feature, predictions, embeddings, organ=None):

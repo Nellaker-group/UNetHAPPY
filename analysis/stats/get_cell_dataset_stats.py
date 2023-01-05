@@ -6,7 +6,7 @@ import pandas as pd
 import seaborn as sns
 
 from happy.utils.utils import get_project_dir
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 
 
 def main(

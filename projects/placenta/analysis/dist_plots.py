@@ -5,13 +5,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
 
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 
 
 def main():
     organ = get_organ("placenta")
 
-    cell_colours = np.array([cell.colourblind_colour for cell in organ.cells])
+    cell_colours = np.array([cell.colour for cell in organ.cells])
     cell_colours = cell_colours.take([3, 0, 4, 6, 1, 7, 2, 10, 9, 5, 8])
     cell_prop = {
         "SYN": 38.3,
@@ -28,7 +28,7 @@ def main():
     }
     cell_prop = pd.Series(cell_prop)
     plot_dist(cell_prop, cell_colours, "cell_prop")
-    tissue_colours = np.array([tissue.colourblind_colour for tissue in organ.tissues])
+    tissue_colours = np.array([tissue.colour for tissue in organ.tissues])
     tissue_colours = np.delete(tissue_colours, [0, 2, 4, 10])
     tissue_colours = tissue_colours.take([5, 4, 2, 1, 0, 3, 8, 7, 6])
     all_labelled_tissue_prop = {

@@ -6,7 +6,7 @@ from torch_geometric.data import Data
 from torch_geometric.utils.convert import to_networkx
 
 import happy.db.eval_runs_interface as db
-from happy.hdf5.utils import get_datasets_in_patch, get_embeddings_file
+from happy.utils.hdf5 import get_datasets_in_patch, get_embeddings_file
 from happy.utils.utils import get_project_dir
 
 

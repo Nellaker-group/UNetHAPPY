@@ -6,7 +6,7 @@ import os
 import typer
 
 from happy.utils.utils import get_device
-from happy.train.calc_point_eval import evaluate_points_over_dataset
+from happy.train.point_eval import evaluate_points_over_dataset
 from happy.train.nuc_train import setup_data, setup_model
 
 

@@ -6,10 +6,10 @@ import pandas as pd
 import matplotlib, matplotlib.pyplot as plt
 import seaborn as sns
 
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 import happy.db.eval_runs_interface as db
-from happy.hdf5.utils import get_datasets_in_patch, get_embeddings_file
+from happy.utils.hdf5 import get_datasets_in_patch, get_embeddings_file
 from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
 
 
@@ -27,6 +27,10 @@ def main(
     group_knts: bool = False,
     trained_with_grouped_knts: bool = False,
 ):
+    """Plot the distribution of cell and tissue types across multiple WSIs.
+    This will plot a line plot with an offset swarm plot where each point is each WSI.
+    """
+
     # Create database connection
     db.init()
     organ = get_organ("placenta")
@@ -98,7 +102,7 @@ def main(
     cell_df = pd.concat(cell_prop_dfs)
     args_to_sort = np.argsort([cell.structural_id for cell in organ.cells])
     cell_df = cell_df[cell_df.columns[args_to_sort]]
-    cell_colours = {cell.name: cell.colourblind_colour for cell in organ.cells}
+    cell_colours = {cell.name: cell.colour for cell in organ.cells}
 
     tissue_df = pd.concat(tissue_prop_dfs)
     tissue_labels = [tissue.name for tissue in organ.tissues]
@@ -120,7 +124,7 @@ def main(
         ]
     ]
     tissue_colours = {
-        tissue.name: tissue.colourblind_colour for tissue in organ.tissues
+        tissue.name: tissue.colour for tissue in organ.tissues
     }
 
     plot_box_and_whisker(cell_df, "plots/cell_proportions.png", "Cell", cell_colours)

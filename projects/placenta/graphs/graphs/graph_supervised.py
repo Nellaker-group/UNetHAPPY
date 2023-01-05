@@ -43,7 +43,7 @@ from happy.models.graphsaint import GraphSAINT
 from happy.models.shadow import ShaDowGCN
 from happy.models.sign import SIGN as SIGN_MLP
 from happy.models.mlp import MLP
-from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
+from happy.graph.create_graph import get_nodes_within_tiles
 
 
 def setup_node_splits(
@@ -697,7 +697,7 @@ def evaluation_plots(tissue_class, predicted_labels, out, organ, run_path):
     sort_inds = [1, 2, 4, 0, 3, 5, 6, 7, 8]
 
     tissue_mapping = {tissue.id: tissue.name for tissue in organ.tissues}
-    tissue_colours = {tissue.id: tissue.colourblind_colour for tissue in organ.tissues}
+    tissue_colours = {tissue.id: tissue.colour for tissue in organ.tissues}
 
     recalls = recall_score(tissue_class, predicted_labels, average=None)[sort_inds]
     precisions = precision_score(tissue_class, predicted_labels, average=None)[

@@ -1,21 +1,12 @@
-"""
-Usage:
-# initialise the server
-vis = VisdomLinePlotter()
-
-# add data to the plotter:
-vis.plot('loss', 'train', 'Loss', epoch_num, np.mean(epoch_losses[train]))
-"""
-
 from visdom import Visdom
 import numpy as np
 
 
-class VisdomLinePlotter(object):
-    """Plots to Visdom"""
+class VisdomLinePlotter():
+    """Plots to a Visdom server"""
 
-    def __init__(self, env_name="main"):
-        self.viz = Visdom(port=8998)
+    def __init__(self, env_name="main", port=8998):
+        self.viz = Visdom(port=port)
         self.env = env_name
         self.plots = {}
 

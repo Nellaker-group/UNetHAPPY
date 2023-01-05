@@ -3,9 +3,9 @@ from typing import Optional
 
 import typer
 
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.utils.utils import get_device
-from happy.eval import nuclei_eval, cell_eval
+from happy.cell_infer import nuclei_infer, cell_infer
 import happy.db.eval_runs_interface as db
 
 
@@ -22,7 +22,6 @@ def main(
     max_detections: int = 500,
     nuc_batch_size: int = 16,
     cell_batch_size: int = 800,
-    cell_saving: bool = True,
     run_nuclei_pipeline: bool = True,
     run_cell_pipeline: bool = True,
     get_cuda_device_num: bool = False,
@@ -42,14 +41,13 @@ def main(
         nuc_model_id: id of the nuclei model for inference
         cell_model_id: id of the cell model for inference
         run_id: id of an existing run or of a new run. If none, will auto increment
-        slide_id: id of the WSI. Only optional for cell eval.
+        slide_id: id of the WSI. Only optional for cell inference.
         nuc_num_workers: number of workers for parallel processing of nuclei inference
         cell_num_workers: number of workers for parallel processing of cell inference
         score_threshold: nuclei network confidence cutoff for saving predictions
         max_detections: max nuclei detections for saving predictions
         nuc_batch_size: batch size for nuclei inference
         cell_batch_size: batch size for cell inference
-        cell_saving: True if you want to save cell predictions to database
         run_nuclei_pipeline: True if you want to perform nuclei detection
         run_cell_pipeline: True if you want to perform cell classification
         get_cuda_device_num: if you want the code to choose a gpu
@@ -88,7 +86,6 @@ def main(
             cell_batch_size,
             cell_num_workers,
             device,
-            cell_saving=cell_saving,
         )
         end = time.time()
         print(f"Cell evaluation time: {(end - start):.3f}")
@@ -105,16 +102,16 @@ def nuclei_eval_pipeline(
     device,
 ):
     # Load model weights and push to device
-    model = nuclei_eval.setup_model(model_id, device)
-    # Load dataset and dataloader
-    dataloader, pred_saver = nuclei_eval.setup_data(
+    model = nuclei_infer.setup_model(model_id, device)
+    # Load datasets and dataloader
+    dataloader, pred_saver = nuclei_infer.setup_data(
         slide_id, run_id, model_id, batch_size, overlap=200, num_workers=num_workers
     )
     # Predict nuclei
-    nuclei_eval.run_nuclei_eval(
+    nuclei_infer.run_nuclei_eval(
         dataloader, model, pred_saver, device, score_threshold, max_detections
     )
-    nuclei_eval.clean_up(pred_saver)
+    nuclei_infer.clean_up(pred_saver)
     return pred_saver.id
 
 
@@ -126,31 +123,25 @@ def cell_eval_pipeline(
     batch_size,
     num_workers,
     device,
-    cell_saving=True,
 ):
     organ = get_organ(organ_name)
     # Load model weights and push to device
-    model, model_architecture = cell_eval.setup_model(
+    model, model_architecture = cell_infer.setup_model(
         model_id, len(organ.cells), device
     )
-    # Load dataset and dataloader
-    dataloader, pred_saver = cell_eval.setup_data(
+    # Load datasets and dataloader
+    dataloader, pred_saver = cell_infer.setup_data(
         run_id,
         model_id,
         model_architecture,
         batch_size=batch_size,
         num_workers=num_workers,
-        cell_saving=cell_saving,
     )
     # Setup or get path to embeddings hdf5 save location
-    embeddings_path = cell_eval.setup_embedding_saving(
-        project_name, pred_saver.id, cell_saving
-    )
+    embeddings_path = cell_infer.setup_embedding_saving(project_name, pred_saver.id)
     # Predict cell classes
-    cell_eval.run_cell_eval(
-        dataloader, model, pred_saver, embeddings_path, device, cell_saving
-    )
-    cell_eval.clean_up(pred_saver)
+    cell_infer.run_cell_eval(dataloader, model, pred_saver, embeddings_path, device)
+    cell_infer.clean_up(pred_saver)
 
 
 if __name__ == "__main__":
