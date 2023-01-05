@@ -90,7 +90,7 @@ def main(
     )
 
     # Setup paths
-    save_path = Path(*pretrained_path.parts[:-1]) / "cell_infer" / model_epochs
+    save_path = Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs
     save_path.mkdir(parents=True, exist_ok=True)
     cluster_save_path = save_path / clustering_method / f"{num_clusters}_clusters"
     cluster_save_path.mkdir(parents=True, exist_ok=True)

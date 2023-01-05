@@ -58,7 +58,7 @@ def test_train_sage():
         plot_umap=False,
         tissue_label_tsv="96_tissue_points.tsv",
     )
-    assert os.path.exists(run_dir / "cell_infer")
+    assert os.path.exists(run_dir / "eval")
     shutil.rmtree(run_dir)
 
 
@@ -103,7 +103,7 @@ def test_train_clustergcn():
         plot_umap=False,
         tissue_label_tsv="96_tissue_points.tsv",
     )
-    assert os.path.exists(run_dir / "cell_infer")
+    assert os.path.exists(run_dir / "eval")
     shutil.rmtree(run_dir)
 
 
@@ -149,7 +149,7 @@ def test_train_saint():
         plot_umap=False,
         tissue_label_tsv="96_tissue_points.tsv",
     )
-    assert os.path.exists(run_dir / "cell_infer")
+    assert os.path.exists(run_dir / "eval")
     shutil.rmtree(run_dir)
 
 
@@ -195,7 +195,7 @@ def test_train_sign():
         plot_umap=False,
         tissue_label_tsv="96_tissue_points.tsv",
     )
-    assert os.path.exists(run_dir / "cell_infer")
+    assert os.path.exists(run_dir / "eval")
     shutil.rmtree(run_dir)
 
 
@@ -241,7 +241,7 @@ def test_train_mlp():
         plot_umap=False,
         tissue_label_tsv="96_tissue_points.tsv",
     )
-    assert os.path.exists(run_dir / "cell_infer")
+    assert os.path.exists(run_dir / "eval")
     shutil.rmtree(run_dir)
 
 
@@ -287,7 +287,7 @@ def test_train_gat():
         plot_umap=False,
         tissue_label_tsv="96_tissue_points.tsv",
     )
-    assert os.path.exists(run_dir / "cell_infer")
+    assert os.path.exists(run_dir / "eval")
     shutil.rmtree(run_dir)
 
 
@@ -333,7 +333,7 @@ def test_train_gatv2():
         plot_umap=False,
         tissue_label_tsv="96_tissue_points.tsv",
     )
-    assert os.path.exists(run_dir / "cell_infer")
+    assert os.path.exists(run_dir / "eval")
     shutil.rmtree(run_dir)
 
 
@@ -379,5 +379,5 @@ def test_train_shadow():
         plot_umap=False,
         tissue_label_tsv="96_tissue_points.tsv",
     )
-    assert os.path.exists(run_dir / "cell_infer")
+    assert os.path.exists(run_dir / "eval")
     shutil.rmtree(run_dir)

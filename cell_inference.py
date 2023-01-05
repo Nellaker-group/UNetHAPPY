@@ -41,7 +41,7 @@ def main(
         nuc_model_id: id of the nuclei model for inference
         cell_model_id: id of the cell model for inference
         run_id: id of an existing run or of a new run. If none, will auto increment
-        slide_id: id of the WSI. Only optional for cell cell_infer.
+        slide_id: id of the WSI. Only optional for cell inference.
         nuc_num_workers: number of workers for parallel processing of nuclei inference
         cell_num_workers: number of workers for parallel processing of cell inference
         score_threshold: nuclei network confidence cutoff for saving predictions

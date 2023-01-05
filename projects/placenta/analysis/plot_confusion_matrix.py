@@ -41,7 +41,7 @@ def main(
         / model_type
         / exp_name
         / model_weights_dir
-        / "cell_infer"
+        / "eval"
         / model_name
     )
     tissue_df = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")

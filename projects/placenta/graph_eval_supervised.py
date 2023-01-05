@@ -132,7 +132,7 @@ def main(
     # Setup paths
     save_path = (
         Path(*pretrained_path.parts[:-1])
-        / "cell_infer"
+        / "eval"
         / model_epochs
         / f"run_{run_id}"
     )
@@ -140,7 +140,7 @@ def main(
     conf_str = "_top_conf" if top_conf else ""
     plot_name = f"{val_patch_files[0].split('.csv')[0]}_{conf_str}"
 
-    # Dataloader for cell_infer, feeds in whole graph
+    # Dataloader for eval, feeds in whole graph
     if model_type == "sup_graphsage":
         eval_loader = NeighborLoader(
             data,
