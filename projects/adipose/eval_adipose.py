@@ -2,7 +2,6 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from tqdm import tqdm
 
 from happy.data.transforms.collaters import collater
 from microscopefile import prediction_saver
@@ -86,64 +85,62 @@ def run_seg_eval(
     tiles_to_evaluate = db.get_num_remaining_tiles(pred_saver.id)
     model.eval()
     with torch.no_grad():
-        with tqdm(total=tiles_to_evaluate) as pbar:
-            for batch in dataset:
-                if not killer.kill_now:
-                    # find the indices in the batch which are and aren't empty tiles
-                    empty_mask = np.array(batch["empty_tile"])
-                    tile_indexes = np.array(batch["tile_index"])
-                    empty_inds = tile_indexes[empty_mask]
-                    #non_empty_inds = tile_indexes[~empty_mask]
-                    non_empty_inds = tile_indexes[~empty_mask]
+        for batch in dataset:
+            if not killer.kill_now:
+                # find the indices in the batch which are and aren't empty tiles
+                empty_mask = np.array(batch["empty_tile"])
+                tile_indexes = np.array(batch["tile_index"])
+                empty_inds = tile_indexes[empty_mask]
+                #non_empty_inds = tile_indexes[~empty_mask]
+                non_empty_inds = tile_indexes[~empty_mask]
 
-                    # if there are empty tiles in the batch, save them as empty
-                    if empty_inds.size > 0:
-                        for empty_ind in empty_inds:
-                            pbar.update()
-                            pred_saver.save_empty([empty_ind])
+                # if there are empty tiles in the batch, save them as empty
+                if empty_inds.size > 0:
+                    for empty_ind in empty_inds:
+                        pred_saver.save_empty([empty_ind])
 
-                    # if there are non-empty tiles in the batch,
-                    # eval model and save predictions
-                    if non_empty_inds.size > 0:
-                        # filter out indices without images
-                        non_empty_imgs = np.array(
-                            batch["img"].cpu().numpy()[~empty_mask]
+                # if there are non-empty tiles in the batch,
+                # eval model and save predictions
+                if non_empty_inds.size > 0:
+                    # filter out indices without images
+                    non_empty_imgs = np.array(
+                        batch["img"].cpu().numpy()[~empty_mask]
+                    )
+
+                    # Get scale factor
+                    scale = np.array(batch["scale"])[~empty_mask][0]
+
+                    # Network can't be fed batches of images
+                    # as it returns predictions in one array
+                    for i, non_empty_ind in enumerate(non_empty_inds):
+                        # run network on non-empty images/tiles
+                        input = torch.from_numpy(
+                            np.expand_dims(non_empty_imgs[i], axis=0)
+                        ).to(device)
+
+                        label = torch.from_numpy(
+                            np.expand_dims(np.zeros(batch['dim'][i]), axis=0)
+                        ).to(device)
+
+                        # Predict
+                        pred = model(input)
+                        pred = torch.sigmoid(pred)
+                        pred = pred.data.cpu().numpy()
+
+                        # Correct predictions from resizing of img.
+                        # boxes /= scale
+
+                        # select indices which have a score above the threshold
+                        pred_filtered = pred_saver.filter_by_score(
+                            score_threshold, pred
                         )
 
-                        # Get scale factor
-                        scale = np.array(batch["scale"])[~empty_mask][0]
+                        pred_polygons = pred_saver.draw_polygons_from_mask(
+                            pred_filtered, i
+                        )
 
-                        # Network can't be fed batches of images
-                        # as it returns predictions in one array
-                        for i, non_empty_ind in enumerate(non_empty_inds):
-                            # run network on non-empty images/tiles
-                            input = torch.from_numpy(
-                                np.expand_dims(non_empty_imgs[i], axis=0)
-                            ).to(device)
-
-                            label = torch.from_numpy(
-                                np.expand_dims(np.zeros(batch['dim'][i]), axis=0)
-                            ).to(device)
-
-                            # Predict
-                            pred = model(input)
-                            pred = torch.sigmoid(pred)
-                            pred = pred.data.cpu().numpy()
-
-                            # Correct predictions from resizing of img.
-                            # boxes /= scale
-
-                            # select indices which have a score above the threshold
-                            pred_filtered = pred_saver.filter_by_score(
-                                score_threshold, pred
-                            )
-
-                            pred_polygons = pred_saver.draw_polygons_from_mask(
-                                pred_filtered, i
-                            )
-
-                            pred_saver.save_seg(non_empty_ind, pred_polygons)
-                            pbar.update()
+                        pred_saver.save_seg(non_empty_ind, pred_polygons)
+                        
 
                 else:
                     early_break = True
