@@ -41,8 +41,8 @@ def main(
     # Save the image as a pyramidal bigtiff
     split_path = list(output_file_name.parts)
     file_name = split_path[-1]
-    pyr_file_name = f"pyr_{file_name}"
-    split_path[-1] = pyr_file_name
+    split_path[-1] = f"pyr_{file_name}"
+    split_path.insert(-1, "pyr")
     pyr_output_path = str(Path(*split_path))
 
     image.tiffsave(
@@ -61,9 +61,7 @@ def main(
     split_path[-1] = f"tn_{file_name.split('.tiff')[0]}.jpg"
     split_path[-2] = "thumb"
     thumb_output_path = str(Path(*split_path))
-    thumbnail.write_to_file(
-        thumb_output_path, Q=90, optimize_coding=True, strip=True
-    )
+    thumbnail.write_to_file(thumb_output_path, Q=90, optimize_coding=True, strip=True)
 
 
 if __name__ == "__main__":
