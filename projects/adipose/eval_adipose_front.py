@@ -17,12 +17,15 @@ def main(
     seg_model_id: Optional[int] = None,
     run_id: Optional[int] = None,
     slide_id: Optional[int] = None,
+    # emil added this for parallel databases - as concurence issues might happen when running it in parallel
+    database_id: Optional[int] = None,
     seg_num_workers: int = 20,
     score_threshold: float = 0.8,
     # emil chainged batch to 1
     seg_batch_size: int = 2,
     run_segment_pipeline: bool = True,
     get_cuda_device_num: bool = False,
+    write_geojson: bool = False,
 ):
     """Runs inference over a WSI for segment detection, cell classification, or both.
 
@@ -40,6 +43,7 @@ def main(
         cell_model_id: id of the cell model for inference
         run_id: id of an existing run or of a new run. If none, will auto increment
         slide_id: id of the WSI. Only optional for cell eval.
+        database_id: id of the database or .db file being written to.
         nuc_num_workers: number of workers for parallel processing of segment inference
         cell_num_workers: number of workers for parallel processing of cell inference
         score_threshold: segment network confidence cutoff for saving predictions
@@ -50,6 +54,7 @@ def main(
         run_segment_pipeline: True if you want to perform segment detection
         run_cell_pipeline: True if you want to perform cell classification
         get_cuda_device_num: if you want the code to choose a gpu
+        write_geojson: if you want to write a geojson file of the output
     """
     device = get_device(get_cuda_device_num)
     print("device:")
@@ -57,7 +62,10 @@ def main(
 
     # emil the database is the central thing this pipeline writes to
     # Create database connection
-    db.init()
+    if database_id != None:
+        db.init("Batch_"+str(database_id)+".db")
+    else:
+        db.init()
 
     if run_segment_pipeline:
         # Start timer for segment evaluation
@@ -71,6 +79,7 @@ def main(
             seg_batch_size,
             score_threshold,
             device,
+            write_geojson,
         )
         end = time.time()
         print(f"Segment evaluation time: {(end - start):.3f}")
@@ -84,6 +93,7 @@ def segment_eval_pipeline(
     batch_size,
     score_threshold,
     device,
+    write_geojson,
 ):
     # emil this is inside the eval_adipose.py
     # Load model weights and push to device
@@ -95,11 +105,11 @@ def segment_eval_pipeline(
     #    slide_id, run_id, model_id, batch_size, overlap=200, num_workers=num_workers
     #)
     dataloader, pred_saver = eval_adipose.setup_data(
-        slide_id, run_id, model_id, batch_size, overlap=512, num_workers=num_workers
+        slide_id, run_id, model_id, batch_size, overlap=256, num_workers=num_workers
     )
     # Predict segment
     eval_adipose.run_seg_eval(
-        dataloader, model, pred_saver, device, score_threshold
+        dataloader, model, pred_saver, device, write_geojson, score_threshold
     )
     eval_adipose.clean_up(pred_saver)
     return pred_saver.id

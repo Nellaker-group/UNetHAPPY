@@ -22,9 +22,14 @@ def main(
     project_name: str = "adipose",
     #model_weights_dir: str = typer.Option(...),
     #model_name: str = typer.Option(...),
+    # emil - for which database we are operating on
+    database_id: int = None,
 ):
     # Create database connection
-    db.init()
+    if database_id != None:
+        db.init("Batch_"+str(database_id)+".db")
+    else:
+        db.init()
 
     eval_run = db.get_eval_run_by_id(run_id)
     print("eval_run")

@@ -8,11 +8,17 @@ import argparse
 
 prs = argparse.ArgumentParser()
 prs.add_argument('--evalRun', help='EvalRun ID run whose polygons to be converted to a .geojson file', type=str)
+prs.add_argument('--database-id', help='EvalRun ID run whose polygons to be converted to a .geojson file', type=int, default=None)
 args = vars(prs.parse_args())
 assert args['evalRun'] != ""
 evalRun = args['evalRun']
+# emil
+database_id = args['database_id']
 
-db.init()
+if database_id != None:
+    db.init("Batch_"+str(database_id)+".db")
+else:
+    db.init()
 
 seg_preds = db.get_all_validated_seg_preds(evalRun)
 poly_list = []

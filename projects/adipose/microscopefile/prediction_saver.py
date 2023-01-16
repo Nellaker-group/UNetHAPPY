@@ -109,7 +109,7 @@ class PredictionSaver:
 
 
 
-    def apply_seg_post_processing(self, overlap=True):
+    def apply_seg_post_processing(self, write_geojson, overlap=True):
         seg_preds = db.get_all_unvalidated_seg_preds(self.id)
         seg_list = []
 
@@ -132,8 +132,8 @@ class PredictionSaver:
         print(self.file.slide_path)
 
         slideName = self.file.slide_path.split("/")[-1].split(".")[0]
-
-        gj.writeToGeoJSON(merged_polys_list, slideName+'coords_by_tile_merged_overlap'+str(run.overlap)+'.geojson')
+        if write_geojson:
+            gj.writeToGeoJSON(merged_polys_list, slideName+'coords_by_tile_merged_overlap'+str(run.overlap)+'.geojson')
 
         merged_coords = []
         polyID=0

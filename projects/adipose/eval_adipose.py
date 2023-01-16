@@ -77,7 +77,7 @@ def setup_data(slide_id, run_id, model_id, batch_size, overlap, num_workers):
 
 # Predict nuclei loop
 def run_seg_eval(
-    dataset, model, pred_saver, device, score_threshold=0.9,
+    dataset, model, pred_saver, device, write_geojson, score_threshold=0.9, 
 ):
     # object for graceful shutdown. Current loop finishes on SIGINT or SIGTERM
     killer = GracefulKiller()
@@ -139,15 +139,14 @@ def run_seg_eval(
                             pred_filtered, i
                         )
 
-                        pred_saver.save_seg(non_empty_ind, pred_polygons)
-                        
+                        pred_saver.save_seg(non_empty_ind, pred_polygons)                        
 
-                else:
-                    early_break = True
-                    break
+            else:
+                early_break = True
+                break
 
     if not early_break and not pred_saver.file.seg_done:
-        pred_saver.apply_seg_post_processing(overlap=True)
+        pred_saver.apply_seg_post_processing(write_geojson, overlap=True)
         # emil let this function do something
         #pred_saver.commit_valid_seg_predictions()
 

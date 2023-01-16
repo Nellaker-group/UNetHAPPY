@@ -22,6 +22,9 @@ def main(
     pixel_size: float = typer.Option(...),
     has_notes: bool = False,
     has_clinical_data: bool = False,
+    # emil
+    database_id: int = None,
+
 ):
     """Add a whole lab of slides to the database
 
@@ -33,8 +36,12 @@ def main(
         pixel_size: pixel size of all slides. Can be found with QuPath on one slide
         has_notes: if the slides came with associated pathologist's notes
         has_clinical_data: if the slides came with associated clinical data/history
+        database_id: id of the database or .db file being written to
     """
-    db.init()
+    if database_id != None:
+        db.init("Batch_"+str(database_id)+".db")
+    else:
+        db.init()
 
     lab = Lab.create(
         country=lab_country,
