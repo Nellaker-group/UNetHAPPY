@@ -9,8 +9,7 @@ from happy.db.models_training import Model
 from happy.db.base import database, init_db
 
 
-def init():
-    db_name = "main.db"
+def init(db_name="main.db"):
     db_path = Path(__file__).parent.absolute() / db_name
     init_db(db_path)
 
