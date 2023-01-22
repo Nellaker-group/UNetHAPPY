@@ -13,7 +13,7 @@ from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
 from graphs.graphs.enums import FeatureArg, MethodArg, SupervisedModelsArg
 from graphs.graphs.utils import get_feature, send_graph_to_device
-from utils.utils import set_seed
+from happy.utils.utils import set_seed
 from graphs.graphs import graph_supervised
 from happy.graph.create_graph import (
     get_raw_data,

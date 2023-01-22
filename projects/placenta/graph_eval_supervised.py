@@ -25,7 +25,7 @@ from happy.graph.create_graph import (
 )
 from graphs.graphs.embeddings import fit_umap, plot_cell_graph_umap, plot_tissue_umap
 from graphs.graphs.utils import get_feature
-from utils.utils import set_seed
+from happy.utils.utils import set_seed
 from graphs.graphs.enums import FeatureArg, MethodArg
 from graphs.analysis.vis_graph_patch import visualize_points
 from graphs.graphs.graph_supervised import (
