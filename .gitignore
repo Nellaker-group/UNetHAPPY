@@ -227,3 +227,5 @@ analysis/evaluation/plots
 qsub_logs
 qsub_scripts
 notebooks
+relink*
+Relink*
