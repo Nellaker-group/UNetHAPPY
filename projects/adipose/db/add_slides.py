@@ -29,7 +29,7 @@ def main(
     """Add a whole lab of slides to the database
 
     Args:
-        slides_dir: absolute path to the dir containing the slides
+        slides_dir: absolute path to the dir containing the slides - the script will crawl through every file and subfolder using os.walk - only adding files with the corret slide_file_format
         lab_country: country where the lab is
         primary_contact: first name of collaborator
         slide_file_format: file format of slides, e.g. '.svs'
@@ -51,10 +51,11 @@ def main(
         has_clinical_data=has_clinical_data,
     )
 
-    for filename in os.listdir(slides_dir):
-        if filename.endswith(slide_file_format):
-            Slide.create(slide_name=filename, pixel_size=pixel_size, lab=lab)
-
+    for path, dirs, files in os.walk(slides_dir):
+        for filename in files:
+            if filename.endswith(slide_file_format):
+                fullfilename = path + "/" + filename
+                Slide.create(slide_name=fullfilename, pixel_size=pixel_size, lab=lab)
 
 if __name__ == "__main__":
     typer.run(main)
