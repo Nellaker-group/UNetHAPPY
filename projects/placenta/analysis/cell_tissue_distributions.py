@@ -38,7 +38,9 @@ def main(
     project_dir = get_project_dir(project_name)
 
     cell_prop_dfs = []
+    cell_counts_df = []
     tissue_prop_dfs = []
+    tissue_counts_df = []
     for run_id in run_ids:
         # Get path to embeddings hdf5 files
         embeddings_path = get_embeddings_file(project_name, run_id)
@@ -68,6 +70,8 @@ def main(
         ]
         unique_cell_proportions = dict(zip(unique_cell_labels, cell_proportions))
         cell_prop_dfs.append(pd.DataFrame([unique_cell_proportions]))
+        all_cell_counts = dict(zip(unique_cell_labels, cell_counts))
+        cell_counts_df.append(pd.DataFrame([all_cell_counts]))
 
         # print tissue predictions from tsv file
         pretrained_path = (
@@ -98,35 +102,16 @@ def main(
         ]
         unique_tissue_proportions = dict(zip(unique_tissues, tissue_proportions))
         tissue_prop_dfs.append(pd.DataFrame([unique_tissue_proportions]))
+        all_tissue_counts = dict(zip(unique_tissues, tissue_counts))
+        tissue_counts_df.append(pd.DataFrame([all_tissue_counts]))
 
-    cell_df = pd.concat(cell_prop_dfs)
-    args_to_sort = np.argsort([cell.structural_id for cell in organ.cells])
-    cell_df = cell_df[cell_df.columns[args_to_sort]]
+    cell_df = _reorder_cell_columns(pd.concat(cell_prop_dfs), organ)
+    cell_counts_df = _reorder_cell_columns(pd.concat(cell_counts_df), organ)
+
+    tissue_df = _reorder_tissue_columns(pd.concat(tissue_prop_dfs), organ)
+    tissue_counts_df = _reorder_tissue_columns(pd.concat(tissue_counts_df), organ)
+
     cell_colours = {cell.name: cell.colour for cell in organ.cells}
-
-    tissue_df = pd.concat(tissue_prop_dfs)
-    tissue_labels = [tissue.name for tissue in organ.tissues]
-    args_to_sort = [
-        np.where(tissue_df.columns.to_numpy() == np.array(tissue_labels)[:, None])[1]
-    ]
-    tissue_df = tissue_df[tissue_df.columns[args_to_sort]]
-    tissue_df = tissue_df[
-        [
-            "Terminal Villi",
-            "Mature Intermediate Villi",
-            "Stem Villi",
-            "Villus Sprout",
-            "Anchoring Villi",
-            "Chorionic Plate",
-            "Basal Plate/Septum",
-            "Fibrin",
-            "Avascular Villi",
-        ]
-    ]
-    tissue_colours = {
-        tissue.name: tissue.colour for tissue in organ.tissues
-    }
-
     plot_box_and_whisker(cell_df, "plots/cell_proportions.png", "Cell", cell_colours)
 
     TISSUE_EXPECTATION = [
@@ -140,12 +125,18 @@ def main(
         (0.0, 0.10),
         (0.0, 0.0249),
     ]
+    tissue_colours = {tissue.name: tissue.colour for tissue in organ.tissues}
     plot_box_and_whisker(
         tissue_df,
         "plots/tissue_proportions.png",
         "Tissue",
         tissue_colours,
     )
+
+    cell_df.to_csv("plots/cell_proportions.csv")
+    tissue_df.to_csv("plots/tissue_proportions.csv")
+    cell_counts_df.to_csv("plots/cell_counts.csv")
+    tissue_counts_df.to_csv("plots/tissue_counts.csv")
 
 
 def plot_box_and_whisker(
@@ -222,6 +213,32 @@ def _add_expectation(ax, expectation):
                 linestyles="dashed",
                 linewidth=3,
             )
+
+
+def _reorder_cell_columns(cell_df, organ):
+    args_to_sort = np.argsort([cell.structural_id for cell in organ.cells])
+    return cell_df[cell_df.columns[args_to_sort]]
+
+
+def _reorder_tissue_columns(tissue_df, organ):
+    tissue_labels = [tissue.name for tissue in organ.tissues]
+    args_to_sort = [
+        np.where(tissue_df.columns.to_numpy() == np.array(tissue_labels)[:, None])[1]
+    ]
+    tissue_df = tissue_df[tissue_df.columns[args_to_sort]]
+    return tissue_df[
+        [
+            "Terminal Villi",
+            "Mature Intermediate Villi",
+            "Stem Villi",
+            "Villus Sprout",
+            "Anchoring Villi",
+            "Chorionic Plate",
+            "Basal Plate/Septum",
+            "Fibrin",
+            "Avascular Villi",
+        ]
+    ]
 
 
 if __name__ == "__main__":
