@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib, matplotlib.pyplot as plt
 import seaborn as sns
+from shapely import Point, MultiPoint
 
 from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
@@ -70,6 +71,11 @@ def main(
         ]
         unique_cell_proportions = dict(zip(unique_cell_labels, cell_proportions))
         cell_prop_dfs.append(pd.DataFrame([unique_cell_proportions]))
+
+        # calculate the convex hull of the cell coordinates for estimating total cells
+        points = MultiPoint(cell_coords)
+        rough_area = points.convex_hull.area
+        cell_counts = [count / rough_area * 10000 for count in cell_counts]
         all_cell_counts = dict(zip(unique_cell_labels, cell_counts))
         cell_counts_df.append(pd.DataFrame([all_cell_counts]))
 
@@ -102,6 +108,8 @@ def main(
         ]
         unique_tissue_proportions = dict(zip(unique_tissues, tissue_proportions))
         tissue_prop_dfs.append(pd.DataFrame([unique_tissue_proportions]))
+
+        tissue_counts = [count / rough_area * 10000 for count in tissue_counts]
         all_tissue_counts = dict(zip(unique_tissues, tissue_counts))
         tissue_counts_df.append(pd.DataFrame([all_tissue_counts]))
 
@@ -112,7 +120,7 @@ def main(
     tissue_counts_df = _reorder_tissue_columns(pd.concat(tissue_counts_df), organ)
 
     cell_colours = {cell.name: cell.colour for cell in organ.cells}
-    plot_box_and_whisker(cell_df, "plots/cell_proportions.png", "Cell", cell_colours)
+    plot_distribution(cell_df, "plots/cell_proportions.png", "Cell", cell_colours)
 
     TISSUE_EXPECTATION = [
         (0.0, 0.009),
@@ -126,7 +134,7 @@ def main(
         (0.0, 0.0249),
     ]
     tissue_colours = {tissue.name: tissue.colour for tissue in organ.tissues}
-    plot_box_and_whisker(
+    plot_distribution(
         tissue_df,
         "plots/tissue_proportions.png",
         "Tissue",
@@ -139,7 +147,7 @@ def main(
     tissue_counts_df.to_csv("plots/tissue_counts.csv")
 
 
-def plot_box_and_whisker(
+def plot_distribution(
     df, save_path, entity, colours, box=False, swarm=False, expectation=None
 ):
     sns.set_style("white")
