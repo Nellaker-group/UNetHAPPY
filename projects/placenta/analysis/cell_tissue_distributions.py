@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import matplotlib, matplotlib.pyplot as plt
 import seaborn as sns
-from shapely import Point, MultiPoint
 
 from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
@@ -27,6 +26,7 @@ def main(
     height: int = -1,
     group_knts: bool = False,
     trained_with_grouped_knts: bool = False,
+    include_counts: bool = False,
 ):
     """Plot the distribution of cell and tissue types across multiple WSIs.
     This will plot a line plot with an offset swarm plot where each point is each WSI.
@@ -72,12 +72,33 @@ def main(
         unique_cell_proportions = dict(zip(unique_cell_labels, cell_proportions))
         cell_prop_dfs.append(pd.DataFrame([unique_cell_proportions]))
 
-        # calculate the convex hull of the cell coordinates for estimating total cells
-        points = MultiPoint(cell_coords)
-        rough_area = points.convex_hull.area
-        cell_counts = [count / rough_area * 10000 for count in cell_counts]
-        all_cell_counts = dict(zip(unique_cell_labels, cell_counts))
-        cell_counts_df.append(pd.DataFrame([all_cell_counts]))
+        if include_counts:
+            # calculate the area using the tiles containing nuclei to get cells per area
+            tile_coords = np.array(db.get_run_state(run_id))
+            tile_width = tile_coords[tile_coords[:, 1].argmax() + 1][0]
+            tile_height = tile_coords[1][1]
+
+            # count how many tiles have at least one cell
+            tile_count = 0
+            for tile in tile_coords:
+                path = matplotlib.path.Path(
+                    [
+                        (tile[0], tile[1]),
+                        (tile[0] + tile_width, tile[1]),
+                        (tile[0] + tile_width, tile[1] + tile_height),
+                        (tile[0], tile[1] + tile_height),
+                        (tile[0], tile[1]),
+                    ],
+                    closed=True,
+                )
+                if np.any(path.contains_points(cell_coords, radius=1)):
+                    tile_count += 1
+            tile_area = tile_count * tile_width * tile_height
+            print(f"Number of tiles with a least one cell: {tile_count}")
+
+            cell_counts = [count / tile_area * 1000000 for count in cell_counts]
+            all_cell_counts = dict(zip(unique_cell_labels, cell_counts))
+            cell_counts_df.append(pd.DataFrame([all_cell_counts]))
 
         # print tissue predictions from tsv file
         pretrained_path = (
@@ -109,18 +130,23 @@ def main(
         unique_tissue_proportions = dict(zip(unique_tissues, tissue_proportions))
         tissue_prop_dfs.append(pd.DataFrame([unique_tissue_proportions]))
 
-        tissue_counts = [count / rough_area * 10000 for count in tissue_counts]
-        all_tissue_counts = dict(zip(unique_tissues, tissue_counts))
-        tissue_counts_df.append(pd.DataFrame([all_tissue_counts]))
+        if include_counts:
+            tissue_counts = [count / tile_area * 1000000 for count in tissue_counts]
+            all_tissue_counts = dict(zip(unique_tissues, tissue_counts))
+            tissue_counts_df.append(pd.DataFrame([all_tissue_counts]))
 
     cell_df = _reorder_cell_columns(pd.concat(cell_prop_dfs), organ)
-    cell_counts_df = _reorder_cell_columns(pd.concat(cell_counts_df), organ)
-
     tissue_df = _reorder_tissue_columns(pd.concat(tissue_prop_dfs), organ)
-    tissue_counts_df = _reorder_tissue_columns(pd.concat(tissue_counts_df), organ)
 
     cell_colours = {cell.name: cell.colour for cell in organ.cells}
-    plot_distribution(cell_df, "plots/cell_proportions.png", "Cell", cell_colours)
+    cell_colours["Total"] = "#000000"
+    plot_distribution(
+        cell_df,
+        "plots/cell_proportions.png",
+        "Cell",
+        cell_colours,
+        ylabel="Proportion of Cells Across WSIs",
+    )
 
     TISSUE_EXPECTATION = [
         (0.0, 0.009),
@@ -139,16 +165,54 @@ def main(
         "plots/tissue_proportions.png",
         "Tissue",
         tissue_colours,
+        ylabel="Proportion of Tissues Across WSIs",
     )
 
     cell_df.to_csv("plots/cell_proportions.csv")
     tissue_df.to_csv("plots/tissue_proportions.csv")
-    cell_counts_df.to_csv("plots/cell_counts.csv")
-    tissue_counts_df.to_csv("plots/tissue_counts.csv")
+
+    if include_counts:
+        cell_counts_df = _reorder_cell_columns(pd.concat(cell_counts_df), organ)
+        tissue_counts_df = _reorder_tissue_columns(pd.concat(tissue_counts_df), organ)
+        cell_counts_df["Total"] = cell_counts_df[list(cell_counts_df.columns)].sum(
+            axis=1
+        )
+        plot_distribution(
+            cell_counts_df,
+            "plots/cell_counts.png",
+            "Cell",
+            cell_colours,
+            ylim=0.3,
+            ylabel="Number of Cells / mm^2",
+        )
+
+        tissue_counts_df["Total"] = tissue_counts_df[
+            list(tissue_counts_df.columns)
+        ].sum(axis=1)
+        tissue_colours["Total"] = "#000000"
+        plot_distribution(
+            tissue_counts_df,
+            "plots/tissue_counts.png",
+            "Tissue",
+            tissue_colours,
+            ylim=0.3,
+            ylabel="Number of Tissues / mm^2",
+        )
+
+        cell_counts_df.to_csv("plots/cell_counts.csv")
+        tissue_counts_df.to_csv("plots/tissue_counts.csv")
 
 
 def plot_distribution(
-    df, save_path, entity, colours, box=False, swarm=False, expectation=None
+    df,
+    save_path,
+    entity,
+    colours,
+    box=False,
+    swarm=False,
+    expectation=None,
+    ylim=0.62,
+    ylabel=None,
 ):
     sns.set_style("white")
     plt.subplots(figsize=(8, 8), dpi=400)
@@ -176,8 +240,8 @@ def plot_distribution(
         )
         ax.lines[0].set_linestyle("")
 
-    plt.ylim(top=0.62)
-    ax.set(ylabel=f"Proportion of {entity}s Across WSIs")
+    plt.ylim(top=ylim)
+    ax.set(ylabel=ylabel)
     ax.set(xlabel=f"{entity} Labels")
     plt.xticks(rotation=90)
     plt.tight_layout()
