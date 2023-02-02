@@ -19,6 +19,7 @@ def get_slide_path_by_id(slide_id):
     slide = Slide.get_by_id(slide_id)
     return Path(slide.lab.slides_dir) / slide.slide_name
 
+
 # returns a slide
 def get_slide_by_id(slide_id):
     return Slide.get_by_id(slide_id)
@@ -236,3 +237,8 @@ def get_nuclei_in_range(run_id, min_x, min_y, max_x, max_y):
         )
         .tuples()
     )
+
+
+def get_slide_pixel_size_by_evalrun(run_id):
+    slide = Slide.select().join(EvalRun).where(EvalRun.id == run_id).get()
+    return slide.pixel_size

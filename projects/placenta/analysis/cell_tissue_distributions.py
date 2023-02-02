@@ -93,8 +93,11 @@ def main(
                 )
                 if np.any(path.contains_points(cell_coords, radius=1)):
                     tile_count += 1
-            tile_area = tile_count * tile_width * tile_height
             print(f"Number of tiles with a least one cell: {tile_count}")
+            tile_area = tile_count * tile_width * tile_height
+            slide_pixel_size = db.get_slide_pixel_size_by_evalrun(run_id)
+            tile_area = tile_area * slide_pixel_size * slide_pixel_size
+            print(f"Tile area in um^2: {tile_area}")
 
             cell_counts = [count / tile_area * 1000000 for count in cell_counts]
             all_cell_counts = dict(zip(unique_cell_labels, cell_counts))
@@ -182,7 +185,7 @@ def main(
             "plots/cell_counts.png",
             "Cell",
             cell_colours,
-            ylim=0.3,
+            ylim=500.0,
             ylabel="Number of Cells / mm^2",
         )
 
@@ -195,8 +198,8 @@ def main(
             "plots/tissue_counts.png",
             "Tissue",
             tissue_colours,
-            ylim=0.3,
-            ylabel="Number of Tissues / mm^2",
+            ylim=500.0,
+            ylabel="Number of Nuclei in Tissues / mm^2",
         )
 
         cell_counts_df.to_csv("plots/cell_counts.csv")
@@ -240,7 +243,7 @@ def plot_distribution(
         )
         ax.lines[0].set_linestyle("")
 
-    plt.ylim(top=ylim)
+    # plt.ylim(top=ylim)
     ax.set(ylabel=ylabel)
     ax.set(xlabel=f"{entity} Labels")
     plt.xticks(rotation=90)
