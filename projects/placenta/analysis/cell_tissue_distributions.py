@@ -185,7 +185,7 @@ def main(
             "plots/cell_counts.png",
             "Cell",
             cell_colours,
-            ylim=500.0,
+            ylim=4000.0,
             ylabel="Number of Cells / mm^2",
         )
 
@@ -198,7 +198,7 @@ def main(
             "plots/tissue_counts.png",
             "Tissue",
             tissue_colours,
-            ylim=500.0,
+            ylim=4000.0,
             ylabel="Number of Nuclei in Tissues / mm^2",
         )
 
@@ -243,7 +243,7 @@ def plot_distribution(
         )
         ax.lines[0].set_linestyle("")
 
-    # plt.ylim(top=ylim)
+    plt.ylim(top=ylim)
     ax.set(ylabel=ylabel)
     ax.set(xlabel=f"{entity} Labels")
     plt.xticks(rotation=90)
