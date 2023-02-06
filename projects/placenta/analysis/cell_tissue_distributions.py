@@ -185,7 +185,8 @@ def main(
             "plots/cell_counts.png",
             "Cell",
             cell_colours,
-            ylim=4000.0,
+            ylim=6000.0,
+            bottom=-200,
             ylabel="Number of Cells / mm^2",
         )
 
@@ -198,7 +199,8 @@ def main(
             "plots/tissue_counts.png",
             "Tissue",
             tissue_colours,
-            ylim=4000.0,
+            ylim=6000.0,
+            bottom=-200,
             ylabel="Number of Nuclei in Tissues / mm^2",
         )
 
@@ -215,6 +217,7 @@ def plot_distribution(
     swarm=False,
     expectation=None,
     ylim=0.62,
+    bottom=-0.02,
     ylabel=None,
 ):
     sns.set_style("white")
@@ -243,7 +246,7 @@ def plot_distribution(
         )
         ax.lines[0].set_linestyle("")
 
-    plt.ylim(top=ylim)
+    plt.ylim(bottom=bottom, top=ylim)
     ax.set(ylabel=ylabel)
     ax.set(xlabel=f"{entity} Labels")
     plt.xticks(rotation=90)
