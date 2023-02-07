@@ -30,7 +30,7 @@ def main(
     villus_only: bool = True,
     line_plot: bool = False,
 ):
-    """Plot cell type proportions within each tissue type for one WSI."""
+    """Plot cell type proportions within each tissue type for many aggregated WSIs."""
 
     # Create database connection
     db.init()

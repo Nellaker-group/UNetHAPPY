@@ -59,7 +59,7 @@ def setup_data(slide_id, run_id, model_id, batch_size, overlap, num_workers):
 
 # Predict nuclei loop
 def run_nuclei_eval(
-    dataset, model, pred_saver, device, score_threshold=0.3, max_detections=150
+    dataset, model, pred_saver, device, score_threshold, max_detections, verbose
 ):
     # object for graceful shutdown. Current loop finishes on SIGINT or SIGTERM
     killer = GracefulKiller()
@@ -67,7 +67,7 @@ def run_nuclei_eval(
     tiles_to_evaluate = db.get_num_remaining_tiles(pred_saver.id)
     model.eval()
     with torch.no_grad():
-        with tqdm(total=tiles_to_evaluate) as pbar:
+        with tqdm(total=tiles_to_evaluate, disable=not verbose) as pbar:
             for batch in dataset:
                 if not killer.kill_now:
                     # find the indices in the batch which are and aren't empty tiles

@@ -25,6 +25,7 @@ def main(
     run_nuclei_pipeline: bool = True,
     run_cell_pipeline: bool = True,
     get_cuda_device_num: bool = False,
+    verbose: bool = True,
 ):
     """Runs inference over a WSI for nuclei detection, cell classification, or both.
 
@@ -51,6 +52,7 @@ def main(
         run_nuclei_pipeline: True if you want to perform nuclei detection
         run_cell_pipeline: True if you want to perform cell classification
         get_cuda_device_num: if you want the code to choose a gpu
+        verbose: if you want to print the progress bar or not
     """
     device = get_device(get_cuda_device_num)
 
@@ -70,6 +72,7 @@ def main(
             score_threshold,
             max_detections,
             device,
+            verbose,
         )
         end = time.time()
         print(f"Nuclei evaluation time: {(end - start):.3f}")
@@ -86,6 +89,7 @@ def main(
             cell_batch_size,
             cell_num_workers,
             device,
+            verbose,
         )
         end = time.time()
         print(f"Cell evaluation time: {(end - start):.3f}")
@@ -100,6 +104,7 @@ def nuclei_eval_pipeline(
     score_threshold,
     max_detections,
     device,
+    verbose,
 ):
     # Load model weights and push to device
     model = nuclei_infer.setup_model(model_id, device)
@@ -109,7 +114,7 @@ def nuclei_eval_pipeline(
     )
     # Predict nuclei
     nuclei_infer.run_nuclei_eval(
-        dataloader, model, pred_saver, device, score_threshold, max_detections
+        dataloader, model, pred_saver, device, score_threshold, max_detections, verbose
     )
     nuclei_infer.clean_up(pred_saver)
     return pred_saver.id
@@ -123,6 +128,7 @@ def cell_eval_pipeline(
     batch_size,
     num_workers,
     device,
+    verbose,
 ):
     organ = get_organ(organ_name)
     # Load model weights and push to device
@@ -140,7 +146,9 @@ def cell_eval_pipeline(
     # Setup or get path to embeddings hdf5 save location
     embeddings_path = cell_infer.setup_embedding_saving(project_name, pred_saver.id)
     # Predict cell classes
-    cell_infer.run_cell_eval(dataloader, model, pred_saver, embeddings_path, device)
+    cell_infer.run_cell_eval(
+        dataloader, model, pred_saver, embeddings_path, device, verbose
+    )
     cell_infer.clean_up(pred_saver)
 
 

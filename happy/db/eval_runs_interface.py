@@ -9,8 +9,7 @@ from happy.db.models_training import Model
 from happy.db.base import database, init_db
 
 
-def init():
-    db_name = "main.db"
+def init(db_name="main.db"):
     db_path = Path(__file__).parent.absolute() / db_name
     init_db(db_path)
 
@@ -19,6 +18,7 @@ def init():
 def get_slide_path_by_id(slide_id):
     slide = Slide.get_by_id(slide_id)
     return Path(slide.lab.slides_dir) / slide.slide_name
+
 
 # returns a slide
 def get_slide_by_id(slide_id):
@@ -237,3 +237,8 @@ def get_nuclei_in_range(run_id, min_x, min_y, max_x, max_y):
         )
         .tuples()
     )
+
+
+def get_slide_pixel_size_by_evalrun(run_id):
+    slide = Slide.select().join(EvalRun).where(EvalRun.id == run_id).get()
+    return slide.pixel_size

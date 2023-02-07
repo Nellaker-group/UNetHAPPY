@@ -86,7 +86,7 @@ def setup_embedding_saving(project_name, run_id):
 
 
 # Predict cell classes loop
-def run_cell_eval(dataset, cell_model, pred_saver, embeddings_path, device):
+def run_cell_eval(dataset, cell_model, pred_saver, embeddings_path, device, verbose):
     # object for graceful shutdown. Current loop finishes on SIGINT or SIGTERM
     killer = GracefulKiller()
     early_break = False
@@ -97,7 +97,7 @@ def run_cell_eval(dataset, cell_model, pred_saver, embeddings_path, device):
         embedding.copy_(output.data)
 
     with torch.no_grad():
-        with tqdm(total=remaining) as pbar:
+        with tqdm(total=remaining, disable=not verbose) as pbar:
             for i, batch in enumerate(dataset):
                 if not killer.kill_now:
                     # evaluate model and set up saving the embeddings layer
