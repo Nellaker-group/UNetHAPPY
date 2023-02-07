@@ -4,6 +4,7 @@ from happy.db.base import BaseModel
 
 
 class Patient(BaseModel):
+    clinical_id = TextField(null=True)
     diagnosis = TextField(null=True)
     clinical_history = TextField(null=True)
 
