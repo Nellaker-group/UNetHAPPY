@@ -23,6 +23,8 @@ def main(
     score_threshold: float = 0.8,
     # emil chainged batch to 1
     seg_batch_size: int = 2,
+    # emil added this option
+    pixel_size: float = 0.2500,
     run_segment_pipeline: bool = True,
     get_cuda_device_num: bool = False,
     write_geojson: bool = False,
@@ -80,6 +82,7 @@ def main(
             score_threshold,
             device,
             write_geojson,
+            pixel_size,
         )
         end = time.time()
         print(f"Segment evaluation time: {(end - start):.3f}")
@@ -94,6 +97,7 @@ def segment_eval_pipeline(
     score_threshold,
     device,
     write_geojson,
+    pixel_size,
 ):
     # emil this is inside the eval_adipose.py
     # Load model weights and push to device
@@ -105,7 +109,7 @@ def segment_eval_pipeline(
     #    slide_id, run_id, model_id, batch_size, overlap=200, num_workers=num_workers
     #)
     dataloader, pred_saver = eval_adipose.setup_data(
-        slide_id, run_id, model_id, batch_size, overlap=256, num_workers=num_workers
+        slide_id, run_id, model_id, batch_size, overlap=256, num_workers=num_workers, pixel_size=pixel_size
     )
     # Predict segment
     eval_adipose.run_seg_eval(

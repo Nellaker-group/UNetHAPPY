@@ -38,16 +38,17 @@ def setup_model(model_id, device, n_class, inputChannels, channelsMultiplier):
     print("Pushed model to device")
     return model
 
+
 # emil second method that is being called in main file
 # Load dataset and dataloader
-def setup_data(slide_id, run_id, model_id, batch_size, overlap, num_workers):
+def setup_data(slide_id, run_id, model_id, batch_size, overlap, num_workers, pixel_size):
     # emil this return a Microsope object that has a Reader object inside it and data on the run (pixel_size, width, ...)
     # emil the Reader object is the one that actually opens the microscope file and returns the image
     # emil the Microscope object has a lot of methods for working with the microscope file
     # emil the data like seg_model_id is being fed to an EvalRun database (happy/db/eval_runs.py) that is created by the get_msfile function, where all the starting parameters are given 
     # emil hardcoded target pixelsize
     ms_file = get_msfile(
-        slide_id=slide_id, run_id=run_id, seg_model_id=model_id, overlap=overlap, pixel_size = 0.2500
+        slide_id=slide_id, run_id=run_id, seg_model_id=model_id, overlap=overlap, pixel_size = pixel_size
     )
     # emil creates a PredictionSaver object from the happy/microscopefile/prediction_saver.py - it takes a microscope file as an input object 
     # emil it has several methods for storing the predictions to the databases - i need to change this to save the segmentation!!! and perhaps be able to do some post processing
