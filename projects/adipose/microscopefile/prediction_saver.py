@@ -133,7 +133,7 @@ class PredictionSaver:
 
         slideName = self.file.slide_path.split("/")[-1].split(".")[0]
         if write_geojson:
-            gj.writeToGeoJSON(merged_polys_list, slideName+'coords_by_tile_merged_overlap'+str(run.overlap)+'_px'+str(run.pixel_size)+'.geojson')
+            gj.writeToGeoJSON(merged_polys_list, slideName+'coords_merged_segmodel_'+str(run.seg_model)+'overlap'+str(run.overlap)+'_px'+str(run.pixel_size)+'.geojson')
 
         merged_coords = []
         polyID=0
