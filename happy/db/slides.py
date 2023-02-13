@@ -3,10 +3,19 @@ from peewee import TextField, IntegerField, FloatField, ForeignKeyField, Boolean
 from happy.db.base import BaseModel
 
 
+class ClinicalHistory(BaseModel):
+    gestational_week = IntegerField(null=True)
+    villi_maturity = IntegerField(null=True)
+    c_section = BooleanField(null=True)
+    twin = BooleanField(null=True)
+
+
 class Patient(BaseModel):
-    clinical_id = TextField(null=True)
+    name = TextField(null=True)
     diagnosis = TextField(null=True)
-    clinical_history = TextField(null=True)
+    clinical_history = ForeignKeyField(
+        ClinicalHistory, backref="clinical_history", null=True
+    )
 
 
 class Lab(BaseModel):
