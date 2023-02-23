@@ -12,6 +12,7 @@ import seaborn as sns
 from sklearn_extra.cluster import KMedoids
 from sklearn.metrics.cluster import normalized_mutual_info_score, adjusted_rand_score
 
+import happy.db.eval_runs_interface as db
 from happy.graph.create_graph import (
     get_raw_data,
     setup_graph,
@@ -45,6 +46,7 @@ def main(
     run_over_cell_counts: bool = False,
     run_over_cell_conns: bool = False,
 ):
+    db.init()
     organ = get_organ(organ_name)
 
     project_dir = get_project_dir(project_name)

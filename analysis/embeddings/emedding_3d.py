@@ -4,6 +4,7 @@ import typer
 import matplotlib.pyplot as plt
 import umap
 
+import happy.db.eval_runs_interface as db
 from happy.utils.hdf5 import get_embeddings_file, get_hdf5_datasets
 from happy.organs import get_organ
 from plots import plot_3d
@@ -25,6 +26,7 @@ def main(
         subset_start: at which index or proportion of the file to start (int or float)
         num_points: number of points to include in the UMAP from subset_start onwards
     """
+    db.init()
     timer_start = time.time()
     organ = get_organ(organ_name)
 

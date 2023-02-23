@@ -6,6 +6,7 @@ from torch_geometric.transforms import ToUndirected, SIGN
 from torch_geometric.utils import add_self_loops, degree
 from torch_geometric.data import Batch
 
+import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device
 from happy.organs import get_organ
 from happy.logger.logger import Logger
@@ -57,6 +58,7 @@ def main(
     include_validation: bool = True,
     validation_step: int = 25,
 ):
+    db.init()
     device = get_device()
 
     model_type = model_type.value

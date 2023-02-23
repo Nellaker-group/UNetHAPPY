@@ -12,6 +12,7 @@ from sklearn.metrics.cluster import (
 )
 import numpy as np
 
+import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device
 from happy.utils.utils import get_project_dir
 from happy.organs import get_organ
@@ -52,6 +53,7 @@ def main(
     remove_unlabelled: bool = True,
     tissue_label_tsv: Optional[str] = None,
 ):
+    db.init()
     device = get_device()
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
