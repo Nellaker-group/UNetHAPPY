@@ -8,9 +8,9 @@ def init_db(db_name):
     from db.slides import Slide, Patient, Lab
     from db.eval_runs import (
         EvalRun,
-        PredictionString,
+        Prediction,
         TileState,
-        UnvalidatedPredictionString,
+        UnvalidatedPrediction,
     )
     from db.models_training import Model, TrainRun
     from db.tiles import (
@@ -37,8 +37,8 @@ def init_db(db_name):
             Patient,
             Lab,
             EvalRun,
-            PredictionString,
-            UnvalidatedPredictionString,
+            Prediction,
+            UnvalidatedPrediction,
             TileState,
             Model,
             TrainRun,

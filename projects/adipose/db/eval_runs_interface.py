@@ -4,7 +4,7 @@ from collections import defaultdict
 from peewee import Tuple, ValuesList, EnclosedNodeList, chunked
 
 from db.slides import Slide
-from db.eval_runs import EvalRun, TileState, PredictionString, UnvalidatedPredictionString
+from db.eval_runs import EvalRun, TileState, Prediction, UnvalidatedPrediction
 from db.models_training import Model
 from db.base import database, init_db
 
@@ -20,6 +20,7 @@ def init(db_name = "main.db"):
 def get_slide_path_by_id(slide_id):
     slide = Slide.get_by_id(slide_id)
     return Path(slide.lab.slides_dir) / slide.slide_name
+
 
 # returns a slide
 def get_slide_by_id(slide_id):
@@ -86,7 +87,6 @@ def get_run_state(run_id):
         .where(TileState.run == run_id)
         .tuples()
     )
-
     return tile_states
 
 
@@ -114,46 +114,34 @@ def mark_seg_as_done(run_id):
     eval_run.save()
 
 
-# emil function for converting string into list of tuples - so decoding
-def stringListTuple2coordinates(string):
-    splitString = string.replace("),",")|").split("|")
-    returnList = []
-    for ele in splitString:
-        tmp = ele.replace("[","").replace("]","").replace("(","").replace(")","")
-        if tmp != "":
-            x, y = float(tmp.split(",")[0]), float(tmp.split(",")[1])
-            returnList.append((x,y))
-    return(returnList)
-
-
-# I store my polygons as strings of a list of tuples with the coordinates
-def save_pred_workings(run_id, coords, tile_index):
+def save_pred_workings(run_id, coords, latest_poly_id):
     # I put the db.atomic as this is apparently faster according to the peewee documentation
-    # coords is a list of dicts with the keys according to the columns of the database
-    # coords looks like this [ (items["polyXY"], items["polyID"]), ... ]
-    fields = [UnvalidatedPredictionString.run, UnvalidatedPredictionString.polyID, UnvalidatedPredictionString.polyXY, UnvalidatedPredictionString.tile_index]
-    data = [(run_id, coords[i]["polyID"], coords[i]["polyXY"], tile_index) for i in range(len(coords))]
+    # coords is a list of tuples with each one holding the poly_id, point_id, X and Y coordinate for a point (point_id is needed as the same polygon might have identical points due to rounding off to ints)
+    fields = [UnvalidatedPrediction.run, UnvalidatedPrediction.poly_id, UnvalidatedPrediction.point_id, UnvalidatedPrediction.X, UnvalidatedPrediction.Y]
+    data = [(run_id, coord[0]+latest_poly_id, coord[1], coord[2], coord[3]) for coord in coords]
+
     with database.atomic():
         for batch in chunked(data, 10):
-            UnvalidatedPredictionString.insert_many(batch, fields=fields).execute()
+            UnvalidatedPrediction.insert_many(batch, fields=fields).execute()
+
 
 def get_all_unvalidated_seg_preds(run_id):
     preds = (
-        UnvalidatedPredictionString.select(UnvalidatedPredictionString.polyXY)
-        .where(UnvalidatedPredictionString.run == run_id)
+        UnvalidatedPrediction.select(UnvalidatedPrediction.poly_id, UnvalidatedPrediction.point_id, UnvalidatedPrediction.X, UnvalidatedPrediction)
+        .where(UnvalidatedPrediction.run == run_id)
     )
     preds2 = list(preds)
-    listie = [dic.polyXY for dic in preds2] 
+    listie = [(dic.poly_id, dic.point_id, dic.X, dic.Y) for dic in preds2]
     return listie
 
 
 def get_all_validated_seg_preds(run_id):
     preds = (
-        PredictionString.select(PredictionString.polyXY)
-        .where(PredictionString.run == run_id)
+        Prediction.select(Prediction.poly_id, Prediction.point_id, Prediction.X, Prediction.Y)
+        .where(Prediction.run == run_id)
     )
     preds2 = list(preds)
-    listie = [dic.polyXY for dic in preds2] 
+    listie = [(dic.poly_id, dic.point_id, dic.X, dic.Y) for dic in preds2]
     return listie
 
 
@@ -161,19 +149,18 @@ def get_all_validated_seg_preds(run_id):
 def commit_pred_workings(run_id, coords):
     with database.atomic():
         for coord in coords:
-            PredictionString.create(**coord)
-    PredictionString.execute()
+            Prediction.create(**coord)
+    Prediction.execute()
 
 
-# this should probably be utilised at some point
 def validate_pred_workings(run_id, valid_coords):
-    # valid_coords looks like this [ (items["polyXY"], items["polyID"]), ... ]
+    # valid_coords looks like this [ "poly_id", "point_id", "X", "Y", ... ]
     print(f"marking {len(valid_coords)} polygons as valid ")
-    fields = [PredictionString.run, PredictionString.polyID, PredictionString.polyXY]
-    data = [(run_id, valid_coords[i]["polyID"], valid_coords[i]["polyXY"]) for i in range(len(valid_coords))]
+    fields = [Prediction.run, Prediction.poly_id, Prediction.point_id, Prediction.X, Prediction.Y]
+    data = [(run_id, coord[0], coord[1], coord[2],  coord[3]) for coord in valid_coords]
     with database.atomic():
         for batch in chunked(data, 10):
-            PredictionString.insert_many(batch, fields=fields).execute()
+            Prediction.insert_many(batch, fields=fields).execute()
 
 
 def get_num_remaining_tiles(run_id):
@@ -210,20 +197,6 @@ def get_all_prediction_coordinates(run_id):
         .where(Prediction.run == run_id)
         .dicts()
     )
-
-
-def get_nuclei_in_range(run_id, min_x, min_y, max_x, max_y):
-    # Get predictions within specified range
-    return (
-        Prediction.select(Prediction.x, Prediction.y, Prediction.cell_class)
-        .where(
-            (Prediction.run == run_id)
-            & (Tuple(Prediction.x, Prediction.y) >= (min_x, min_y))
-            & (Tuple(Prediction.x, Prediction.y) <= (max_x, max_y))
-        )
-        .tuples()
-    )
-
 
 
 def get_slide_name(run_id):    

@@ -33,22 +33,15 @@ class EvalRun(BaseModel):
 
 
 class Prediction(BaseModel):
-    run = ForeignKeyField(EvalRun, backref="predictions")
-    x = IntegerField()
-    y = IntegerField()
-    cell_class = IntegerField(null=True)
+    run = ForeignKeyField(EvalRun, backref="prediction_polys")
+    poly_id = IntegerField()
+    point_id = IntegerField()
+    X = IntegerField()
+    Y = IntegerField()
+    poly_class = IntegerField(null=True)
 
     class Meta:
-        primary_key = CompositeKey("run", "x", "y")
-
-
-class PredictionString(BaseModel):
-    run = ForeignKeyField(EvalRun, backref="predictions_string")
-    polyID = IntegerField()
-    polyXY = TextField()
-
-    class Meta:
-        primary_key = CompositeKey("run", "polyXY")
+        primary_key = CompositeKey("run", "poly_id", "point_id", "X", "Y")
 
 
 class TileState(BaseModel):
@@ -63,21 +56,14 @@ class TileState(BaseModel):
 
 
 class UnvalidatedPrediction(BaseModel):
-    run = ForeignKeyField(EvalRun, backref="unvalidated_predictions")
-    x = IntegerField()
-    y = IntegerField()
-    is_valid = BooleanField(default=False)
+    run = ForeignKeyField(EvalRun, backref="unvalidated_prediction_polys")
+    poly_id = IntegerField()
+    point_id = IntegerField()
+    X = IntegerField()
+    Y = IntegerField()
+    poly_class = IntegerField(null=True)
 
     class Meta:
-        primary_key = CompositeKey("run", "x", "y")
+        primary_key = CompositeKey("run", "poly_id", "point_id", "X", "Y")
 
 
-class UnvalidatedPredictionString(BaseModel):
-    run = ForeignKeyField(EvalRun, backref="unvalidated_predictions_string")
-    polyXY = TextField()
-    polyID =  IntegerField()
-    tile_index = IntegerField()
-    is_valid = BooleanField(default=False)
-
-    class Meta:
-        primary_key = CompositeKey("run", "polyXY","tile_index")

@@ -33,39 +33,47 @@ class PredictionSaver:
         self.id = self.file.id
         self.rescale_ratio = self.file.rescale_ratio
 
+
     # Saving tiles which do not have predictions as caught by pixel colours
     def save_empty(self, tile_indexes):
         db.mark_finished_tiles(self.id, tile_indexes)
 
-    # Saves segmentation as a polygon, where it is stored as a string of a list of tuples with the coordinates
-    def save_seg(self, tile_index, polygons):
+
+    # Saves segmentation as a polygon, where it stores X and Y coordinates for each point along with poly_id
+    def save_seg(self, tile_index, polygons, latest_poly_id):
         tile_x = self.file.tile_xy_list[tile_index][0]
         tile_y = self.file.tile_xy_list[tile_index][1]        
-        polyID=0
         coords = []
+        # for keeping track of current polygons, latest_poly_id keeps track of polygons up until now!
+        poly_id = 0
         if len(polygons) == 0:
             db.mark_finished_tiles(self.id, [tile_index])
         else:
             for poly in polygons:
-                items = {}
-                ## if it is a standalone polygon then it will have the type "Polygon" if it is a merged polygon, it will have the type "MultiPolygon"
-                ## returns a list of tuples with each (x,y)
+                point_id = 0
+                # it appends a tuple for each point with poly_id and X and Y coordinate - casting them to ints
                 if poly.type == 'Polygon':
-                    ## extract x and y of points along edge
-                    items["polyXY"] = str([(x*self.rescale_ratio+tile_x,y*self.rescale_ratio+tile_y) for x,y in poly.exterior.coords])
-                    items["polyID"] = polyID
+                    # because otherwise the starting/end point is included twice
+                    for x,y in poly.exterior.coords[:-1]:
+                        x_scaled = x*self.rescale_ratio+tile_x
+                        y_scaled = y*self.rescale_ratio+tile_y
+                        coords.append((poly_id,point_id,int(x_scaled),int(y_scaled)))
+                        point_id += 1
                 if poly.type == 'MultiPolygon':
-                    coordslist = [x.exterior.coords for x in poly.geoms]
+                    coordslist = [x.exterior.coords[:-1] for x in poly.geoms]
                     tmpcoordslist=[x for xs in coordslist for x in xs]
-                    items["polyXY"] = str([(x*self.rescale_ratio+tile_x,y*self.rescale_ratio+tile_y) for x,y in tmpcoordslist])
-                    items["polyID"] = polyID
-                coords.append(items)
-                polyID += 1
+                    for x,y in tmpcoordslist:
+                        x_scaled = x*self.rescale_ratio+tile_x
+                        y_scaled = y*self.rescale_ratio+tile_y
+                        coords.append((poly_id,point_id,int(x_scaled),int(y_scaled)))
+                        point_id += 1
+                poly_id += 1
                 ## coords will be a string of a list of lists in this case                
-        db.save_pred_workings(self.id, coords, tile_index)
+        
+        db.save_pred_workings(self.id, coords, latest_poly_id)
         db.mark_finished_tiles(self.id, [tile_index])
 
-    # emil - should this function be here? This file stores the polygons after drawn on the mask
+
     def draw_polygons_from_mask(self, mask, tile_index):
         w,h=np.shape(mask[0])    
         # emil
@@ -108,51 +116,56 @@ class PredictionSaver:
         return polygonsKeep
 
 
-
     def apply_seg_post_processing(self, write_geojson, overlap=True):
         seg_preds = db.get_all_unvalidated_seg_preds(self.id)
         seg_list = []
 
-        # emil trying to get overlap into the mix
         run = db.get_eval_run_by_id(self.id)
-
-        for seg in seg_preds:
-            poly=Polygon([(x,y) for x,y in db.stringListTuple2coordinates(seg)])
-            seg_list.append(poly) 
+        poly_list = []
+        old_poly_id = seg_preds[0][0]
+        # it runs through all the points and checks if it is a new polygon by checking if poly_id has changed
+        for coord in seg_preds:            
+            if old_poly_id == coord[0]:
+                poly_list.append((coord[2],coord[3]))
+            else:
+                poly=Polygon(poly_list)
+                seg_list.append(poly)
+                poly_list = []
+                # for the first point when poly_id changes
+                poly_list.append((coord[2],coord[3]))
+            old_poly_id = coord[0]
             
-        print("list of polygons is this long:")
+        print("list of polygons pre merge is this long:")
         print(len(seg_list))
 
         merged_polys_list = []
         if overlap:            
             merged_polys_list = mp.merge_polysV3(seg_list)
 
-        # emil
         print("self.file.slide_path")
         print(self.file.slide_path)
 
         slideName = self.file.slide_path.split("/")[-1].split(".")[0]
         if write_geojson:
-            gj.writeToGeoJSON(merged_polys_list, slideName+'coords_merged_segmodel_'+str(run.seg_model)+'overlap'+str(run.overlap)+'_px'+str(run.pixel_size)+'.geojson')
+            gj.writeToGeoJSON(merged_polys_list, slideName+'coords_merged_segmodel'+str(run.seg_model)+'_overlap'+str(run.overlap)+'_px'+str(run.pixel_size)+'.geojson')
 
         merged_coords = []
-        polyID=0
-        for poly in merged_polys_list:
-            items = {}
+        poly_id=0        
+        for poly in merged_polys_list:            
+            point_id = 0
+            # it updates with a new poly_id for the merged polygons
             if poly.type == 'Polygon':
-                ## extract x and y of points along edge
-                items["polyXY"] = str([(x,y) for x,y in poly.exterior.coords])
-                items["polyID"] = polyID
+                for x,y in poly.exterior.coords:
+                    merged_coords.append((poly_id,point_id,int(x),int(y)))
+                    point_id += 1
             if poly.type == 'MultiPolygon':
                 coordslist = [x.exterior.coords for x in poly.geoms]
                 tmpcoordslist=[x for xs in coordslist for x in xs]
-                items["polyXY"] = str([(x,y) for x,y in tmpcoordslist])
-                items["polyID"] = polyID
-            merged_coords.append(items)
-            polyID += 1
+                for x,y in tmpcoordslist:
+                    merged_coords.append((poly_id,point_id,int(x),int(y)))
+                    point_id += 1
+            poly_id += 1
 
-        #nuclei_preds = self.cluster_multi_detections(nuclei_preds)
-        # and perhaps filter off too small and too big ones
         db.validate_pred_workings(self.id, merged_coords)
         self.file.mark_finished_seg()
 

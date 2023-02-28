@@ -13,10 +13,7 @@ from data.transforms.transforms import Normalizer, Resizer
 from db.msfile_interface import get_msfile
 import db.eval_runs_interface as db
 
-# emil
-import matplotlib.pyplot as plt
 
-# emil first method that is being called in main file
 # Load model weights and push to device
 def setup_model(model_id, device, n_class, inputChannels, channelsMultiplier):
     # emil goes to the database and fetches the path of the weights associated with this model given by model_id
@@ -84,9 +81,11 @@ def run_seg_eval(
     killer = GracefulKiller()
     early_break = False
     tiles_to_evaluate = db.get_num_remaining_tiles(pred_saver.id)
+    poly_id = 0
     model.eval()
     with torch.no_grad():
         for batch in dataset:
+    
             if not killer.kill_now:
                 # find the indices in the batch which are and aren't empty tiles
                 empty_mask = np.array(batch["empty_tile"])
@@ -114,6 +113,7 @@ def run_seg_eval(
                     # Network can't be fed batches of images
                     # as it returns predictions in one array
                     for i, non_empty_ind in enumerate(non_empty_inds):
+                        
                         # run network on non-empty images/tiles
                         input = torch.from_numpy(
                             np.expand_dims(non_empty_imgs[i], axis=0)
@@ -140,7 +140,8 @@ def run_seg_eval(
                             pred_filtered, i
                         )
 
-                        pred_saver.save_seg(non_empty_ind, pred_polygons)                        
+                        pred_saver.save_seg(non_empty_ind, pred_polygons, poly_id)                        
+                        poly_id += len(pred_polygons)
 
             else:
                 early_break = True
