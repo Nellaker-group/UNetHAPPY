@@ -4,6 +4,7 @@ import typer
 import matplotlib.pyplot as plt
 import torch
 
+import happy.db.eval_runs_interface as db
 from happy.graph.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
 from happy.utils.utils import get_device
 from happy.organs import get_organ
@@ -44,6 +45,7 @@ def main(
     simple_curriculum: bool = False,
     tissue_label_tsv: Optional[str] = None,
 ):
+    db.init()
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
     organ = get_organ(organ_name)

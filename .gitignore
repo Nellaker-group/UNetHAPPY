@@ -224,8 +224,10 @@ analysis/evaluation/plots
 **/analysis/plots
 *.sh
 .vscode
+slurm_logs
 qsub_logs
 qsub_scripts
 notebooks
 relink*
 Relink*
+post_merge.py

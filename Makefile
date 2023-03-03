@@ -14,6 +14,7 @@ environment_cpu:
 	pip install pyvips==2.1.14
 	pip install datashader==0.13.0
 	pip install "holoviews[recommended]"
+	pip install torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric -f https://data.pyg.org/whl/torch-1.8.0+cpu.html
 	pip install -e .
 .PHONY: install
 

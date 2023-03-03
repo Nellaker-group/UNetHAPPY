@@ -15,6 +15,7 @@ from torch_geometric.loader import (
 import numpy as np
 import pandas as pd
 
+import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device, get_project_dir
 from happy.organs import get_organ
 from happy.graph.create_graph import (
@@ -61,6 +62,7 @@ def main(
     tissue_label_tsv: Optional[str] = None,
     verbose: bool = True,
 ):
+    db.init()
     set_seed(seed)
     device = get_device()
     project_dir = get_project_dir(project_name)

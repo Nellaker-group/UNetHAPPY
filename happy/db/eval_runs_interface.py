@@ -242,3 +242,7 @@ def get_nuclei_in_range(run_id, min_x, min_y, max_x, max_y):
 def get_slide_pixel_size_by_evalrun(run_id):
     slide = Slide.select().join(EvalRun).where(EvalRun.id == run_id).get()
     return slide.pixel_size
+
+
+def get_all_eval_runs():
+    return EvalRun.select()

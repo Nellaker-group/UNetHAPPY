@@ -12,6 +12,7 @@ import happy.db.eval_runs_interface as db
 def main(
     project_name: str = typer.Option(...),
     organ_name: str = typer.Option(...),
+    db_name: str = 'main.db',
     nuc_model_id: Optional[int] = None,
     cell_model_id: Optional[int] = None,
     run_id: Optional[int] = None,
@@ -39,6 +40,7 @@ def main(
     Args:
         project_name: name of the project dir to save results to
         organ_name: name of organ for getting the cells
+        db_name: name of the database to connect to (default: main.db)
         nuc_model_id: id of the nuclei model for inference
         cell_model_id: id of the cell model for inference
         run_id: id of an existing run or of a new run. If none, will auto increment
@@ -57,7 +59,7 @@ def main(
     device = get_device(get_cuda_device_num)
 
     # Create database connection
-    db.init()
+    db.init(db_name=db_name)
 
     if run_nuclei_pipeline:
         # Start timer for nuclei evaluation

@@ -7,7 +7,6 @@ import happy.db.eval_runs_interface as db
 
 
 def get_embeddings_file(project_name, run_id):
-    db.init()
     embeddings_dir = (
         Path(__file__).parent.parent.parent
         / "projects"
