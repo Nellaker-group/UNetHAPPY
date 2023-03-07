@@ -37,16 +37,16 @@ def merge_polysV3(polys, debug = False):
         original_bounds = poly.bounds
         #loop through candidates from STRtree (list of polygons)
         for candidate_poly, candidate_index in get_shortlist_mask(poly):
-            
             if poly.intersects(candidate_poly):
                 #marks that this polygon has been merged - because polygon once it is merged is no longer needed - the merged one is
                 merged[candidate_index] = True
                 if report_recursion:
                     print('merge %d' % (candidate_index))
+                    # try and merge if there is an error just keep original polygon
                 try:
                     poly = unary_union([poly,candidate_poly])
                 except ValueError:
-                    print("bad poly - candidate_index:")
+                    print("bad candidate poly, it is not being merged - candidate_index:")
                     print(candidate_index)
         if poly.bounds != original_bounds: #only need to recurse if bounds/boxes have actually changed (complete subsumption won't change bounds)
             #recurses on the function with the new merged polygon and the updated indexes of merged polygons

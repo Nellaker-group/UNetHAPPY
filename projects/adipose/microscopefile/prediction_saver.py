@@ -97,6 +97,8 @@ class PredictionSaver:
             poly = poly.simplify(1.0, preserve_topology=False)
             if(poly.is_empty):
                 # Go to next iteration, dont save empty values in list
+            if(not poly.is_valid):
+                # Go to next iteration, dont save invalid polygon
                 continue
             polygons.append(poly)
         # checking that polygons are not contained in another polygon
@@ -129,7 +131,9 @@ class PredictionSaver:
                 poly_list.append((coord[2],coord[3]))
             else:
                 poly=Polygon(poly_list)
-                seg_list.append(poly)
+                # checking polygon is valid
+                if poly.is_valid:
+                    seg_list.append(poly)
                 poly_list = []
                 # for the first point when poly_id changes
                 poly_list.append((coord[2],coord[3]))
