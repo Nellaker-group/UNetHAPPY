@@ -16,53 +16,40 @@ import db.eval_runs_interface as db
 
 # Load model weights and push to device
 def setup_model(model_id, device, n_class, inputChannels, channelsMultiplier):
-    # emil goes to the database and fetches the path of the weights associated with this model given by model_id
-    # emil get_model_weights_by_id is a function in happy/db/models_training.py it uses the Model database that is defined in happy/db/models_training.py
+    # goes to the database and fetches the path of the weights associated with this model given by model_id using get_model_weights_by_id() from happy/db/models_training.py 
     model_architecture, model_weights_path = db.get_model_weights_by_id(model_id)
     print(f"model pre_trained path: {model_weights_path}")
     if model_architecture.upper() == "UNET":
-        # emil loads the model imported from happy/models/
+        # loads the model imported from happy/models/
         model = UNet(n_class, inputChannels, channelsMultiplier)
-        #numberDevice = device.split(":")[1]
-        # emil
-        # state_dict = torch.load(model_weights_path)
         model.load_state_dict(torch.load(model_weights_path,map_location=device))
-        # Removes the module string from the keys if it's there
     else:
         raise ValueError(f"{model_architecture} not supported")
-    # emil pushes model to specific GPU
+    #  pushes model to specific GPU
     model = model.to(device)
     print("Pushed model to device")
     return model
 
 
-# emil second method that is being called in main file
+
 # Load dataset and dataloader
 def setup_data(slide_id, run_id, model_id, batch_size, overlap, num_workers, pixel_size):
-    # emil this return a Microsope object that has a Reader object inside it and data on the run (pixel_size, width, ...)
-    # emil the Reader object is the one that actually opens the microscope file and returns the image
-    # emil the Microscope object has a lot of methods for working with the microscope file
-    # emil the data like seg_model_id is being fed to an EvalRun database (happy/db/eval_runs.py) that is created by the get_msfile function, where all the starting parameters are given 
-    # emil hardcoded target pixelsize
+    # returns a Microsope object (methods for workign with microscope file) that has a Reader object (for opening the slide) inside it and data on the run (pixel_size, width, ...)
     ms_file = get_msfile(
         slide_id=slide_id, run_id=run_id, seg_model_id=model_id, overlap=overlap, pixel_size = pixel_size
     )
-    # emil creates a PredictionSaver object from the happy/microscopefile/prediction_saver.py - it takes a microscope file as an input object 
-    # emil it has several methods for storing the predictions to the databases - i need to change this to save the segmentation!!! and perhaps be able to do some post processing
-    # emil also how predictions are saved in the database
+    # creates a PredictionSaver object (metohds for storing the predictions to the databases) from the happy/microscopefile/prediction_saver.py - it takes a microscope file as an input object 
     pred_saver = prediction_saver.PredictionSaver(ms_file)
     print("loading dataset")
-    # emil
     remaining_data = np.array(db.get_remaining_tiles(ms_file.id))
-    # emil creates a SegDataset object - this is essentially the Dataset object, that has the __iter__ method for the DataLoader to iterate over
+    # creates a SegDataset object - this is essentially the Dataset object, that has the __iter__ method for the DataLoader to iterate over
     curr_data_set = SegDataset(
-        # emil - remove Resizer as it is not needed for my analyses
-        # ms_file, remaining_data, transform=transforms.Compose([Normalizer(), Resizer()])
+        # removed Resizer as it is not needed for my analyses
         ms_file, remaining_data, transform=transforms.Compose([Normalizer()])
     )
     print("dataset loaded")
     print("creating dataloader")
-    # emil loads it into a generic vanilla DataLoader
+    # loads it into a generic vanilla DataLoader
     dataloader = DataLoader(
         curr_data_set,
         num_workers=num_workers,
@@ -91,7 +78,6 @@ def run_seg_eval(
                 empty_mask = np.array(batch["empty_tile"])
                 tile_indexes = np.array(batch["tile_index"])
                 empty_inds = tile_indexes[empty_mask]
-                #non_empty_inds = tile_indexes[~empty_mask]
                 non_empty_inds = tile_indexes[~empty_mask]
 
                 # if there are empty tiles in the batch, save them as empty
@@ -131,16 +117,19 @@ def run_seg_eval(
                         # Correct predictions from resizing of img.
                         # boxes /= scale
 
-                        # select indices which have a score above the threshold
+                        # creates binary mask of entries with a score above the threshold
                         pred_filtered = pred_saver.filter_by_score(
                             score_threshold, pred
                         )
 
+                        # creates shapely polygons from the mask using find_contours() from skimage
                         pred_polygons = pred_saver.draw_polygons_from_mask(
                             pred_filtered, i
                         )
 
+                        # saves the polygon to the UnvalidatedPrediction table 
                         pred_saver.save_seg(non_empty_ind, pred_polygons, poly_id)                        
+                        # for keeping track of the poly_id each polygon across the slide has a unique poly_id
                         poly_id += len(pred_polygons)
 
             else:
@@ -148,9 +137,8 @@ def run_seg_eval(
                 break
 
     if not early_break and not pred_saver.file.seg_done:
+        # merges the polygons and saves them to the Prediction table
         pred_saver.apply_seg_post_processing(write_geojson, overlap=True)
-        # emil let this function do something
-        #pred_saver.commit_valid_seg_predictions()
 
 def clean_up(pred_saver):
     ms_file = pred_saver.file

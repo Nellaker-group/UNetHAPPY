@@ -1,16 +1,15 @@
 """
 Class for saving model predictions on a whole slide image (WSI).
 Data is saved and read from a DB by the public interface.
-Saves coordinates which match the original WSI.
+Saves coordinates of polygons which match the original WSI.
 This means predictions are scaled down.
 Before getting predictions, coords are scaled up to match model pixel sizes.
 
 Public functionality (listed in order) includes:
 - saving empty tiles
-- saving nuclei from tile data and box predictions
-- removing nuclei clusters from overlapped model predictions
-- saving these valid nuclei into final storage
-- saving cell classification at (x,y) from model predictions
+- saving polygons from segmentations from tile data
+- merging overlapping polygons
+- saving these merged polygons into final storage
 
 Parameters:
 file: MicroscopeFile object
@@ -68,15 +67,12 @@ class PredictionSaver:
                         coords.append((poly_id,point_id,int(x_scaled),int(y_scaled)))
                         point_id += 1
                 poly_id += 1
-                ## coords will be a string of a list of lists in this case                
-        
         db.save_pred_workings(self.id, coords, latest_poly_id)
         db.mark_finished_tiles(self.id, [tile_index])
 
 
     def draw_polygons_from_mask(self, mask, tile_index):
         w,h=np.shape(mask[0])    
-        # emil
         padded_mask=np.zeros((w+2,h+2),dtype="uint8")    
         padded_mask[1:(w+1),1:(h+1)] = mask[0]
         # Find contours (boundary lines) around each sub-mask
@@ -86,19 +82,18 @@ class PredictionSaver:
         polygons = []
         segmentations = []
         for contour in contours:
-            # Flip from (row, col) representation to (x, y)
-            # and subtract the padding pixel
-            # Emil has added X and Y coordinates to get global WSI coordinates
+            # Flip from (row, col) representation to (x, y) and subtract the padding pixel - added X and Y coordinates to get global WSI coordinates
             for i in range(len(contour)):
                 row, col = contour[i]
                 contour[i] = (col - 1, row - 1)
-            # Make a polygon and simplify it
+            # Make a polygon and simplify it - simplification makes it run much faster
             poly = Polygon(contour)
             poly = poly.simplify(1.0, preserve_topology=False)
             if(poly.is_empty):
-                # Go to next iteration, dont save empty values in list
+                # Go to next iteration, don't save empty values in list
+                continue
             if(not poly.is_valid):
-                # Go to next iteration, dont save invalid polygon
+                # Go to next iteration, don't save invalid polygon
                 continue
             polygons.append(poly)
         # checking that polygons are not contained in another polygon
@@ -121,7 +116,6 @@ class PredictionSaver:
     def apply_seg_post_processing(self, write_geojson, overlap=True):
         seg_preds = db.get_all_unvalidated_seg_preds(self.id)
         seg_list = []
-
         run = db.get_eval_run_by_id(self.id)
         poly_list = []
         old_poly_id = seg_preds[0][0]
@@ -138,21 +132,17 @@ class PredictionSaver:
                 # for the first point when poly_id changes
                 poly_list.append((coord[2],coord[3]))
             old_poly_id = coord[0]
-            
         print("list of polygons pre merge is this long:")
         print(len(seg_list))
-
+        print("self.file.slide_path")
+        print(self.file.slide_path)
+        # merges overlapping polygons, to have a list of merged non overlapping polygons
         merged_polys_list = []
         if overlap:            
             merged_polys_list = mp.merge_polysV3(seg_list)
-
-        print("self.file.slide_path")
-        print(self.file.slide_path)
-
         slideName = self.file.slide_path.split("/")[-1].split(".")[0]
         if write_geojson:
             gj.writeToGeoJSON(merged_polys_list, slideName+'coords_merged_segmodel'+str(run.seg_model)+'_overlap'+str(run.overlap)+'_px'+str(run.pixel_size)+'.geojson')
-
         merged_coords = []
         poly_id=0        
         for poly in merged_polys_list:            
@@ -168,8 +158,8 @@ class PredictionSaver:
                 for x,y in tmpcoordslist:
                     merged_coords.append((poly_id,point_id,int(x),int(y)))
                     point_id += 1
-            poly_id += 1
-
+            poly_id += 1        
+        # push the predictions to the database
         db.validate_pred_workings(self.id, merged_coords)
         self.file.mark_finished_seg()
 

@@ -19,14 +19,12 @@ class Reader(ABC):
         pass
 
     # returns the unscaled image/tile at bottom left (x,y) with W and H.
-    # These are the dimensions of the WSI rather than the
-    # target dimensions that models are trained on.
+    # These are the dimensions of the WSI rather than the target dimensions that models are trained on.
     @abstractmethod
     def get_img(self, x, y, w, h, bound=True):
         pass
 
-    # Determine which slide reader library can deal with the file type and
-    # return the appropriate class instantiation
+    # Determine which slide reader library can deal with the file type and return the appropriate class instantiation
     @staticmethod
     def new(slide_path, lvl_x):
         file_type = "." + os.path.split(slide_path)[1].split(".")[-1]

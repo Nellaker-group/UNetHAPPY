@@ -115,7 +115,7 @@ def mark_seg_as_done(run_id):
 
 
 def save_pred_workings(run_id, coords, latest_poly_id):
-    # I put the db.atomic as this is apparently faster according to the peewee documentation
+    # Emil put the db.atomic as this is apparently faster according to the peewee documentation
     # coords is a list of tuples with each one holding the poly_id, point_id, X and Y coordinate for a point (point_id is needed as the same polygon might have identical points due to rounding off to ints)
     fields = [UnvalidatedPrediction.run, UnvalidatedPrediction.poly_id, UnvalidatedPrediction.point_id, UnvalidatedPrediction.X, UnvalidatedPrediction.Y]
     data = [(run_id, coord[0]+latest_poly_id, coord[1], coord[2], coord[3]) for coord in coords]
@@ -154,7 +154,7 @@ def commit_pred_workings(run_id, coords):
 
 
 def validate_pred_workings(run_id, valid_coords):
-    # valid_coords looks like this [ "poly_id", "point_id", "X", "Y", ... ]
+    # valid_coords looks like this [ ("poly_id", "point_id", "X", "Y"), ... ]
     print(f"marking {len(valid_coords)} polygons as valid ")
     fields = [Prediction.run, Prediction.poly_id, Prediction.point_id, Prediction.X, Prediction.Y]
     data = [(run_id, coord[0], coord[1], coord[2],  coord[3]) for coord in valid_coords]
