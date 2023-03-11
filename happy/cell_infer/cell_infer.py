@@ -43,7 +43,7 @@ def setup_data(run_id, model_id, model_architecture, batch_size, num_workers):
     ms_file = get_msfile(run_id=run_id, cell_model_id=model_id)
     pred_saver = PredictionSaver(ms_file)
     print("loading datasets")
-    image_size = (224, 224) if model_architecture == "resnet-50" else (299, 299)
+    image_size = (299, 299) if model_architecture == "inceptionresnetv2" else (224, 244)
     remaining_data = np.array(db.get_remaining_cells(ms_file.id))
     dataset = CellDataset(
         ms_file,
