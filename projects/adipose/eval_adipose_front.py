@@ -16,7 +16,6 @@ def main(
     run_id: Optional[int] = None,
     slide_id: Optional[int] = None,
     # emil added this for parallel databases - as concurence issues might happen when running it in parallel
-    database_id: Optional[int] = None,
     seg_num_workers: int = 20,
     score_threshold: float = 0.8,
     seg_batch_size: int = 2,
@@ -25,6 +24,7 @@ def main(
     run_segment_pipeline: bool = True,
     get_cuda_device_num: bool = False,
     write_geojson: bool = False,
+    db_name: str = "",
 ):
     """Runs inference over a WSI where it does semantic segmentation.
 
@@ -36,7 +36,7 @@ def main(
         seg_model_id: id of the segment model for inference
         run_id: id of an existing run or of a new run. If none, will auto increment
         slide_id: id of the WSI. Only optional for cell eval.
-        database_id: id of the database or .db file being written to.
+        db_name: name of the database or .db file being written to.
         seg_num_workers: number of workers for parallel processing of segment inference
         score_threshold: segment network confidence cutoff for saving predictions
         max_detections: max segment detections for saving predictions
@@ -51,8 +51,8 @@ def main(
     print(device)
 
     # Create database connection
-    if database_id != None:
-        db.init("Batch_"+str(database_id)+".db")
+    if db_name != "":
+        db.init(db_name)
     else:
         db.init()
 

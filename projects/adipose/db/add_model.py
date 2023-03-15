@@ -26,8 +26,7 @@ def main(
     init_lr: float = typer.Option(...),
     lr_step: Optional[int] = None,
     model_architecture: str = typer.Option(...),
-    # emil
-    database_id: int = None,
+    db_name: str = "",
 ):
     """Add a trained model to the database
 
@@ -43,10 +42,10 @@ def main(
         init_lr: initial learning rate
         lr_step: epoch step at which learning rate decayed (can be None)
         model_architecture: Type of model used (e.g. retinanet)
-        database_id: id of the database or .db file being written to
+        db_name: name of the database or .db file being written to
     """
     if database_id != None:
-        db.init("Batch_"+str(database_id)+".db")
+        db.init(db_name)
     else:
         db.init()
 
