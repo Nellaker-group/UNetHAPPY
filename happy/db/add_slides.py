@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
+import peewee
 import typer
 
 from happy.db.slides import Slide, Lab
@@ -42,7 +43,10 @@ def main(
 
     for filename in os.listdir(slides_dir):
         if filename.endswith(slide_file_format):
-            Slide.create(slide_name=filename, pixel_size=pixel_size, lab=lab)
+            try:
+                Slide.create(slide_name=filename, pixel_size=pixel_size, lab=lab)
+            except peewee.IntegrityError:
+                print(f"Skipping slide {filename} as it's already in the db")
 
 
 if __name__ == "__main__":
