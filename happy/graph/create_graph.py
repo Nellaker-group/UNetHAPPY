@@ -17,13 +17,12 @@ from happy.utils.hdf5 import (
     get_embeddings_file,
     get_datasets_in_patch,
     filter_by_confidence,
+    filter_randomly,
 )
 from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
 
 
-def get_groundtruth_patch(
-    organ, project_dir, x_min, y_min, width, height, annot_tsv
-):
+def get_groundtruth_patch(organ, project_dir, x_min, y_min, width, height, annot_tsv):
     if not annot_tsv:
         print("No tissue annotation tsv supplied")
         return None, None, None
@@ -86,6 +85,19 @@ def get_raw_data(
         print("Data sorted by x coordinates")
 
     return predictions, embeddings, coords, confidence
+
+
+def random_filter(
+    predictions, embeddings, coords, confidence, percent_to_remove, tissues=None,
+):
+    predictions, embeddings, coords, confidence, inds_to_remove = filter_randomly(
+        predictions, embeddings, coords, confidence, percent_to_remove
+    )
+    # Remove points from tissue ground truth as well
+    if tissues is not None and len(inds_to_remove) > 0:
+        tissues = np.delete(tissues, inds_to_remove, axis=0)
+    print(f"Randomly removed {len(inds_to_remove)} points")
+    return predictions, embeddings, coords, confidence, tissues
 
 
 def process_knts(

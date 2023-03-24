@@ -21,6 +21,7 @@ from happy.graph.create_graph import (
     setup_graph,
     get_groundtruth_patch,
     process_knts,
+    random_filter,
 )
 
 
@@ -37,6 +38,7 @@ def main(
     k: int = 5,
     feature: FeatureArg = FeatureArg.embeddings,
     group_knts: bool = True,
+    random_remove: float = 0.0,
     pretrained: Optional[str] = None,
     top_conf: bool = False,
     model_type: SupervisedModelsArg = SupervisedModelsArg.sup_graphsage,
@@ -104,6 +106,11 @@ def main(
         if group_knts:
             predictions, embeddings, coords, confidence, tissue_class = process_knts(
                 organ, predictions, embeddings, coords, confidence, tissue_class
+            )
+        # Remove a random percentage of the data
+        if random_remove > 0.0:
+            predictions, embeddings, coords, confidence, tissue_class = random_filter(
+                predictions, embeddings, coords, confidence, random_remove, tissue_class
             )
         # Covert input cell data into a graph
         feature_data = get_feature(feature, predictions, embeddings, organ)

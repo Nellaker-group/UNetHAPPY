@@ -15,6 +15,7 @@ from happy.utils.hdf5 import (
     get_datasets_in_patch,
     filter_by_confidence,
     filter_by_cell_type,
+    filter_randomly,
     get_embeddings_file,
 )
 from happy.utils.utils import get_project_dir
@@ -48,6 +49,7 @@ def main(
     top_conf: bool = False,
     plot_edges: bool = False,
     single_cell: Optional[str] = None,
+    percent_to_remove: float = 0.0,
 ):
     """Generates a graph and saves it's visualisation. Node are coloured by cell type
 
@@ -88,6 +90,11 @@ def main(
             predictions, embeddings, coords, confidence, single_cell, organ
         )
 
+    if percent_to_remove > 0.0:
+        predictions, embeddings, coords, confidence, _ = filter_randomly(
+            predictions, embeddings, coords, confidence, percent_to_remove
+        )
+
     # Make graph data object
     data = Data(x=predictions, pos=torch.Tensor(coords.astype("int32")))
 
@@ -97,6 +104,11 @@ def main(
     )
     plot_name = f"x{x_min}_y{y_min}_top_conf" if top_conf else f"x{x_min}_y{y_min}"
     plot_name = f"{plot_name}_{single_cell}" if single_cell else plot_name
+    plot_name = (
+        f"{plot_name}_{percent_to_remove}_removed"
+        if percent_to_remove > 0.0
+        else plot_name
+    )
 
     method = method.value
     if method == "k":

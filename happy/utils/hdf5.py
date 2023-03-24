@@ -144,3 +144,21 @@ def filter_by_cell_type(predictions, embeddings, coords, confidence, cell_type, 
         filtered_coords,
         filtered_confidence,
     )
+
+
+def filter_randomly(predictions, embeddings, coords, confidence, percent_to_remove):
+    num_to_remove = int(len(predictions) * percent_to_remove)
+    indices = np.random.choice(
+        np.arange(len(predictions)), num_to_remove, replace=False
+    )
+    filtered_predictions = np.delete(predictions, indices)
+    filtered_embeddings = np.delete(embeddings, indices, axis=0)
+    filtered_confidence = np.delete(confidence, indices)
+    filtered_coords = np.delete(coords, indices, axis=0)
+    return (
+        filtered_predictions,
+        filtered_embeddings,
+        filtered_coords,
+        filtered_confidence,
+        indices,
+    )
