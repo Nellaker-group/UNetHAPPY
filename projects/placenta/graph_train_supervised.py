@@ -120,7 +120,7 @@ def main(
         # Split nodes into unlabelled, training and validation sets. So far, validation
         # and test sets are only defined for run_id 56. If there is training data in
         # tissue_class for other runs, that data will also be used for training.
-        if run_id == 56:
+        if run_id == 56 or run_id == 113:
             data = graph_supervised.setup_node_splits(
                 data,
                 tissue_class,
