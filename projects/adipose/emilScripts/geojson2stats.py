@@ -1,12 +1,16 @@
 import pickle
-import db.eval_runs_interface as db
-from data.geojsoner import  writeToGeoJSON, geojson2polygon, readGeoJSON2list
+import sys
 import argparse
 import math
 import os
 import geojson
 from shapely.geometry import Polygon, MultiPolygon, shape
 import statistics as stats
+
+sys.path.append(os.getcwd())
+import db.eval_runs_interface as db
+from data.geojsoner import  writeToGeoJSON, geojson2polygon, readGeoJSON2list
+
 
 
 prs = argparse.ArgumentParser()

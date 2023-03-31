@@ -4,7 +4,7 @@ from collections import defaultdict
 from peewee import Tuple, ValuesList, EnclosedNodeList, chunked
 
 from db.slides import Slide
-from db.eval_runs import EvalRun, TileState, Prediction, UnvalidatedPrediction
+from db.eval_runs import EvalRun, TileState, Prediction, UnvalidatedPrediction, MergedPrediction
 from db.models_training import Model
 from db.base import database, init_db
 
@@ -145,6 +145,15 @@ def get_all_validated_seg_preds(run_id):
     return listie
 
 
+def get_all_merged_seg_preds(run_id1, run_id2):
+    preds = (
+        MergedPrediction.select(MergedPrediction.poly_id, MergedPrediction.point_id, MergedPrediction.X, MergedPrediction.Y)
+        .where((MergedPrediction.run1) == run_id1 & (MergedPrediction.run2 == run_id2))
+    )
+    preds2 = list(preds)
+    listie = [(dic.poly_id, dic.point_id, dic.X, dic.Y) for dic in preds2]
+    return listie
+
 # right now this does the same as save_pred_workings() - however that should probably change
 def commit_pred_workings(run_id, coords):
     with database.atomic():
@@ -155,12 +164,22 @@ def commit_pred_workings(run_id, coords):
 
 def validate_pred_workings(run_id, valid_coords):
     # valid_coords looks like this [ ("poly_id", "point_id", "X", "Y"), ... ]
-    print(f"marking {len(valid_coords)} polygons as valid ")
+    print(f"marking {len(valid_coords)} polygons as valid")
     fields = [Prediction.run, Prediction.poly_id, Prediction.point_id, Prediction.X, Prediction.Y]
     data = [(run_id, coord[0], coord[1], coord[2],  coord[3]) for coord in valid_coords]
     with database.atomic():
         for batch in chunked(data, 10):
             Prediction.insert_many(batch, fields=fields).execute()
+
+
+def validate_merged_workings(run_id1, run_id2, merged_coords):
+    # merged_coords looks like this [ ("poly_id", "point_id", "X", "Y"), ... ]
+    print(f"marking {len(merged_coords)} polygons as merged")
+    fields = [MergedPrediction.run1, MergedPrediction.run2, MergedPrediction.poly_id, MergedPrediction.point_id, MergedPrediction.X, MergedPrediction.Y]
+    data = [(run_id1, run_id2, coord[0], coord[1], coord[2],  coord[3]) for coord in merged_coords]
+    with database.atomic():
+        for batch in chunked(data, 10):
+            MergedPrediction.insert_many(batch, fields=fields).execute()
 
 
 def get_num_remaining_tiles(run_id):

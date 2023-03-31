@@ -67,3 +67,18 @@ class UnvalidatedPrediction(BaseModel):
         primary_key = CompositeKey("run", "poly_id", "point_id", "X", "Y")
 
 
+class MergedPrediction(BaseModel):
+    run1 = ForeignKeyField(EvalRun, backref="merged_prediction_polys1")
+    run2 = ForeignKeyField(EvalRun, backref="merged_prediction_polys2")
+    poly_id = IntegerField()
+    point_id = IntegerField()
+    X = IntegerField()
+    Y = IntegerField()
+    poly_class = IntegerField(null=True)
+
+    class Meta:
+        primary_key = CompositeKey("run1", "run2", "poly_id", "point_id", "X", "Y")
+
+
+
+

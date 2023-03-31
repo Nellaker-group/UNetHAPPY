@@ -11,6 +11,7 @@ def init_db(db_name):
         Prediction,
         TileState,
         UnvalidatedPrediction,
+        MergedPrediction,
     )
     from db.models_training import Model, TrainRun
     from db.tiles import (
@@ -39,6 +40,7 @@ def init_db(db_name):
             EvalRun,
             Prediction,
             UnvalidatedPrediction,
+            MergedPrediction,
             TileState,
             Model,
             TrainRun,

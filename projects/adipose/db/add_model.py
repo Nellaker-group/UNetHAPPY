@@ -44,7 +44,7 @@ def main(
         model_architecture: Type of model used (e.g. retinanet)
         db_name: name of the database or .db file being written to
     """
-    if database_id != None:
+    if db_name != "":
         db.init(db_name)
     else:
         db.init()
