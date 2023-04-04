@@ -39,12 +39,14 @@ prs.add_argument('--db-name', help='Name of database to merge two EvalRuns whose
 prs.add_argument('--run-id1', help='EvalRun_id of first run (int)', type=int)
 prs.add_argument('--run-id2', help='EvalRun_id of second run (int)', type=int)
 prs.add_argument('--write-geojson', help='Writes a .geojson file of the merged polygons', type=bool, default=False)
+prs.add_argument('--write-little-file', help='Writes an empty file indicating this run has finished', type=bool, default=False)
 args = vars(prs.parse_args())
 
 db_name = args['db_name']
 run_id1 = args['run_id1']
 run_id2 = args['run_id2']
 write_geojson = args['write_geojson']
+write_little_file = args['write_little_file']
 assert db_name != ""
 
 db.init(str(db_name))
@@ -70,7 +72,7 @@ polys2 = db_to_list(seg_preds2)
 
 polys = [polys1, polys2]
 
-polys_flat=[x for xs in polys for x in xs]
+polys_flat = [x for xs in polys for x in xs]
 
 merged_polys_list = mp.merge_polysV3(polys_flat)
 
@@ -92,11 +94,16 @@ for poly in merged_polys_list:
                 point_id += 1
         poly_id += 1        
         # push the predictions to the database
+
 db.validate_merged_workings(run_id1, run_id2, merged_coords)
 
 if write_geojson:
     gj.writeToGeoJSON(merged_polys_list, os.getcwd()+"/"+slide_name1.split("/")[-1]+'_merged_px1_'+str(run1.pixel_size)+'_px2_'+str(run2.pixel_size)+'.geojson')
 
+if write_little_file:
+    f = open(os.getcwd()+"/littleLogFiles/"+slide_name1.split("/")[-1]+"_id1_"+str(run_id1)+"_id2_"+str(run_id2)+".log","w")
+    f.write("DONE!")
+    f.close()
 
 
 
