@@ -27,6 +27,7 @@ def main(
     group_knts: bool = False,
     trained_with_grouped_knts: bool = False,
     include_counts: bool = False,
+    include_tissues: bool = True,
 ):
     """Plot the distribution of cell and tissue types across multiple WSIs.
     This will plot a line plot with an offset swarm plot where each point is each WSI.
@@ -103,43 +104,47 @@ def main(
             all_cell_counts = dict(zip(unique_cell_labels, cell_counts))
             cell_counts_df.append(pd.DataFrame([all_cell_counts]))
 
-        # print tissue predictions from tsv file
-        pretrained_path = (
-            project_dir
-            / "results"
-            / "graph"
-            / model_type
-            / exp_name
-            / model_weights_dir
-            / "eval"
-            / model_name
-            / f"run_{run_id}"
-        )
-        tissue_df = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")
-        # remove rows where knots were removed
-        if group_knts and not trained_with_grouped_knts:
-            tissue_df = tissue_df.loc[
-                ~tissue_df.index.isin(inds_to_remove)
-            ].reset_index(drop=True)
+        if include_tissues:
+            # print tissue predictions from tsv file
+            pretrained_path = (
+                project_dir
+                / "results"
+                / "graph"
+                / model_type
+                / exp_name
+                / model_weights_dir
+                / "eval"
+                / model_name
+                / f"run_{run_id}"
+            )
+            tissue_df = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")
+            # remove rows where knots were removed
+            if group_knts and not trained_with_grouped_knts:
+                tissue_df = tissue_df.loc[
+                    ~tissue_df.index.isin(inds_to_remove)
+                ].reset_index(drop=True)
 
-        tissue_names_mapping = {tissue.label: tissue.name for tissue in organ.tissues}
-        tissue_df["class"] = tissue_df["class"].map(tissue_names_mapping)
-        unique_tissues, tissue_counts = np.unique(
-            tissue_df["class"], return_counts=True
-        )
-        tissue_proportions = [
-            round((count / sum(tissue_counts)), 2) for count in tissue_counts
-        ]
-        unique_tissue_proportions = dict(zip(unique_tissues, tissue_proportions))
-        tissue_prop_dfs.append(pd.DataFrame([unique_tissue_proportions]))
+            tissue_names_mapping = {
+                tissue.label: tissue.name for tissue in organ.tissues
+            }
+            tissue_df["class"] = tissue_df["class"].map(tissue_names_mapping)
+            unique_tissues, tissue_counts = np.unique(
+                tissue_df["class"], return_counts=True
+            )
+            tissue_proportions = [
+                round((count / sum(tissue_counts)), 2) for count in tissue_counts
+            ]
+            unique_tissue_proportions = dict(zip(unique_tissues, tissue_proportions))
+            tissue_prop_dfs.append(pd.DataFrame([unique_tissue_proportions]))
 
-        if include_counts:
-            tissue_counts = [count / tile_area * 1000000 for count in tissue_counts]
-            all_tissue_counts = dict(zip(unique_tissues, tissue_counts))
-            tissue_counts_df.append(pd.DataFrame([all_tissue_counts]))
+            if include_counts:
+                tissue_counts = [count / tile_area * 1000000 for count in tissue_counts]
+                all_tissue_counts = dict(zip(unique_tissues, tissue_counts))
+                tissue_counts_df.append(pd.DataFrame([all_tissue_counts]))
 
     cell_df = _reorder_cell_columns(pd.concat(cell_prop_dfs), organ)
-    tissue_df = _reorder_tissue_columns(pd.concat(tissue_prop_dfs), organ)
+    if include_tissues:
+        tissue_df = _reorder_tissue_columns(pd.concat(tissue_prop_dfs), organ)
 
     cell_colours = {cell.name: cell.colour for cell in organ.cells}
     cell_colours["Total"] = "#000000"
@@ -150,29 +155,29 @@ def main(
         cell_colours,
         ylabel="Proportion of Cells Across WSIs",
     )
-
-    TISSUE_EXPECTATION = [
-        (0.0, 0.009),
-        (0.30, 0.60),
-        (0.17, 0.32),
-        (None, None),
-        (0.09, 0.25),
-        (None, None),
-        (None, None),
-        (0.0, 0.10),
-        (0.0, 0.0249),
-    ]
-    tissue_colours = {tissue.name: tissue.colour for tissue in organ.tissues}
-    plot_distribution(
-        tissue_df,
-        "plots/tissue_proportions.png",
-        "Tissue",
-        tissue_colours,
-        ylabel="Proportion of Tissues Across WSIs",
-    )
-
     cell_df.to_csv("plots/cell_proportions.csv")
-    tissue_df.to_csv("plots/tissue_proportions.csv")
+
+    if include_tissues:
+        TISSUE_EXPECTATION = [
+            (0.0, 0.009),
+            (0.30, 0.60),
+            (0.17, 0.32),
+            (None, None),
+            (0.09, 0.25),
+            (None, None),
+            (None, None),
+            (0.0, 0.10),
+            (0.0, 0.0249),
+        ]
+        tissue_colours = {tissue.name: tissue.colour for tissue in organ.tissues}
+        plot_distribution(
+            tissue_df,
+            "plots/tissue_proportions.png",
+            "Tissue",
+            tissue_colours,
+            ylabel="Proportion of Tissues Across WSIs",
+        )
+        tissue_df.to_csv("plots/tissue_proportions.csv")
 
     if include_counts:
         cell_counts_df = _reorder_cell_columns(pd.concat(cell_counts_df), organ)
@@ -189,23 +194,23 @@ def main(
             bottom=-200,
             ylabel="Number of Cells / mm^2",
         )
-
-        tissue_counts_df["Total"] = tissue_counts_df[
-            list(tissue_counts_df.columns)
-        ].sum(axis=1)
-        tissue_colours["Total"] = "#000000"
-        plot_distribution(
-            tissue_counts_df,
-            "plots/tissue_counts.png",
-            "Tissue",
-            tissue_colours,
-            ylim=6000.0,
-            bottom=-200,
-            ylabel="Number of Nuclei in Tissues / mm^2",
-        )
-
         cell_counts_df.to_csv("plots/cell_counts.csv")
-        tissue_counts_df.to_csv("plots/tissue_counts.csv")
+
+        if include_tissues:
+            tissue_counts_df["Total"] = tissue_counts_df[
+                list(tissue_counts_df.columns)
+            ].sum(axis=1)
+            tissue_colours["Total"] = "#000000"
+            plot_distribution(
+                tissue_counts_df,
+                "plots/tissue_counts.png",
+                "Tissue",
+                tissue_colours,
+                ylim=6000.0,
+                bottom=-200,
+                ylabel="Number of Nuclei in Tissues / mm^2",
+            )
+            tissue_counts_df.to_csv("plots/tissue_counts.csv")
 
 
 def plot_distribution(

@@ -33,7 +33,7 @@ def main(
     """
     db.init()
 
-    lab = Lab.create(
+    lab = Lab.get_or_create(
         country=lab_country,
         primary_contact=primary_contact,
         slides_dir=slides_dir,
