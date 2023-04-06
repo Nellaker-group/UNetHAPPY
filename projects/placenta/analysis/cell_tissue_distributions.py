@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import typer
 import numpy as np
@@ -14,7 +14,8 @@ from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_c
 
 
 def main(
-    run_ids: List[int] = typer.Option([]),
+    run_ids: Optional[List[int]] = typer.Option([]),
+    file_run_ids: Optional[str] = None,
     project_name: str = "placenta",
     exp_name: str = typer.Option(...),
     model_weights_dir: str = typer.Option(...),
@@ -38,6 +39,13 @@ def main(
     organ = get_organ("placenta")
     cell_label_mapping = {cell.id: cell.name for cell in organ.cells}
     project_dir = get_project_dir(project_name)
+
+    if file_run_ids is not None:
+        run_ids = (
+            pd.read_csv(project_dir / file_run_ids, header=None)
+            .values.flatten()
+            .tolist()
+        )
 
     cell_prop_dfs = []
     cell_counts_df = []
@@ -78,21 +86,24 @@ def main(
             tile_coords = np.array(db.get_run_state(run_id))
             tile_width = tile_coords[tile_coords[:, 1].argmax() + 1][0]
             tile_height = tile_coords[1][1]
+            xs = cell_coords[:, 0]
+            ys = cell_coords[:, 1]
 
             # count how many tiles have at least one cell
             tile_count = 0
             for tile in tile_coords:
-                path = matplotlib.path.Path(
-                    [
-                        (tile[0], tile[1]),
-                        (tile[0] + tile_width, tile[1]),
-                        (tile[0] + tile_width, tile[1] + tile_height),
-                        (tile[0], tile[1] + tile_height),
-                        (tile[0], tile[1]),
-                    ],
-                    closed=True,
+                tile_x = tile[0]
+                tile_y = tile[1]
+
+                mask = np.logical_and(
+                    (np.logical_and(xs >= tile_x, (ys >= tile_y))),
+                    (
+                        np.logical_and(
+                            xs <= (tile_x + tile_width), (ys <= (tile_y + tile_height))
+                        )
+                    ),
                 )
-                if np.any(path.contains_points(cell_coords, radius=1)):
+                if np.any(mask):
                     tile_count += 1
             print(f"Number of tiles with a least one cell: {tile_count}")
             tile_area = tile_count * tile_width * tile_height
