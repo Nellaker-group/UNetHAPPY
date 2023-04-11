@@ -148,15 +148,12 @@ def main(
             unique_tissue_proportions = dict(zip(unique_tissues, tissue_proportions))
             tissue_prop_dfs.append(pd.DataFrame([unique_tissue_proportions]))
 
-            if include_counts:
+            if include_counts and include_tissues:
                 tissue_counts = [count / tile_area * 1000000 for count in tissue_counts]
                 all_tissue_counts = dict(zip(unique_tissues, tissue_counts))
                 tissue_counts_df.append(pd.DataFrame([all_tissue_counts]))
 
     cell_df = _reorder_cell_columns(pd.concat(cell_prop_dfs), organ)
-    if include_tissues:
-        tissue_df = _reorder_tissue_columns(pd.concat(tissue_prop_dfs), organ)
-
     cell_colours = {cell.name: cell.colour for cell in organ.cells}
     cell_colours["Total"] = "#000000"
     plot_distribution(
@@ -180,6 +177,8 @@ def main(
             (0.0, 0.10),
             (0.0, 0.0249),
         ]
+
+        tissue_df = _reorder_tissue_columns(pd.concat(tissue_prop_dfs), organ)
         tissue_colours = {tissue.name: tissue.colour for tissue in organ.tissues}
         plot_distribution(
             tissue_df,
@@ -192,7 +191,6 @@ def main(
 
     if include_counts:
         cell_counts_df = _reorder_cell_columns(pd.concat(cell_counts_df), organ)
-        tissue_counts_df = _reorder_tissue_columns(pd.concat(tissue_counts_df), organ)
         cell_counts_df["Total"] = cell_counts_df[list(cell_counts_df.columns)].sum(
             axis=1
         )
@@ -208,6 +206,9 @@ def main(
         cell_counts_df.to_csv("plots/cell_counts.csv")
 
         if include_tissues:
+            tissue_counts_df = _reorder_tissue_columns(
+                pd.concat(tissue_counts_df), organ
+            )
             tissue_counts_df["Total"] = tissue_counts_df[
                 list(tissue_counts_df.columns)
             ].sum(axis=1)
