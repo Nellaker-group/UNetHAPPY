@@ -1,4 +1,3 @@
-## emil to get importing to work properly
 import sys
 import os
 
@@ -23,6 +22,7 @@ def main(
     has_notes: bool = False,
     has_clinical_data: bool = False,
     db_name: str = "",
+    avoid_keyword: str = "",
 
 ):
     """Add a whole lab of slides to the database
@@ -32,6 +32,7 @@ def main(
         lab_country: country where the lab is
         primary_contact: first name of collaborator
         slide_file_format: file format of slides, e.g. '.svs'
+        avoid_keyword: it will avoid files with that keyword in their filename
         pixel_size: pixel size of all slides. Can be found with QuPath on one slide
         has_notes: if the slides came with associated pathologist's notes
         has_clinical_data: if the slides came with associated clinical data/history
@@ -52,9 +53,15 @@ def main(
 
     for path, dirs, files in os.walk(slides_dir):
         for filename in files:
-            if filename.endswith(slide_file_format):
-                fullfilename = path + "/" + filename
-                Slide.create(slide_name=fullfilename, pixel_size=pixel_size, lab=lab)
+            if avoid_keyword != "":
+                if filename.endswith(slide_file_format) and not avoid_keyword in filename:
+                    fullfilename = path + "/" + filename
+                    Slide.create(slide_name=fullfilename, pixel_size=pixel_size, lab=lab)
+            else:
+                if filename.endswith(slide_file_format):
+                    fullfilename = path + "/" + filename
+                    Slide.create(slide_name=fullfilename, pixel_size=pixel_size, lab=lab)
+
 
 if __name__ == "__main__":
     typer.run(main)

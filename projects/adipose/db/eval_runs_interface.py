@@ -148,7 +148,7 @@ def get_all_validated_seg_preds(run_id):
 def get_all_merged_seg_preds(run_id1, run_id2):
     preds = (
         MergedPrediction.select(MergedPrediction.poly_id, MergedPrediction.point_id, MergedPrediction.X, MergedPrediction.Y)
-        .where((MergedPrediction.run1) == run_id1 & (MergedPrediction.run2 == run_id2))
+        .where((MergedPrediction.run1 == run_id1) & (MergedPrediction.run2 == run_id2))
     )
     preds2 = list(preds)
     listie = [(dic.poly_id, dic.point_id, dic.X, dic.Y) for dic in preds2]
