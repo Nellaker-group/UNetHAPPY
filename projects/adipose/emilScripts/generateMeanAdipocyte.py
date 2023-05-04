@@ -69,6 +69,7 @@ leipzig = []
 merged_dict_avg = {}
 merged_dict_stdev = {}
 merged_dict_N = {}
+merged_dict_below750 = {}
 
 for j in range(i1,i2+1):
 
@@ -79,6 +80,7 @@ for j in range(i1,i2+1):
     for i in range(1,max_run_id,2):
 
         tmp_list = []
+        below750_list = []
 
         seg_preds = db.get_all_merged_seg_preds(i,i+1)
         slide_name = db.get_slide_name(i)
@@ -110,22 +112,27 @@ for j in range(i1,i2+1):
         for poly in polys:
             if poly.area*pixels[whichPixel]**2 >= 200 and ((4*math.pi*poly.area ) / ((poly.length)**2)) > 0.75:
                 tmp_list.append(poly.area*pixels[whichPixel]**2)
-        
+                if poly.area*pixels[whichPixel]**2 < 750:
+                    below750_list.append(poly.area*pixels[whichPixel]**2)
+
         if len(tmp_list) > 1:
             merged_dict_avg[indi_id] = stats.mean(tmp_list)
             merged_dict_stdev[indi_id] = stats.stdev(tmp_list)
             merged_dict_N[indi_id] = len(tmp_list)
+            merged_dict_below750[indi_id] = len(below750_list) / len(tmp_list)
         else:
             merged_dict_avg[indi_id] = -9
             merged_dict_stdev[indi_id] = -9
             merged_dict_N[indi_id] = len(tmp_list)
-
+            merged_dict_below750[indi_id] = len(below750_list)
 
     df = pd.DataFrame.from_dict(merged_dict_avg, orient="index", columns=["avg"])
     df2 = pd.DataFrame.from_dict(merged_dict_stdev, orient="index", columns=["stdev"])
     df3 = pd.DataFrame.from_dict(merged_dict_N, orient="index", columns=["Nadipocytes"])
-    df.to_csv("multiRun_avg_from"+str(i1)+"_to"+str(i2)+"V2.csv")
-    df2.to_csv("multiRun_stdev_from"+str(i1)+"_to"+str(i2)+"V2.csv")
-    df3.to_csv("multiRun_Nadipocytes_from"+str(i1)+"_to"+str(i2)+"V2.csv")
+    df4 = pd.DataFrame.from_dict(merged_dict_below750, orient="index", columns=["fracBelow750"])
+    dfTotal=pd.concat([df['avg'],df2['stdev'],df3['Nadipocytes'],df4['fracBelow750']],axis=1)
+    dfTotal.to_csv("multiRun_Total_from"+str(i1)+"_to"+str(i2)+"V2.csv")
+
+
 
 
