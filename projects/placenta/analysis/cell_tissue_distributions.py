@@ -232,21 +232,27 @@ def plot_distribution(
     colours,
     box=False,
     swarm=False,
+    violin=False,
+    cat=False,
     expectation=None,
-    ylim=0.62,
+    ylim=0.72,
     bottom=-0.02,
     ylabel=None,
 ):
     sns.set_style("white")
     plt.subplots(figsize=(8, 8), dpi=400)
-    if swarm:
-        if box:
-            sns.boxplot(data=df, palette=colours, whis=[0, 100])
-            ax = sns.swarmplot(data=df, color=".25")
-        else:
-            ax = sns.swarmplot(data=df, palette=colours)
+    if box:
+        ax = sns.boxplot(data=df, palette=colours, fliersize=1.5)
+        if swarm:
+            ax = sns.swarmplot(data=df, color=".5", size=1.5)
+    elif swarm:
+        ax = sns.swarmplot(data=df, palette=colours, size=1)
+    elif violin:
+        ax = sns.violinplot(data=df, palette=colours, bw=1., cut=0)
+    elif cat:
+        ax = sns.catplot(data=df, palette=colours, kind='violin')
     else:
-        ax = sns.swarmplot(data=df, color=".5")
+        ax = sns.swarmplot(data=df, color=".5", size=1)
         _offset_swarm(ax, 0.3)
 
         melted_df = pd.melt(df.reset_index(drop=True).T.reset_index(), id_vars="index")
