@@ -44,7 +44,7 @@ def main(
     for filename in os.listdir(slides_dir):
         if filename.endswith(slide_file_format):
             try:
-                Slide.create(slide_name=filename, pixel_size=pixel_size, lab=lab)
+                Slide.create(slide_name=filename, pixel_size=pixel_size, lab=lab[0])
             except peewee.IntegrityError:
                 print(f"Skipping slide {filename} as it's already in the db")
 
