@@ -59,7 +59,7 @@ conda activate {envname}
 module load libvips/8.9.2-foss-2019a
 export PATH=/{PathToYourUserDirWithSpace}/conda_stuff/my_envs/{envname}/bin/:$PATH
 export JAVA_HOME=/usr/java/jdk1.8.0_112/
-make environment
+make environment_cu117
 ```
 
 **Note:** if you are setting this up on rescomp with a teeny home directory, you will 
@@ -85,12 +85,6 @@ here: https://github.com/libvips/libvips/wiki
 conda create -n {envname} python=3.7.2
 conda activate {envname}
 make environment_cpu
-```
-
-**Note:** On mac (sometimes rescomp) if you get a gcc error relating to 'javabridge' 
-you may need to install the dev version manually with this command: 
-```
-pip install git+https://github.com/LeeKamentsky/python-javabridge.git#egg=javabridge
 ```
 
 I'm sure there will be some setup errors (state is a fickle beast) so let me know.
