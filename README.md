@@ -4,8 +4,8 @@ For the training and evaluation of nuclei detection and cell classification
 models on multi-organ histology whole slide images (WSI). Supported organs are:
 placenta
 
-In the future we hope to directly support liver and adipocyte histology, along with 
-segmentation techniques.
+In the future we hope to directly support liver, adipocyte and kidney histology, 
+along with segmentation techniques.
 
 Currently, a sqlite database (and Peewee orm) is used for the evaluation part of
 the pipeline. The training part of the pipeline will be integrated with the
@@ -35,13 +35,8 @@ request but this review won't be so strict.
 
 All checked in code is expected to be documented (public functions with Google style 
 docstring), tested (pytest unit and integration tests), and formatted with Black code 
-formatter. The GitHub Actions (coming soon) will check as much of this as possible. 
-(Saying all of this I'm well aware that 'core' isn't fully compliant with this, and 
-I'm working on it!)
-
-Parts of 'core' (e.g. training) are still under a fairly major refactor right now and 
-are very likely broken so apologies if you encounter problems, please do Slack me with 
-any issues!
+formatter. (Saying all of this I'm well aware that 'core' isn't fully compliant with 
+this, and I'm working on it!)
 
 
 ## Setup
@@ -123,11 +118,11 @@ conda activate {envname}
 ```
 
 
-### Evaluation
+### Cell Inference
 
-For evaluation across a WSI use `python /projects/{yourproject}/eval.py`. 
+For cell inference across a WSI use `python cell_inference.py`. 
 This can be used to initialise a new run, continue an unfinished one, or do nuclei 
-detection or cell classification separately. Each full evaluation run is treated as a 
+detection or cell classification separately. Each full inference run is treated as a 
 separate entity and, as such, gets its own entry in the database. Using the unique 
 run_id is the easiest way to access associated information about the run, including 
 the model's predictions for that run.
@@ -137,6 +132,8 @@ database with `happy/db/add_slides.py`. This needs to be done prior to
 evaluation so that the code knows the slides' paths and metadata which will be used 
 during the run.
 
+Trained models will also need to be added to the database with `/happy/db/add_model.py`.
+
 All model predictions are saved directly to the database and can be turned into
 .tsv files that QuPath can read with `qupath/coord_to_tsv.py`.
 
@@ -144,7 +141,17 @@ Embedding vectors of the cell classifier, their class predictions, network confi
 and WSI nuclei (x,y) coordinates are saved as an hdf5 file in 
 `projects/{projectname}/results/embeddings/{lab_id}/{slide_name}/{run_id}.hdf5`.
 
-### Analysis
+### Cell Visualisation
+
+To visualise the cell predictions without needing to load them into QuPath use
+`projects/placenta/analysis/vis_cell_predictions.py`. This will create a plot of just
+the predictions (with no histology tissue) at the highest resolution of the WSI. 
+
+You can also visualise your training annotations ground truth nuclei locations using 
+`analysis/visualisations/vis_ground_truth.py` or run your nuclei detector over 
+images in your validation sets using `analysis/visualisations/vis_nuclei_preds.py`.
+
+### Cell Embedding Analysis
 
 To generate and visualise UMAP embeddings from WSI predictions of the cell
 classifier look in `analysis/embeddings/`. Make sure to set the start index value and 
@@ -166,17 +173,11 @@ artefacts or unusual cell types/features. Currently, this just prints the respec
 (x,y) coordinates and saves a figure containing the 100 outliers but more informative 
 plotting might be added in the future.
 
-You can also visualise your training annotations ground truth nuclei locations using 
-`analysis/visualisations/vis_ground_truth.py` or run your nuclei detector over 
-images in your validation sets using `analysis/visualisations/vis_nuclei_preds.py`.
-
-
-### Training
+### Cell Training
 
 Main training scripts for nuclei detector and cell classifier are found in
-`/projects/{yourproject}/nuc_train.py` and `/projects/{yourproject}/cell_train.py` 
-respectively. As mentioned earlier, these have not currently been integrated with the 
-database.
+`nuc_train.py` and `cell_train.py` respectively. As mentioned earlier, these have not 
+currently been integrated with the database.
 
 Raw training dataset images go in `/projects/{yourproject}/datasets/` and their 
 groundtruth annotation csv files go in `/projects/{yourproject}/annotations/`. Separate 
@@ -192,17 +193,13 @@ best model weights are saved to
 ### Making Training Data
 
 After correcting model predictions in QuPath to generate training data, those 
-corrections can be extracted to csv files using Groovy scripts (I will add these scripts
-to this repo soon). 
+corrections can be extracted to csv files using Groovy scripts in `/qupath`. 
 
 You can then use `/happy/microscopefile/make_tile_dataset.py` to generate corresponding 
 images and annotation csvs from the files generated by the Groovy scripts. These 
 should be saved to your project directory.
 
+### Tissues
 
-## Warnings
-
-* As model training isn't integrated with the database yet, models, and the
-  training runs that created them, will need to be added to the dataset manually
-  before using them for WSI evaluation. There is a script
-  `/happy/db/add_model.py` to help with this.
+This section of the readme will be filled out later! For now, you can look at the 
+public repos happy and/or placenta to get an idea (or ask me).
