@@ -23,6 +23,7 @@ from happy.graph.create_graph import (
     setup_graph,
     process_knts,
     get_groundtruth_patch,
+    random_filter,
 )
 from graphs.graphs.embeddings import fit_umap, plot_cell_graph_umap, plot_tissue_umap
 from graphs.graphs.utils import get_feature
@@ -54,6 +55,7 @@ def main(
     k: int = 5,
     feature: FeatureArg = FeatureArg.embeddings,
     group_knts: bool = True,
+    random_remove: float = 0.0,
     top_conf: bool = False,
     model_type: str = "sup_graphsage",
     graph_method: MethodArg = MethodArg.k,
@@ -94,6 +96,11 @@ def main(
             tissue_class,
             verbose=verbose,
         )
+    # Remove a random percentage of the data
+    if random_remove > 0.0:
+        predictions, embeddings, coords, confidence, tissue_class = random_filter(
+            predictions, embeddings, coords, confidence, random_remove, tissue_class
+        )
     # Covert input cell data into a graph
     feature_data = get_feature(feature, predictions, embeddings, organ)
     data = setup_graph(
@@ -133,10 +140,7 @@ def main(
 
     # Setup paths
     save_path = (
-        Path(*pretrained_path.parts[:-1])
-        / "eval"
-        / model_epochs
-        / f"run_{run_id}"
+        Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs / f"run_{run_id}"
     )
     save_path.mkdir(parents=True, exist_ok=True)
     conf_str = "_top_conf" if top_conf else ""

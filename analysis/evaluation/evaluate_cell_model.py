@@ -81,7 +81,6 @@ def main(
         3,
         multiple_val_sets,
         hp.batch,
-        False,
         use_test_set,
     )
     if not use_test_set:

@@ -21,6 +21,7 @@ from happy.graph.create_graph import (
     setup_graph,
     get_groundtruth_patch,
     process_knts,
+    random_filter,
 )
 
 
@@ -37,6 +38,7 @@ def main(
     k: int = 5,
     feature: FeatureArg = FeatureArg.embeddings,
     group_knts: bool = True,
+    random_remove: float = 0.0,
     pretrained: Optional[str] = None,
     top_conf: bool = False,
     model_type: SupervisedModelsArg = SupervisedModelsArg.sup_graphsage,
@@ -105,6 +107,11 @@ def main(
             predictions, embeddings, coords, confidence, tissue_class = process_knts(
                 organ, predictions, embeddings, coords, confidence, tissue_class
             )
+        # Remove a random percentage of the data
+        if random_remove > 0.0:
+            predictions, embeddings, coords, confidence, tissue_class = random_filter(
+                predictions, embeddings, coords, confidence, random_remove, tissue_class
+            )
         # Covert input cell data into a graph
         feature_data = get_feature(feature, predictions, embeddings, organ)
         data = setup_graph(coords, k, feature_data, graph_method, loop=False)
@@ -120,7 +127,7 @@ def main(
         # Split nodes into unlabelled, training and validation sets. So far, validation
         # and test sets are only defined for run_id 56. If there is training data in
         # tissue_class for other runs, that data will also be used for training.
-        if run_id == 56:
+        if run_id == 56 or run_id == 113:
             data = graph_supervised.setup_node_splits(
                 data,
                 tissue_class,

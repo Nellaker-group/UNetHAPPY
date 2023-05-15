@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import typer
 import numpy as np
@@ -14,7 +14,8 @@ from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_c
 
 
 def main(
-    run_ids: List[int] = typer.Option([]),
+    run_ids: Optional[List[int]] = typer.Option([]),
+    file_run_ids: Optional[str] = None,
     project_name: str = "placenta",
     exp_name: str = typer.Option(...),
     model_weights_dir: str = typer.Option(...),
@@ -27,6 +28,7 @@ def main(
     group_knts: bool = False,
     trained_with_grouped_knts: bool = False,
     include_counts: bool = False,
+    include_tissues: bool = True,
 ):
     """Plot the distribution of cell and tissue types across multiple WSIs.
     This will plot a line plot with an offset swarm plot where each point is each WSI.
@@ -37,6 +39,13 @@ def main(
     organ = get_organ("placenta")
     cell_label_mapping = {cell.id: cell.name for cell in organ.cells}
     project_dir = get_project_dir(project_name)
+
+    if file_run_ids is not None:
+        run_ids = (
+            pd.read_csv(project_dir / file_run_ids, header=None)
+            .values.flatten()
+            .tolist()
+        )
 
     cell_prop_dfs = []
     cell_counts_df = []
@@ -77,21 +86,24 @@ def main(
             tile_coords = np.array(db.get_run_state(run_id))
             tile_width = tile_coords[tile_coords[:, 1].argmax() + 1][0]
             tile_height = tile_coords[1][1]
+            xs = cell_coords[:, 0]
+            ys = cell_coords[:, 1]
 
             # count how many tiles have at least one cell
             tile_count = 0
             for tile in tile_coords:
-                path = matplotlib.path.Path(
-                    [
-                        (tile[0], tile[1]),
-                        (tile[0] + tile_width, tile[1]),
-                        (tile[0] + tile_width, tile[1] + tile_height),
-                        (tile[0], tile[1] + tile_height),
-                        (tile[0], tile[1]),
-                    ],
-                    closed=True,
+                tile_x = tile[0]
+                tile_y = tile[1]
+
+                mask = np.logical_and(
+                    (np.logical_and(xs >= tile_x, (ys >= tile_y))),
+                    (
+                        np.logical_and(
+                            xs <= (tile_x + tile_width), (ys <= (tile_y + tile_height))
+                        )
+                    ),
                 )
-                if np.any(path.contains_points(cell_coords, radius=1)):
+                if np.any(mask):
                     tile_count += 1
             print(f"Number of tiles with a least one cell: {tile_count}")
             tile_area = tile_count * tile_width * tile_height
@@ -103,44 +115,45 @@ def main(
             all_cell_counts = dict(zip(unique_cell_labels, cell_counts))
             cell_counts_df.append(pd.DataFrame([all_cell_counts]))
 
-        # print tissue predictions from tsv file
-        pretrained_path = (
-            project_dir
-            / "results"
-            / "graph"
-            / model_type
-            / exp_name
-            / model_weights_dir
-            / "eval"
-            / model_name
-            / f"run_{run_id}"
-        )
-        tissue_df = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")
-        # remove rows where knots were removed
-        if group_knts and not trained_with_grouped_knts:
-            tissue_df = tissue_df.loc[
-                ~tissue_df.index.isin(inds_to_remove)
-            ].reset_index(drop=True)
+        if include_tissues:
+            # print tissue predictions from tsv file
+            pretrained_path = (
+                project_dir
+                / "results"
+                / "graph"
+                / model_type
+                / exp_name
+                / model_weights_dir
+                / "eval"
+                / model_name
+                / f"run_{run_id}"
+            )
+            tissue_df = pd.read_csv(pretrained_path / "tissue_preds.tsv", sep="\t")
+            # remove rows where knots were removed
+            if group_knts and not trained_with_grouped_knts:
+                tissue_df = tissue_df.loc[
+                    ~tissue_df.index.isin(inds_to_remove)
+                ].reset_index(drop=True)
 
-        tissue_names_mapping = {tissue.label: tissue.name for tissue in organ.tissues}
-        tissue_df["class"] = tissue_df["class"].map(tissue_names_mapping)
-        unique_tissues, tissue_counts = np.unique(
-            tissue_df["class"], return_counts=True
-        )
-        tissue_proportions = [
-            round((count / sum(tissue_counts)), 2) for count in tissue_counts
-        ]
-        unique_tissue_proportions = dict(zip(unique_tissues, tissue_proportions))
-        tissue_prop_dfs.append(pd.DataFrame([unique_tissue_proportions]))
+            tissue_names_mapping = {
+                tissue.label: tissue.name for tissue in organ.tissues
+            }
+            tissue_df["class"] = tissue_df["class"].map(tissue_names_mapping)
+            unique_tissues, tissue_counts = np.unique(
+                tissue_df["class"], return_counts=True
+            )
+            tissue_proportions = [
+                round((count / sum(tissue_counts)), 2) for count in tissue_counts
+            ]
+            unique_tissue_proportions = dict(zip(unique_tissues, tissue_proportions))
+            tissue_prop_dfs.append(pd.DataFrame([unique_tissue_proportions]))
 
-        if include_counts:
-            tissue_counts = [count / tile_area * 1000000 for count in tissue_counts]
-            all_tissue_counts = dict(zip(unique_tissues, tissue_counts))
-            tissue_counts_df.append(pd.DataFrame([all_tissue_counts]))
+            if include_counts and include_tissues:
+                tissue_counts = [count / tile_area * 1000000 for count in tissue_counts]
+                all_tissue_counts = dict(zip(unique_tissues, tissue_counts))
+                tissue_counts_df.append(pd.DataFrame([all_tissue_counts]))
 
     cell_df = _reorder_cell_columns(pd.concat(cell_prop_dfs), organ)
-    tissue_df = _reorder_tissue_columns(pd.concat(tissue_prop_dfs), organ)
-
     cell_colours = {cell.name: cell.colour for cell in organ.cells}
     cell_colours["Total"] = "#000000"
     plot_distribution(
@@ -150,33 +163,34 @@ def main(
         cell_colours,
         ylabel="Proportion of Cells Across WSIs",
     )
-
-    TISSUE_EXPECTATION = [
-        (0.0, 0.009),
-        (0.30, 0.60),
-        (0.17, 0.32),
-        (None, None),
-        (0.09, 0.25),
-        (None, None),
-        (None, None),
-        (0.0, 0.10),
-        (0.0, 0.0249),
-    ]
-    tissue_colours = {tissue.name: tissue.colour for tissue in organ.tissues}
-    plot_distribution(
-        tissue_df,
-        "plots/tissue_proportions.png",
-        "Tissue",
-        tissue_colours,
-        ylabel="Proportion of Tissues Across WSIs",
-    )
-
     cell_df.to_csv("plots/cell_proportions.csv")
-    tissue_df.to_csv("plots/tissue_proportions.csv")
+
+    if include_tissues:
+        TISSUE_EXPECTATION = [
+            (0.0, 0.009),
+            (0.30, 0.60),
+            (0.17, 0.32),
+            (None, None),
+            (0.09, 0.25),
+            (None, None),
+            (None, None),
+            (0.0, 0.10),
+            (0.0, 0.0249),
+        ]
+
+        tissue_df = _reorder_tissue_columns(pd.concat(tissue_prop_dfs), organ)
+        tissue_colours = {tissue.name: tissue.colour for tissue in organ.tissues}
+        plot_distribution(
+            tissue_df,
+            "plots/tissue_proportions.png",
+            "Tissue",
+            tissue_colours,
+            ylabel="Proportion of Tissues Across WSIs",
+        )
+        tissue_df.to_csv("plots/tissue_proportions.csv")
 
     if include_counts:
         cell_counts_df = _reorder_cell_columns(pd.concat(cell_counts_df), organ)
-        tissue_counts_df = _reorder_tissue_columns(pd.concat(tissue_counts_df), organ)
         cell_counts_df["Total"] = cell_counts_df[list(cell_counts_df.columns)].sum(
             axis=1
         )
@@ -189,23 +203,26 @@ def main(
             bottom=-200,
             ylabel="Number of Cells / mm^2",
         )
-
-        tissue_counts_df["Total"] = tissue_counts_df[
-            list(tissue_counts_df.columns)
-        ].sum(axis=1)
-        tissue_colours["Total"] = "#000000"
-        plot_distribution(
-            tissue_counts_df,
-            "plots/tissue_counts.png",
-            "Tissue",
-            tissue_colours,
-            ylim=6000.0,
-            bottom=-200,
-            ylabel="Number of Nuclei in Tissues / mm^2",
-        )
-
         cell_counts_df.to_csv("plots/cell_counts.csv")
-        tissue_counts_df.to_csv("plots/tissue_counts.csv")
+
+        if include_tissues:
+            tissue_counts_df = _reorder_tissue_columns(
+                pd.concat(tissue_counts_df), organ
+            )
+            tissue_counts_df["Total"] = tissue_counts_df[
+                list(tissue_counts_df.columns)
+            ].sum(axis=1)
+            tissue_colours["Total"] = "#000000"
+            plot_distribution(
+                tissue_counts_df,
+                "plots/tissue_counts.png",
+                "Tissue",
+                tissue_colours,
+                ylim=6000.0,
+                bottom=-200,
+                ylabel="Number of Nuclei in Tissues / mm^2",
+            )
+            tissue_counts_df.to_csv("plots/tissue_counts.csv")
 
 
 def plot_distribution(
@@ -215,21 +232,27 @@ def plot_distribution(
     colours,
     box=False,
     swarm=False,
+    violin=False,
+    cat=False,
     expectation=None,
-    ylim=0.62,
+    ylim=0.72,
     bottom=-0.02,
     ylabel=None,
 ):
     sns.set_style("white")
     plt.subplots(figsize=(8, 8), dpi=400)
-    if swarm:
-        if box:
-            sns.boxplot(data=df, palette=colours, whis=[0, 100])
-            ax = sns.swarmplot(data=df, color=".25")
-        else:
-            ax = sns.swarmplot(data=df, palette=colours)
+    if box:
+        ax = sns.boxplot(data=df, palette=colours, fliersize=1.5)
+        if swarm:
+            ax = sns.swarmplot(data=df, color=".5", size=1.5)
+    elif swarm:
+        ax = sns.swarmplot(data=df, palette=colours, size=1)
+    elif violin:
+        ax = sns.violinplot(data=df, palette=colours, bw=1., cut=0)
+    elif cat:
+        ax = sns.catplot(data=df, palette=colours, kind='violin')
     else:
-        ax = sns.swarmplot(data=df, color=".5")
+        ax = sns.swarmplot(data=df, color=".5", size=1)
         _offset_swarm(ax, 0.3)
 
         melted_df = pd.melt(df.reset_index(drop=True).T.reset_index(), id_vars="index")
