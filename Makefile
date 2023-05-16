@@ -22,6 +22,8 @@ environment_cu117_torch2_py10:
 	pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.0.0+cu117.html
 	pip install -r requirements_py10.txt
 	pip install pyvips==2.2.1
+	pip install datashader==0.14.4
+	pip install "holoviews[recommended]"
 	pip install -e .
 .PHONY: install
 
