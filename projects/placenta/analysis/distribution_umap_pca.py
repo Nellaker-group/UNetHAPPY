@@ -111,7 +111,7 @@ def main(
                 {True: "Estonia", False: "Israel"}
             )
         else:
-            raise ValueError(f"Unknown value of interest: {value_of_interest}")
+            data_of_interest = plotting_features_df[value_of_interest]
 
     df_features = df.drop(columns=["run_id"])
     ct_prop = ct_prop.drop(columns=["run_id"])
@@ -166,7 +166,7 @@ def main(
         ct_counts = ct_counts.drop(columns=["run_id"])
 
         # Plot PCA coloured by each structure
-        if features_data_csv is "":
+        if features_data_csv == "":
             for structure in ct_prop.columns:
                 data_of_interest = ct_prop[structure]
                 plot_pca(pca_df, feature_type, data_of_interest, structure, data_dir)
