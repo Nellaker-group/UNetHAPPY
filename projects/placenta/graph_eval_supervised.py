@@ -13,7 +13,6 @@ from torch_geometric.loader import (
     DataLoader,
 )
 import numpy as np
-import pandas as pd
 
 import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device, get_project_dir
@@ -144,7 +143,7 @@ def main(
     )
     save_path.mkdir(parents=True, exist_ok=True)
     conf_str = "_top_conf" if top_conf else ""
-    plot_name = f"{val_patch_files[0].split('.csv')[0]}_{conf_str}"
+    plot_name = f"{val_patch_files[0].split('.csv')[0]}{conf_str}"
 
     # Dataloader for eval, feeds in whole graph
     if model_type == "sup_graphsage":
@@ -194,7 +193,7 @@ def main(
     predicted_labels = predicted_labels[val_nodes]
     out = out[val_nodes]
     pos = pos[val_nodes]
-    graph_embeddings = graph_embeddings[val_nodes] if plot_umap else graph_embeddings
+    graph_embeddings = graph_embeddings[val_nodes]
     tissue_class = (
         tissue_class[val_nodes] if tissue_label_tsv is not None else tissue_class
     )
@@ -211,7 +210,7 @@ def main(
             # fit and plot umap with cell classes
             fitted_umap = fit_umap(graph_embeddings)
             plot_cell_graph_umap(
-                organ, predictions, fitted_umap, save_path, f"eval_{plot_name}.png"
+                organ, predictions, fitted_umap, save_path, f"cell_{plot_name}_umap.png"
             )
             # Plot the predicted labels onto the umap of the graph embeddings
             plot_tissue_umap(organ, fitted_umap, plot_name, save_path, predicted_labels)
@@ -243,12 +242,6 @@ def main(
         height=int(data.pos[:, 1].max()) - int(data.pos[:, 1].min()),
     )
 
-    # make tsv if the whole graph was used
-    if len(data.pos) == len(data.pos[data.val_mask]):
-        label_dict = {tissue.id: tissue.label for tissue in organ.tissues}
-        predicted_labels = [label_dict[label] for label in predicted_labels]
-        _save_tissue_preds_as_tsv(predicted_labels, pos, save_path)
-
 
 def _remove_unlabelled(tissue_class, predicted_labels, pos, out):
     labelled_inds = tissue_class.nonzero()[0]
@@ -267,18 +260,6 @@ def _print_prediction_stats(predicted_labels, tissue_label_mapping):
         unique_labels.append(tissue_label_mapping[label])
     unique_counts = dict(zip(unique_labels, counts))
     print(f"Counts per label: {unique_counts}")
-
-
-def _save_tissue_preds_as_tsv(predicted_labels, coords, save_path):
-    print("Saving all tissue predictions as a tsv")
-    tissue_preds_df = pd.DataFrame(
-        {
-            "x": coords[:, 0].numpy().astype(int),
-            "y": coords[:, 1].numpy().astype(int),
-            "class": predicted_labels,
-        }
-    )
-    tissue_preds_df.to_csv(save_path / "tissue_preds.tsv", sep="\t", index=False)
 
 
 if __name__ == "__main__":

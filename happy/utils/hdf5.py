@@ -6,7 +6,7 @@ import h5py
 import happy.db.eval_runs_interface as db
 
 
-def get_embeddings_file(project_name, run_id):
+def get_embeddings_file(project_name, run_id, tissue=False):
     embeddings_dir = (
         Path(__file__).parent.parent.parent
         / "projects"
@@ -15,6 +15,9 @@ def get_embeddings_file(project_name, run_id):
         / "embeddings"
     )
     embeddings_path = db.get_embeddings_path(run_id, embeddings_dir)
+    if tissue:
+        file_name = f"{embeddings_path.name.split('.hdf5')[0]}_tissues.hdf5"
+        embeddings_path = embeddings_path.parent / file_name
     return embeddings_dir / embeddings_path
 
 
@@ -33,6 +36,36 @@ def get_hdf5_datasets(file_path, start, num_points, verbose=True):
         coords = f["coords"][subset_start:subset_end]
         confidence = f["confidence"][subset_start:subset_end]
         return predictions, embeddings, coords, confidence, subset_start, subset_end
+
+
+def get_tissue_hdf5_datasets(file_path, start, num_points, verbose=True):
+    with h5py.File(file_path, "r") as f:
+        subset_start = (
+            int(len(f["predictions"]) * start) if 1 > start > 0 else int(start)
+        )
+        subset_end = (
+            len(f["predictions"]) if num_points == -1 else subset_start + num_points
+        )
+        if verbose:
+            print(f"Getting {subset_end - subset_start} datapoints from hdf5")
+        cell_predictions = f["cell_predictions"][subset_start:subset_end]
+        cell_embeddings = f["cell_embeddings"][subset_start:subset_end]
+        coords = f["coords"][subset_start:subset_end]
+        cell_confidence = f["cell_confidence"][subset_start:subset_end]
+        tissue_predictions = f["tissue_predictions"][subset_start:subset_end]
+        tissue_embeddings = f["tissue_embeddings"][subset_start:subset_end]
+        tissue_confidence = f["tissue_confidence"][subset_start:subset_end]
+        return (
+            cell_predictions,
+            cell_embeddings,
+            coords,
+            cell_confidence,
+            tissue_predictions,
+            tissue_embeddings,
+            tissue_confidence,
+            subset_start,
+            subset_end,
+        )
 
 
 def filter_hdf5(

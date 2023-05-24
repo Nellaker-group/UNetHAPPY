@@ -13,6 +13,7 @@ from torch_geometric.loader import (
     DataLoader,
 )
 from scipy.special import softmax
+import pandas as pd
 import numpy as np
 import h5py
 
@@ -40,6 +41,7 @@ def main(
     feature: FeatureArg = FeatureArg.embeddings,
     model_type: str = "sup_graphsage",
     graph_method: MethodArg = MethodArg.k,
+    save_tsv: bool = False,
     save_embeddings: bool = False,
 ):
     db.init()
@@ -162,8 +164,12 @@ def main(
         (range(len(predicted_labels)), [predicted_labels])
     ][0]
 
-    embeddings_path = str(get_embeddings_file(project_name, run_id)).split(".hdf5")[0]
+    # Save predictions to tsv for loading into QuPath
+    if save_tsv:
+        _save_tissue_preds_as_tsv(predicted_labels, coords, save_path, organ)
+
     # Save processed cell and tissue predictions, coordinates and embeddings
+    embeddings_path = get_embeddings_file(project_name, run_id, tissue=True)
     if save_embeddings:
         _save_embeddings_as_hdf5(
             predictions,
@@ -173,7 +179,7 @@ def main(
             predicted_labels,
             graph_embeddings,
             top_confidence,
-            f"{embeddings_path}_tissues.hdf5",
+            embeddings_path,
         )
 
 
@@ -232,6 +238,22 @@ def _save_embeddings_as_hdf5(
                 shape=(total,),
                 dtype="float16",
             )
+    else:
+        print(f"File at {save_path} already exists, skipping saving")
+
+
+def _save_tissue_preds_as_tsv(predicted_labels, coords, save_path, organ):
+    print("Saving all tissue predictions as a tsv")
+    label_dict = {tissue.id: tissue.label for tissue in organ.tissues}
+    predicted_labels = [label_dict[label] for label in predicted_labels]
+    tissue_preds_df = pd.DataFrame(
+        {
+            "x": coords[:, 0].astype(int),
+            "y": coords[:, 1].astype(int),
+            "class": predicted_labels,
+        }
+    )
+    tissue_preds_df.to_csv(save_path / "tissue_preds.tsv", sep="\t", index=False)
 
 
 if __name__ == "__main__":
