@@ -203,21 +203,21 @@ def main(
         unlabelled_inds, tissue_class, predicted_labels, pos, out = _remove_unlabelled(
             tissue_class, predicted_labels, pos, out
         )
+        graph_embeddings = graph_embeddings[unlabelled_inds]
+        predictions = predictions[unlabelled_inds]
 
-        if plot_umap:
-            graph_embeddings = graph_embeddings[unlabelled_inds]
-            predictions = predictions[unlabelled_inds]
-            # fit and plot umap with cell classes
-            fitted_umap = fit_umap(graph_embeddings)
-            plot_cell_graph_umap(
-                organ, predictions, fitted_umap, save_path, f"cell_{plot_name}_umap.png"
+    if plot_umap:
+        # fit and plot umap with cell classes
+        fitted_umap = fit_umap(graph_embeddings)
+        plot_cell_graph_umap(
+            organ, predictions, fitted_umap, save_path, f"cell_{plot_name}_umap.png"
+        )
+        # Plot the predicted labels onto the umap of the graph embeddings
+        plot_tissue_umap(organ, fitted_umap, plot_name, save_path, predicted_labels)
+        if tissue_label_tsv is not None:
+            plot_tissue_umap(
+                organ, fitted_umap, f"gt_{plot_name}", save_path, tissue_class
             )
-            # Plot the predicted labels onto the umap of the graph embeddings
-            plot_tissue_umap(organ, fitted_umap, plot_name, save_path, predicted_labels)
-            if tissue_label_tsv is not None:
-                plot_tissue_umap(
-                    organ, fitted_umap, f"gt_{plot_name}", save_path, tissue_class
-                )
 
     # Print some prediction count info
     tissue_label_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
