@@ -183,7 +183,7 @@ def main(
         )
     else:
         out, graph_embeddings, predicted_labels = inference(
-            model, x, eval_loader, device
+            model, data, eval_loader, device
         )
     timer_end = time.time()
     print(f"total time: {timer_end - timer_start:.4f} s")

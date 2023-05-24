@@ -28,9 +28,10 @@ def get_feature(feature, predictions, embeddings, organ=None):
 
 def send_graph_to_device(data, device, tissue_class=None):
     x, edge_index = data.x.to(device), data.edge_index.to(device)
+    edge_attr = data.edge_attr.to(device)
     if not tissue_class is None:
         tissue_class = torch.Tensor(tissue_class).type(torch.LongTensor).to(device)
-    return x, edge_index, tissue_class
+    return x, edge_index, edge_attr, tissue_class
 
 
 def save_model(model, save_path):

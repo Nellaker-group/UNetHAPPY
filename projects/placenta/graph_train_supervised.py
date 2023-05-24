@@ -160,7 +160,7 @@ def main(
     )
 
     # Setup the training parameters
-    x, _, _ = send_graph_to_device(data, device)
+    x, _, _, _ = send_graph_to_device(data, device)
 
     # Setup the model
     model = graph_supervised.setup_model(

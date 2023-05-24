@@ -37,7 +37,7 @@ from happy.train.utils import (
     get_tissue_confusion_matrix,
 )
 from happy.models.graphsage import SupervisedSAGE
-from happy.models.clustergcn import ClusterGCN, JumpingClusterGCN
+from happy.models.clustergcn import ClusterGCN, JumpingClusterGCN, ClusterGIN
 from happy.models.gat import GAT, GATv2
 from happy.models.graphsaint import GraphSAINT
 from happy.models.shadow import ShaDowGCN
@@ -181,6 +181,7 @@ def setup_dataloaders(
         or model_type == "sup_gat"
         or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
+        or model_type == "sup_clustergin"
     ):
         cluster_data = ClusterData(
             data, num_parts=int(data.x.size()[0] / num_neighbors), recursive=False
@@ -355,6 +356,15 @@ def setup_model(
             num_layers=layers,
             dropout=dropout,
         )
+    elif model_type == "sup_clustergin":
+        model = ClusterGIN(
+            data.num_node_features,
+            hidden_channels=hidden_units,
+            out_channels=num_classes,
+            num_layers=layers,
+            dropout=dropout,
+            reduce_dims=64,
+        )
     else:
         return ValueError(f"No such model type implemented: {model_type}")
     model = model.to(device)
@@ -401,6 +411,7 @@ def setup_training_params(
         or model_type == "sup_gat"
         or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
+        or model_type == "sup_clustergin"
     ):
         if weighted_loss:
             data_classes = train_dataloader.cluster_data.data.y[
@@ -457,11 +468,15 @@ def train(
         or model_type == "sup_gat"
         or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
+        or model_type == "sup_clustergin"
     ):
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
-            out = model(batch.x, batch.edge_index)
+            if model_type == "sup_clustergin":
+                out = model(batch.x, batch.edge_index, batch.edge_attr)
+            else:
+                out = model(batch.x, batch.edge_index)
             train_out = out[batch.train_mask]
             train_y = batch.y[batch.train_mask]
             loss = criterion(train_out, train_y)
@@ -565,7 +580,10 @@ def validate(model, data, eval_loader, device):
     if not isinstance(model, ShaDowGCN):
         if isinstance(model, GraphSAINT):
             model.set_aggr("mean")
-        out, _ = model.inference(data.x, eval_loader, device)
+        if isinstance(model, ClusterGIN):
+            out, _ = model.inference(data.x, data.edge_attr, eval_loader, device)
+        else:
+            out, _ = model.inference(data.x, eval_loader, device)
     else:
         out = []
         for batch in eval_loader:
@@ -605,13 +623,16 @@ def validate_mlp(model, data, eval_loader, device):
 
 
 @torch.no_grad()
-def inference(model, x, eval_loader, device):
+def inference(model, data, eval_loader, device):
     print("Running inference")
     model.eval()
     if not isinstance(model, ShaDowGCN):
         if isinstance(model, GraphSAINT):
             model.set_aggr("mean")
-        out, graph_embeddings = model.inference(x, eval_loader, device)
+        if isinstance(model, ClusterGIN):
+            out, _ = model.inference(data.x, data.edge_attr, eval_loader, device)
+        else:
+            out, _ = model.inference(data.x, eval_loader, device)
     else:
         out = []
         graph_embeddings = []
