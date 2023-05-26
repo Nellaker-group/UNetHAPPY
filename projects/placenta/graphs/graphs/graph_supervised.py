@@ -37,7 +37,7 @@ from happy.train.utils import (
     get_tissue_confusion_matrix,
 )
 from happy.models.graphsage import SupervisedSAGE
-from happy.models.clustergcn import ClusterGCN, JumpingClusterGCN, ClusterGIN
+from happy.models.clustergcn import ClusterGCN, JumpingClusterGCN, ClusterGIN, ClusterGCNWeighted
 from happy.models.gat import GAT, GATv2
 from happy.models.graphsaint import GraphSAINT
 from happy.models.shadow import ShaDowGCN
@@ -181,7 +181,8 @@ def setup_dataloaders(
         or model_type == "sup_gat"
         or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
-        or model_type == "sup_clustergin"
+        or model_type == "sup_clustergine"
+        or model_type == "sup_clustergcn_w"
     ):
         cluster_data = ClusterData(
             data, num_parts=int(data.x.size()[0] / num_neighbors), recursive=False
@@ -356,8 +357,17 @@ def setup_model(
             num_layers=layers,
             dropout=dropout,
         )
-    elif model_type == "sup_clustergin":
+    elif model_type == "sup_clustergine":
         model = ClusterGIN(
+            data.num_node_features,
+            hidden_channels=hidden_units,
+            out_channels=num_classes,
+            num_layers=layers,
+            dropout=dropout,
+            reduce_dims=64,
+        )
+    elif model_type == "sup_clustergcn_w":
+        model = ClusterGCNWeighted(
             data.num_node_features,
             hidden_channels=hidden_units,
             out_channels=num_classes,
@@ -411,7 +421,8 @@ def setup_training_params(
         or model_type == "sup_gat"
         or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
-        or model_type == "sup_clustergin"
+        or model_type == "sup_clustergine"
+        or model_type == "sup_clustergcn_w"
     ):
         if weighted_loss:
             data_classes = train_dataloader.cluster_data.data.y[
@@ -468,12 +479,13 @@ def train(
         or model_type == "sup_gat"
         or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
-        or model_type == "sup_clustergin"
+        or model_type == "sup_clustergine"
+        or model_type == "sup_clustergcn_w"
     ):
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
-            if model_type == "sup_clustergin":
+            if model_type == "sup_clustergine" or model_type == "sup_clustergcn_w":
                 out = model(batch.x, batch.edge_index, batch.edge_attr)
             else:
                 out = model(batch.x, batch.edge_index)
@@ -580,7 +592,7 @@ def validate(model, data, eval_loader, device):
     if not isinstance(model, ShaDowGCN):
         if isinstance(model, GraphSAINT):
             model.set_aggr("mean")
-        if isinstance(model, ClusterGIN):
+        if isinstance(model, ClusterGIN) or isinstance(model, ClusterGCNWeighted):
             out, _ = model.inference(data.x, data.edge_attr, eval_loader, device)
         else:
             out, _ = model.inference(data.x, eval_loader, device)
@@ -629,7 +641,7 @@ def inference(model, data, eval_loader, device):
     if not isinstance(model, ShaDowGCN):
         if isinstance(model, GraphSAINT):
             model.set_aggr("mean")
-        if isinstance(model, ClusterGIN):
+        if isinstance(model, ClusterGIN) or isinstance(model, ClusterGCNWeighted):
             out, _ = model.inference(data.x, data.edge_attr, eval_loader, device)
         else:
             out, _ = model.inference(data.x, eval_loader, device)

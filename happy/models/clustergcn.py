@@ -4,7 +4,7 @@ import torch
 from torch_geometric.nn import SAGEConv, ClusterGCNConv, norm, JumpingKnowledge
 from torch_geometric.nn import MLP, GINEConv
 
-from utils.custom_layers import WeightedSAGEConv
+from happy.models.utils.custom_layers import WeightedSAGEConv
 
 
 class ClusterGCN(nn.Module):
