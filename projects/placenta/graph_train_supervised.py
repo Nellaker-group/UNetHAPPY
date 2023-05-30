@@ -241,9 +241,10 @@ def main(
                     logger.log_accuracy("train_inf", epoch - 1, train_accuracy)
                     logger.log_accuracy("val", epoch - 1, val_accuracy)
 
+                logger.to_csv(run_path / "graph_train_stats.csv")
                 # Save new best model
                 if val_accuracy >= prev_best_val:
-                    graph_supervised.save_state(run_path, logger, model, epoch)
+                    graph_supervised.save_state(run_path, model, epoch)
                     print("Saved best model")
                     prev_best_val = val_accuracy
 
@@ -254,7 +255,8 @@ def main(
             graph_supervised.save_state(run_path, logger, model, epoch)
 
     # Save the fully trained model
-    graph_supervised.save_state(run_path, logger, model, "final")
+    logger.to_csv(run_path / "graph_train_stats.csv")
+    graph_supervised.save_state(run_path, model, "final")
     print("Saved final model")
 
 

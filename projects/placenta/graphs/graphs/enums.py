@@ -14,6 +14,7 @@ class MethodArg(str, Enum):
 class SupervisedModelsArg(str, Enum):
     sup_graphsage = "sup_graphsage"
     sup_clustergcn = "sup_clustergcn"
+    sup_clustergin  = "sup_clustergin"
     sup_clustergine  = "sup_clustergine"
     sup_clustergcn_w = "sup_clustergcn_w"
     sup_jumping = "sup_jumping"

@@ -37,7 +37,12 @@ from happy.train.utils import (
     get_tissue_confusion_matrix,
 )
 from happy.models.graphsage import SupervisedSAGE
-from happy.models.clustergcn import ClusterGCN, JumpingClusterGCN, ClusterGIN, ClusterGCNWeighted
+from happy.models.clustergcn import (
+    ClusterGCN,
+    JumpingClusterGCN,
+    ClusterGIN,
+    ClusterGCNWeighted,
+)
 from happy.models.gat import GAT, GATv2
 from happy.models.graphsaint import GraphSAINT
 from happy.models.shadow import ShaDowGCN
@@ -181,6 +186,7 @@ def setup_dataloaders(
         or model_type == "sup_gat"
         or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
+        or model_type == "sup_clustergin"
         or model_type == "sup_clustergine"
         or model_type == "sup_clustergcn_w"
     ):
@@ -357,6 +363,15 @@ def setup_model(
             num_layers=layers,
             dropout=dropout,
         )
+    elif model_type == "sup_clustergin":
+        model = ClusterGIN(
+            data.num_node_features,
+            hidden_channels=hidden_units,
+            out_channels=num_classes,
+            num_layers=layers,
+            dropout=dropout,
+            reduce_dims=64,
+        )
     elif model_type == "sup_clustergine":
         model = ClusterGIN(
             data.num_node_features,
@@ -365,6 +380,7 @@ def setup_model(
             num_layers=layers,
             dropout=dropout,
             reduce_dims=64,
+            include_edge_attr=True,
         )
     elif model_type == "sup_clustergcn_w":
         model = ClusterGCNWeighted(
@@ -421,6 +437,7 @@ def setup_training_params(
         or model_type == "sup_gat"
         or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
+        or model_type == "sup_clustergin"
         or model_type == "sup_clustergine"
         or model_type == "sup_clustergcn_w"
     ):
@@ -479,13 +496,18 @@ def train(
         or model_type == "sup_gat"
         or model_type == "sup_gatv2"
         or model_type == "sup_jumping"
+        or model_type == "sup_clustergin"
         or model_type == "sup_clustergine"
         or model_type == "sup_clustergcn_w"
     ):
         for batch in train_loader:
             batch = batch.to(device)
             optimiser.zero_grad()
-            if model_type == "sup_clustergine" or model_type == "sup_clustergcn_w":
+            if (
+                model_type == "sup_clustergine"
+                or model_type == "sup_clustergcn_w"
+                or model_type == "sup_clustergin"
+            ):
                 out = model(batch.x, batch.edge_index, batch.edge_attr)
             else:
                 out = model(batch.x, batch.edge_index)
@@ -847,9 +869,8 @@ def collect_params(
     )
 
 
-def save_state(run_path, logger, model, epoch):
+def save_state(run_path, model, epoch):
     torch.save(model, run_path / f"{epoch}_graph_model.pt")
-    logger.to_csv(run_path / "graph_train_stats.csv")
 
 
 def _compute_tissue_weights(data_classes, organ, use_custom_weights):
