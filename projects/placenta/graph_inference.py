@@ -1,11 +1,9 @@
 from pathlib import Path
 import time
-import os
 
 import typer
 import torch
-from torch_geometric.transforms import ToUndirected, SIGN
-from torch_geometric.utils import add_self_loops
+from torch_geometric.transforms import SIGN
 from torch_geometric.loader import (
     NeighborSampler,
     NeighborLoader,
@@ -15,18 +13,18 @@ from torch_geometric.loader import (
 from scipy.special import softmax
 import pandas as pd
 import numpy as np
-import h5py
 
 import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device, get_project_dir
 from happy.organs import get_organ
-from happy.graph.create_graph import get_raw_data, setup_graph
-from happy.graph.process_knots import process_knts
-from happy.graph.utils.utils import get_feature
+from happy.graph.graph_creation.get_and_process import get_hdf5_data
+from projects.placenta.graphs.processing.process_knots import process_knts
 from happy.utils.utils import set_seed
 from happy.graph.enums import FeatureArg, MethodArg
 from happy.graph.utils.visualise_points import visualize_points
-from graphs.graphs.graph_supervised import inference, setup_node_splits, inference_mlp
+from graphs.graphs.graph_supervised import inference, inference_mlp
+from happy.graph.graph_creation.node_dataset_splits import setup_node_splits
+from happy.graph.graph_creation.create_graph import setup_graph
 from happy.hdf5 import get_embeddings_file
 
 
@@ -53,24 +51,14 @@ def main(
     patch_files = [project_dir / "graph_splits" / file for file in ["all_wsi.csv"]]
 
     print("Begin graph construction...")
-    predictions, embeddings, coords, confidence = get_raw_data(
-        project_name, run_id, 0, 0, -1, -1
-    )
+    hdf5_data = get_hdf5_data(project_name, run_id, 0, 0, -1, -1)
     # Covert isolated knts into syn and turn groups into a single knt point
-    predictions, embeddings, coords, confidence, _ = process_knts(
-        organ, predictions, embeddings, coords, confidence
-    )
+    hdf5_data, _ = process_knts(organ, hdf5_data)
     # Covert input cell data into a graph
-    feature_data = get_feature(feature, predictions, embeddings, organ)
-    data = setup_graph(coords, k, feature_data, graph_method, loop=False)
-    data = ToUndirected()(data)
-    data.edge_index, data.edge_attr = add_self_loops(
-        data["edge_index"], data["edge_attr"], fill_value="mean"
-    )
-    pos = data.pos
-    x = data.x.to(device)
-
+    data = setup_graph(hdf5_data, organ, feature, k, graph_method)
+    # Split graph into an inference set across the WSI
     data = setup_node_splits(data, None, False, True, patch_files)
+    x = data.x.to(device)
     print("Graph construction complete")
 
     # Setup trained model
@@ -153,7 +141,7 @@ def main(
     visualize_points(
         organ,
         save_path / f"{plot_name.split('.png')[0]}.png",
-        pos,
+        data.pos,
         colours=colours,
         width=int(data.pos[:, 0].max()) - int(data.pos[:, 0].min()),
         height=int(data.pos[:, 1].max()) - int(data.pos[:, 1].min()),
@@ -167,16 +155,13 @@ def main(
 
     # Save predictions to tsv for loading into QuPath
     if save_tsv:
-        _save_tissue_preds_as_tsv(predicted_labels, coords, save_path, organ)
+        _save_tissue_preds_as_tsv(predicted_labels, hdf5_data.coords, save_path, organ)
 
     # Save processed cell and tissue predictions, coordinates and embeddings
     embeddings_path = get_embeddings_file(project_name, run_id, tissue=True)
     if save_embeddings:
         _save_embeddings_as_hdf5(
-            predictions,
-            embeddings,
-            confidence,
-            coords,
+            hdf5_data,
             predicted_labels,
             graph_embeddings,
             top_confidence,
@@ -194,53 +179,13 @@ def _print_prediction_stats(predicted_labels, tissue_label_mapping):
 
 
 def _save_embeddings_as_hdf5(
-    cell_predictions,
-    cell_embeddings,
-    cell_confidence,
-    coords,
-    tissue_predictions,
-    tissue_embeddings,
-    tissue_confidence,
-    save_path,
+    hdf5_data, tissue_predictions, tissue_embeddings, tissue_confidence, save_path
 ):
     print("Saving all tissue predictions and embeddings to hdf5")
-
-    if not os.path.isfile(save_path):
-        total = len(cell_predictions)
-        with h5py.File(save_path, "w-") as f:
-            f.create_dataset(
-                "cell_predictions", data=cell_predictions, shape=(total,), dtype="int8"
-            )
-            f.create_dataset(
-                "cell_embeddings",
-                data=cell_embeddings,
-                shape=(total, 64),
-                dtype="float32",
-            )
-            f.create_dataset(
-                "cell_confidence", data=cell_confidence, shape=(total,), dtype="float16"
-            )
-            f.create_dataset("coords", data=coords, shape=(total, 2), dtype="uint32")
-            f.create_dataset(
-                "tissue_predictions",
-                data=tissue_predictions,
-                shape=(total,),
-                dtype="int8",
-            )
-            f.create_dataset(
-                "tissue_embeddings",
-                data=tissue_embeddings,
-                shape=(total, 64),
-                dtype="float32",
-            )
-            f.create_dataset(
-                "tissue_confidence",
-                data=tissue_confidence,
-                shape=(total,),
-                dtype="float16",
-            )
-    else:
-        print(f"File at {save_path} already exists, skipping saving")
+    hdf5_data.tissue_predictions = tissue_predictions
+    hdf5_data.tissue_embeddings = tissue_embeddings
+    hdf5_data.tissue_confidence = tissue_confidence
+    hdf5_data.to_path(save_path)
 
 
 def _save_tissue_preds_as_tsv(predicted_labels, coords, save_path, organ):

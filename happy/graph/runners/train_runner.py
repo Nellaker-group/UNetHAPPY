@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 from torch_geometric.transforms import SIGN
 from torch_geometric.data import Data
+from torch_geometric.utils import degree
 from sklearn.utils.class_weight import compute_class_weight
 from torch_geometric.loader import (
     DataLoader,
@@ -20,14 +21,15 @@ from torch_geometric.loader import (
 )
 
 from happy.models.graphsage import SupervisedSAGE
-from happy.models.clustergcn import ClusterGCN
+from happy.models.clustergcn import ClusterGCN, JumpingClusterGCN, ClusterGCNEdges
+from happy.models.gin import ClusterGIN
 from happy.models.gat import GAT, GATv2
 from happy.models.graphsaint import GraphSAINT
 from happy.models.shadow import ShaDowGCN
 from happy.models.sign import SIGN as SIGN_MLP
 from happy.models.mlp import MLP
 from happy.organs import Organ
-from happy.pr.enums import ModelsArg
+from happy.graph.enums import SupervisedModelsArg
 
 
 @dataclass
@@ -35,7 +37,7 @@ class TrainParams:
     data: Data
     device: str
     pretrained: Optional[str]
-    model_type: ModelsArg
+    model_type: SupervisedModelsArg
     batch_size: int
     num_neighbours: int
     epochs: int
@@ -53,7 +55,7 @@ class TrainParams:
         to_save = {k: v for k, v in asdict(self).items() if k not in ("data", "organ")}
         to_save["seed"] = seed
         to_save["exp_name"] = exp_name
-        with open(run_path / "train_params.csv", "w") as f:
+        with open(run_path / "train_params.json", "w") as f:
             json.dump(to_save, f, indent=2)
 
 
@@ -77,14 +79,18 @@ class TrainRunner:
     @staticmethod
     def new(params: TrainParams) -> "TrainRunner":
         cls = {
-            ModelsArg.graphsage: GraphSAGERunner,
-            ModelsArg.clustergcn: ClusterGCNRunner,
-            ModelsArg.gat: GATRunner,
-            ModelsArg.gatv2: GATV2Runner,
-            ModelsArg.graphsaint: GraphSAINTRunner,
-            ModelsArg.shadow: ShaDowRunner,
-            ModelsArg.sign: SIGNRunner,
-            ModelsArg.mlp: MLPRunner,
+            SupervisedModelsArg.sup_graphsage: GraphSAGERunner,
+            SupervisedModelsArg.sup_clustergcn: ClusterGCNRunner,
+            SupervisedModelsArg.sup_jumping: ClusterGCNJumpingRunner,
+            SupervisedModelsArg.sup_clustergcne: ClusterGCNEdgeRunner,
+            SupervisedModelsArg.sup_clustergin: ClusterGINRunner,
+            SupervisedModelsArg.sup_clustergine: ClusterGINEdgeRunner,
+            SupervisedModelsArg.sup_gat: GATRunner,
+            SupervisedModelsArg.sup_gatv2: GATV2Runner,
+            SupervisedModelsArg.sup_graphsaint: GraphSAINTRunner,
+            SupervisedModelsArg.sup_shadow: ShaDowRunner,
+            SupervisedModelsArg.sup_sign: SIGNRunner,
+            SupervisedModelsArg.sup_mlp: MLPRunner,
         }
         ModelClass = cls[params.model_type]
         return ModelClass(params)
@@ -102,13 +108,13 @@ class TrainRunner:
         return self._model
 
     @property
-    def train_loader(self):
+    def train_loader(self) -> DataLoader:
         if self._train_loader is None:
             self._setup_loaders()
         return self._train_loader
 
     @property
-    def val_loader(self):
+    def val_loader(self) -> DataLoader:
         if self._val_loader is None:
             self._setup_loaders()
         return self._val_loader
@@ -133,15 +139,15 @@ class TrainRunner:
             self.model.parameters(), lr=self.params.learning_rate
         )
 
+    def prepare_data(self):
+        self.params.data.x.to(self.params.device)
+        self.params.data.edge_index.to(self.params.device)
+
     @classmethod
     def setup_dataloader(cls):
         raise NotImplementedError(
             f"setup_dataloader not implemented for {cls.__name__}"
         )
-
-    def prepare_data(self):
-        self.params.data.x.to(self.params.device)
-        self.params.data.edge_index.to(self.params.device)
 
     @classmethod
     def setup_model(cls):
@@ -187,9 +193,8 @@ class TrainRunner:
         )
         return train_accuracy, val_accuracy
 
-    def save_state(self, run_path, logger, epoch):
+    def save_state(self, run_path, epoch):
         torch.save(self.model, run_path / f"{epoch}_graph_model.pt")
-        logger.to_csv(run_path / "graph_train_stats.csv")
 
 
 class GraphSAGERunner(TrainRunner):
@@ -212,7 +217,6 @@ class GraphSAGERunner(TrainRunner):
         )
         val_loader.data.num_nodes = self.params.data.num_nodes
         val_loader.data.n_id = torch.arange(self.params.data.num_nodes)
-
         return train_loader, val_loader
 
     def setup_model(self):
@@ -237,15 +241,19 @@ class GraphSAGERunner(TrainRunner):
             criterion = torch.nn.CrossEntropyLoss()
         return criterion
 
+    # todo: do we need [:batch.batch_size] here?
     def process_batch(self, batch) -> BatchResult:
-        out = self.model(batch.x, batch.edge_index)
-        train_out = out[batch.train_mask]
-        train_y = batch.y[batch.train_mask]
+        batch_train_nodes = batch.train_mask[: batch.batch_size]
+        batch_y = batch.y[: batch.batch_size]
+
+        out = self.model(batch.x, batch.edge_index)[: batch.batch_size]
+        train_out = out[batch_train_nodes]
+        train_y = batch_y[batch_train_nodes]
         loss = self.criterion(train_out, train_y)
         loss.backward()
         self.optimiser.step()
 
-        nodes = batch.train_mask.sum().item()
+        nodes = batch_train_nodes.sum().item()
         return BatchResult(
             loss=loss,
             correct_predictions=int(train_out.argmax(dim=-1).eq(train_y).sum().item()),
@@ -282,6 +290,7 @@ class ClusterGCNRunner(TrainRunner):
             out_channels=self.num_classes,
             num_layers=self.params.layers,
             dropout=self.params.dropout,
+            reduce_dims=64,
         )
 
     def setup_criterion(self):
@@ -305,6 +314,86 @@ class ClusterGCNRunner(TrainRunner):
             loss=loss,
             correct_predictions=int(train_out.argmax(dim=-1).eq(train_y).sum().item()),
             nodes=nodes,
+        )
+
+
+class ClusterGCNJumpingRunner(ClusterGCNRunner):
+    def setup_model(self):
+        return JumpingClusterGCN(
+            self.params.data.num_node_features,
+            hidden_channels=self.params.hidden_units,
+            out_channels=self.num_classes,
+            num_layers=self.params.layers,
+            dropout=self.params.dropout,
+        )
+
+
+class ClusterGCNEdgeRunner(ClusterGCNRunner):
+    def setup_model(self):
+        return ClusterGCNEdges(
+            self.params.data.num_node_features,
+            hidden_channels=self.params.hidden_units,
+            out_channels=self.num_classes,
+            num_layers=self.params.layers,
+            dropout=self.params.dropout,
+            reduce_dims=64,
+        )
+
+    def process_batch(self, batch) -> BatchResult:
+        out = self.model(batch.x, batch.edge_index, batch.edge_attr)
+        train_out = out[batch.train_mask]
+        train_y = batch.y[batch.train_mask]
+        loss = self.criterion(train_out, train_y)
+        loss.backward()
+        self.optimiser.step()
+        nodes = batch.train_mask.sum().item()
+        return BatchResult(
+            loss=loss,
+            correct_predictions=int(train_out.argmax(dim=-1).eq(train_y).sum().item()),
+            nodes=nodes,
+        )
+
+    @torch.no_grad()
+    def validate(self):
+        data = self.params.data
+        self.model.eval()
+        out, _ = self.model.inference(
+            data.x, data.edge_attr, self.val_loader, self.params.device
+        )
+        out = out.argmax(dim=-1)
+        y = data.y.to(out.device)
+        train_accuracy = int((out[data.train_mask].eq(y[data.train_mask])).sum()) / int(
+            data.train_mask.sum()
+        )
+        val_accuracy = int((out[data.val_mask].eq(y[data.val_mask])).sum()) / int(
+            data.val_mask.sum()
+        )
+        return train_accuracy, val_accuracy
+
+
+class ClusterGINRunner(ClusterGCNEdgeRunner):
+    def setup_model(self):
+        return ClusterGIN(
+            self.params.data.num_node_features,
+            hidden_channels=self.params.hidden_units,
+            out_channels=self.num_classes,
+            num_layers=self.params.layers,
+            dropout=self.params.dropout,
+            reduce_dims=64,
+            include_edge_attr=False,
+        )
+
+
+class ClusterGINEdgeRunner(ClusterGCNEdgeRunner):
+    def setup_model(self):
+        return ClusterGIN(
+            self.params.data.num_node_features,
+            hidden_channels=self.params.hidden_units,
+            out_channels=self.num_classes,
+            num_layers=self.params.layers,
+            dropout=self.params.dropout,
+            reduce_dims=64,
+            include_edge_attr=True,
         )
 
 
@@ -333,6 +422,13 @@ class GATV2Runner(ClusterGCNRunner):
 
 
 class GraphSAINTRunner(TrainRunner):
+    def prepare_data(self):
+        row, col = self.params.data.edge_index
+        self.params.data.edge_weight = (
+            1.0 / degree(col, self.params.data.num_nodes)[col]
+        )
+        super().prepare_data()
+
     def setup_dataloader(self):
         train_loader = GraphSAINTRandomWalkSampler(
             self.params.data,
@@ -410,11 +506,6 @@ class GraphSAINTRunner(TrainRunner):
 
 
 class ShaDowRunner(TrainRunner):
-    def prepare_data(self):
-        # bug in pyg when using shadow model and Batch
-        del self.params.data.batch
-        super().prepare_data()
-
     def setup_dataloader(self):
         train_loader = ShaDowKHopSampler(
             self.params.data,

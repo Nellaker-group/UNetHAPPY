@@ -1,9 +1,157 @@
 from pathlib import Path
+import os
 
 import numpy as np
 import h5py
 
 import happy.db.eval_runs_interface as db
+
+
+class HDF5Dataset:
+    def __init__(
+        self,
+        cell_predictions=None,
+        cell_embeddings=None,
+        cell_confidence=None,
+        coords=None,
+        tissue_predictions=None,
+        tissue_embeddings=None,
+        tissue_confidence=None,
+        start=None,
+        end=None,
+    ):
+        self.cell_predictions = cell_predictions
+        self.cell_embeddings = cell_embeddings
+        self.cell_confidence = cell_confidence
+        self.coords = coords
+        self.tissue_predictions = tissue_predictions
+        self.tissue_embeddings = tissue_embeddings
+        self.tissue_confidence = tissue_confidence
+        self.start = start
+        self.end = end
+
+    @staticmethod
+    def from_path(file_path, start=0, num_points=-1) -> "HDF5Dataset":
+        dataset = HDF5Dataset()
+        dataset._load_hdf5_datasets(file_path, start, num_points)
+        return dataset
+
+    def to_path(self, file_path):
+        if not os.path.isfile(file_path):
+            total = len(self.cell_predictions)
+            with h5py.File(file_path, "w-") as f:
+                f.create_dataset(
+                    "cell_predictions",
+                    data=self.cell_predictions,
+                    shape=(total,),
+                    dtype="int8",
+                )
+                f.create_dataset(
+                    "cell_embeddings",
+                    data=self.cell_embeddings,
+                    shape=(total, 64),
+                    dtype="float32",
+                )
+                f.create_dataset(
+                    "cell_confidence",
+                    data=self.cell_confidence,
+                    shape=(total,),
+                    dtype="float16",
+                )
+                f.create_dataset(
+                    "coords", data=self.coords, shape=(total, 2), dtype="uint32"
+                )
+                f.create_dataset(
+                    "tissue_predictions",
+                    data=self.tissue_predictions,
+                    shape=(total,),
+                    dtype="int8",
+                )
+                f.create_dataset(
+                    "tissue_embeddings",
+                    data=self.tissue_embeddings,
+                    shape=(total, 64),
+                    dtype="float32",
+                )
+                f.create_dataset(
+                    "tissue_confidence",
+                    data=self.tissue_confidence,
+                    shape=(total,),
+                    dtype="float16",
+                )
+        else:
+            print(f"File at {file_path} already exists, skipping saving")
+
+    def _apply_mask(self, mask) -> "HDF5Dataset":
+        self.cell_embeddings = self.cell_embeddings[mask]
+        self.cell_predictions = self.cell_predictions[mask]
+        self.cell_confidence = self.cell_confidence[mask]
+        self.coords = self.coords[mask]
+        if self.tissue_predictions is not None:
+            self.tissue_predictions = self.tissue_predictions[mask]
+            self.tissue_embeddings = self.tissue_embeddings[mask]
+            self.tissue_confidence = self.tissue_confidence[mask]
+        return self
+
+    def filter_by_patch(self, x_min, y_min, width, height):
+        if x_min == 0 and y_min == 0 and width == -1 and height == -1:
+            return
+        mask = np.logical_and(
+            (np.logical_and(self.coords[:, 0] > x_min, (self.coords[:, 1] > y_min))),
+            (
+                np.logical_and(
+                    self.coords[:, 0] < (x_min + width),
+                    (self.coords[:, 1] < (y_min + height)),
+                )
+            ),
+        )
+        return self._apply_mask(mask)
+
+    def filter_by_confidence(self, min_conf, max_conf) -> ("HDF5Dataset", np.array()):
+        mask = np.logical_and(
+            (self.cell_confidence >= min_conf), (self.cell_confidence <= max_conf)
+        )
+        return self._apply_mask(mask), mask
+
+    def filter_by_cell_type(self, cell_type, organ) -> ("HDF5Dataset", np.array()):
+        label_map = {cell.label: cell.id for cell in organ.cells}
+        mask = self.cell_predictions == label_map[cell_type]
+        return self._apply_mask(mask), mask
+
+    def filter_randomly(self, percent_to_remove):
+        num_to_remove = int(len(self.cell_predictions) * percent_to_remove)
+        mask = np.ones(len(self.cell_predictions), dtype=bool)
+        remove_indices = np.random.choice(
+            np.arange(len(self.cell_predictions)), num_to_remove, replace=False
+        )
+        mask[remove_indices] = False
+        return self._apply_mask(mask), mask
+
+    def sort_by_coordinates(self):
+        sort_args = np.lexsort((self.coords[:, 1], self.coords[:, 0]))
+        print("Data sorted by x coordinates")
+        return self._apply_mask(sort_args)
+
+    def _load_hdf5_datasets(self, file_path, start, num_points):
+        with h5py.File(file_path, "r") as f:
+            subset_start = (
+                int(len(f["predictions"]) * start) if 1 > start > 0 else int(start)
+            )
+            subset_end = (
+                len(f["predictions"]) if num_points == -1 else subset_start + num_points
+            )
+            self.start = subset_start
+            self.end = subset_end
+            self.cell_predictions = f["cell_predictions"][subset_start:subset_end]
+            self.cell_embeddings = f["cell_embeddings"][subset_start:subset_end]
+            self.cell_confidence = f["cell_confidence"][subset_start:subset_end]
+            self.coords = f["coords"][subset_start:subset_end]
+            if file_path.name.contains("tissue"):
+                self.tissue_predictions = f["tissue_predictions"][
+                    subset_start:subset_end
+                ]
+                self.tissue_embeddings = f["tissue_embeddings"][subset_start:subset_end]
+                self.tissue_confidence = f["tissue_confidence"][subset_start:subset_end]
 
 
 def get_embeddings_file(project_name, run_id, tissue=False):
@@ -19,179 +167,3 @@ def get_embeddings_file(project_name, run_id, tissue=False):
         file_name = f"{embeddings_path.name.split('.hdf5')[0]}_tissues.hdf5"
         embeddings_path = embeddings_path.parent / file_name
     return embeddings_dir / embeddings_path
-
-
-def get_hdf5_datasets(file_path, start, num_points, verbose=True):
-    with h5py.File(file_path, "r") as f:
-        subset_start = (
-            int(len(f["predictions"]) * start) if 1 > start > 0 else int(start)
-        )
-        subset_end = (
-            len(f["predictions"]) if num_points == -1 else subset_start + num_points
-        )
-        if verbose:
-            print(f"Getting {subset_end - subset_start} datapoints from hdf5")
-        predictions = f["predictions"][subset_start:subset_end]
-        embeddings = f["embeddings"][subset_start:subset_end]
-        coords = f["coords"][subset_start:subset_end]
-        confidence = f["confidence"][subset_start:subset_end]
-        return predictions, embeddings, coords, confidence, subset_start, subset_end
-
-
-def get_tissue_hdf5_datasets(file_path, start, num_points, verbose=True):
-    with h5py.File(file_path, "r") as f:
-        subset_start = (
-            int(len(f["predictions"]) * start) if 1 > start > 0 else int(start)
-        )
-        subset_end = (
-            len(f["predictions"]) if num_points == -1 else subset_start + num_points
-        )
-        if verbose:
-            print(f"Getting {subset_end - subset_start} datapoints from hdf5")
-        cell_predictions = f["cell_predictions"][subset_start:subset_end]
-        cell_embeddings = f["cell_embeddings"][subset_start:subset_end]
-        coords = f["coords"][subset_start:subset_end]
-        cell_confidence = f["cell_confidence"][subset_start:subset_end]
-        tissue_predictions = f["tissue_predictions"][subset_start:subset_end]
-        tissue_embeddings = f["tissue_embeddings"][subset_start:subset_end]
-        tissue_confidence = f["tissue_confidence"][subset_start:subset_end]
-        return (
-            cell_predictions,
-            cell_embeddings,
-            coords,
-            cell_confidence,
-            tissue_predictions,
-            tissue_embeddings,
-            tissue_confidence,
-            subset_start,
-            subset_end,
-        )
-
-
-def filter_hdf5(
-    organ, file_path, start, num_points, metric_type, metric_start, metric_end=None
-):
-    (
-        predictions,
-        embeddings,
-        coords,
-        confidence,
-        subset_start,
-        subset_end,
-    ) = get_hdf5_datasets(file_path, start, num_points)
-
-    if metric_type == "cell_class":
-        (
-            filtered_predictions,
-            filtered_embeddings,
-            filtered_coords,
-            filtered_confidence,
-        ) = filter_by_cell_type(
-            predictions, embeddings, coords, confidence, metric_start, organ
-        )
-    elif metric_type == "confidence":
-        min_conf = metric_start
-        max_conf = metric_end
-        (
-            filtered_predictions,
-            filtered_embeddings,
-            filtered_coords,
-            filtered_confidence,
-        ) = filter_by_confidence(
-            predictions, embeddings, coords, confidence, min_conf, max_conf
-        )
-    else:
-        raise ValueError(f"[{metric_type}] is not a valid metric type")
-
-    num_filtered = len(filtered_embeddings)
-    print(f"num of cells: {num_filtered}")
-    return (
-        filtered_predictions,
-        filtered_embeddings,
-        filtered_coords,
-        filtered_confidence,
-        subset_start,
-        subset_end,
-        num_filtered,
-    )
-
-
-def get_datasets_in_patch(file_path, x_min, y_min, width, height, verbose=True):
-    predictions, embeddings, coords, confidence, _, _ = get_hdf5_datasets(
-        file_path, 0, -1, verbose=verbose
-    )
-
-    if x_min == 0 and y_min == 0 and width == -1 and height == -1:
-        return predictions, embeddings, coords, confidence
-
-    mask = np.logical_and(
-        (np.logical_and(coords[:, 0] > x_min, (coords[:, 1] > y_min))),
-        (
-            np.logical_and(
-                coords[:, 0] < (x_min + width), (coords[:, 1] < (y_min + height))
-            )
-        ),
-    )
-
-    patch_coords = coords[mask]
-    patch_predictions = predictions[mask]
-    patch_embeddings = embeddings[mask]
-    patch_confidence = confidence[mask]
-
-    return patch_predictions, patch_embeddings, patch_coords, patch_confidence
-
-
-def filter_by_confidence(
-    predictions, embeddings, coords, confidence, min_conf, max_conf
-):
-    filtered_embeddings = embeddings[
-        np.logical_and((confidence >= min_conf), (confidence <= max_conf))
-    ]
-    filtered_predictions = predictions[
-        np.logical_and((confidence >= min_conf), (confidence <= max_conf))
-    ]
-    filtered_confidence = confidence[
-        np.logical_and((confidence >= min_conf), (confidence <= max_conf))
-    ]
-    filtered_coords = coords[
-        np.logical_and((confidence >= min_conf), (confidence <= max_conf))
-    ]
-    return (
-        filtered_predictions,
-        filtered_embeddings,
-        filtered_coords,
-        filtered_confidence,
-    )
-
-
-def filter_by_cell_type(predictions, embeddings, coords, confidence, cell_type, organ):
-    label_map = {cell.label: cell.id for cell in organ.cells}
-    filtered_embeddings = embeddings[predictions == label_map[cell_type]]
-    filtered_predictions = predictions[predictions == label_map[cell_type]]
-    filtered_confidence = confidence[predictions == label_map[cell_type]]
-    filtered_coords = coords[predictions == label_map[cell_type]]
-
-    return (
-        filtered_predictions,
-        filtered_embeddings,
-        filtered_coords,
-        filtered_confidence,
-    )
-
-
-def filter_randomly(predictions, embeddings, coords, confidence, percent_to_remove):
-    num_to_remove = int(len(predictions) * percent_to_remove)
-    indices = np.random.choice(
-        np.arange(len(predictions)), num_to_remove, replace=False
-    )
-    filtered_predictions = np.delete(predictions, indices)
-    filtered_embeddings = np.delete(embeddings, indices, axis=0)
-    filtered_confidence = np.delete(confidence, indices)
-    filtered_coords = np.delete(coords, indices, axis=0)
-    return (
-        filtered_predictions,
-        filtered_embeddings,
-        filtered_coords,
-        filtered_confidence,
-        indices,
-    )

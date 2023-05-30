@@ -10,7 +10,7 @@ from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 import happy.db.eval_runs_interface as db
 from happy.hdf5 import get_datasets_in_patch, get_embeddings_file
-from happy.graph.process_knots import process_knt_cells
+from projects.placenta.graphs.processing.process_knots import process_knt_cells
 
 
 def main(

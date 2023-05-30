@@ -16,7 +16,9 @@ import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device
 from happy.utils.utils import get_project_dir
 from happy.organs import get_organ
-from happy.graph.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
+from happy.graph.graph_creation.create_graph import construct_graph
+from happy.graph.graph_creation.get_and_process import get_groundtruth_patch
+from happy.graph.graph_creation.get_and_process import get_hdf5_data
 from happy.graph.embeddings_umap import (
     get_graph_embeddings,
     fit_umap,
@@ -59,12 +61,12 @@ def main(
     organ = get_organ(organ_name)
 
     # Get data from hdf5 files
-    predictions, embeddings, coords, confidence = get_raw_data(
+    predictions, embeddings, coords, confidence = get_hdf5_data(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
 
     feature_data = get_feature(feature.value, predictions, embeddings, organ)
-    data = setup_graph(coords, k, feature_data, graph_method.value)
+    data = construct_graph(coords, k, feature_data, graph_method.value)
     x = data.x.to(device)
     edge_index = data.edge_index.to(device)
     pos = data.pos

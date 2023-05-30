@@ -4,8 +4,7 @@ import time
 
 import typer
 import torch
-from torch_geometric.transforms import ToUndirected, SIGN
-from torch_geometric.utils import add_self_loops
+from torch_geometric.transforms import SIGN
 from torch_geometric.loader import (
     NeighborSampler,
     NeighborLoader,
@@ -17,25 +16,22 @@ import numpy as np
 import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device, get_project_dir
 from happy.organs import get_organ
-from happy.graph.create_graph import (
+from happy.graph.graph_creation.get_and_process import (
     get_raw_data,
-    setup_graph,
-    get_groundtruth_patch,
-    random_filter,
+    process_raw_data,
 )
-from happy.graph.process_knots import process_knts
 from happy.graph.embeddings_umap import fit_umap, plot_cell_graph_umap, plot_tissue_umap
-from happy.graph.utils.utils import get_feature
+from happy.graph.graph_creation.create_graph import setup_graph
 from happy.utils.utils import set_seed
 from happy.graph.enums import FeatureArg, MethodArg
 from happy.graph.utils.visualise_points import visualize_points
 from graphs.graphs.graph_supervised import (
     inference,
-    setup_node_splits,
     evaluate,
     evaluation_plots,
     inference_mlp,
 )
+from happy.graph.graph_creation.node_dataset_splits import setup_node_splits
 
 
 def main(
@@ -71,44 +67,25 @@ def main(
     patch_files = [project_dir / "graph_splits" / file for file in val_patch_files]
 
     print("Begin graph construction...")
-    predictions, embeddings, coords, confidence = get_raw_data(
-        project_name, run_id, x_min, y_min, width, height, top_conf, verbose=verbose
-    )
-    # Get ground truth manually annotated data
-    _, _, tissue_class = get_groundtruth_patch(
+    # Get raw data and ground truth data
+    hdf5_data, tissue_class = get_raw_data(
+        project_name,
         organ,
         project_dir,
+        run_id,
         x_min,
         y_min,
         width,
         height,
         tissue_label_tsv,
     )
-    # Covert isolated knts into syn and turn groups into a single knt point
-    if group_knts:
-        predictions, embeddings, coords, confidence, tissue_class = process_knts(
-            organ,
-            predictions,
-            embeddings,
-            coords,
-            confidence,
-            tissue_class,
-            verbose=verbose,
-        )
-    # Remove a random percentage of the data
-    if random_remove > 0.0:
-        predictions, embeddings, coords, confidence, tissue_class = random_filter(
-            predictions, embeddings, coords, confidence, random_remove, tissue_class
-        )
+    # Process raw data
+    hdf5_data, tissue_class = process_raw_data(
+        organ, hdf5_data, tissue_class, group_knts, random_remove, top_conf
+    )
+
     # Covert input cell data into a graph
-    feature_data = get_feature(feature, predictions, embeddings, organ)
-    data = setup_graph(
-        coords, k, feature_data, graph_method, loop=False, verbose=verbose
-    )
-    data = ToUndirected()(data)
-    data.edge_index, data.edge_attr = add_self_loops(
-        data["edge_index"], data["edge_attr"], fill_value="mean"
-    )
+    data = setup_graph(hdf5_data, organ, feature, k, graph_method, tissue_class)
     pos = data.pos
     x = data.x.to(device)
 
@@ -204,7 +181,7 @@ def main(
             tissue_class, predicted_labels, pos, out
         )
         graph_embeddings = graph_embeddings[unlabelled_inds]
-        predictions = predictions[unlabelled_inds]
+        predictions = hdf5_data.cell_predictions[unlabelled_inds]
 
     if plot_umap:
         # fit and plot umap with cell classes

@@ -2,101 +2,71 @@ import sklearn.neighbors as sk
 import matplotlib.pyplot as plt
 import numpy as np
 
-from happy.hdf5 import filter_by_cell_type
+from happy.hdf5 import HDF5Dataset
 
 
-def process_knts(
-    organ, predictions, embeddings, coords, confidence, tissues=None, verbose=True
-):
+def process_knts(organ, hdf5_data, tissues=None, verbose=True):
     # Turn isolated knts into syn and group large knts into one point
-    predictions, embeddings, coords, confidence, inds_to_remove = process_knt_cells(
-        predictions,
-        embeddings,
-        coords,
-        confidence,
-        organ,
-        50,
-        3,
-        plot=False,
-        verbose=verbose,
+    hdf5_data, inds_to_remove = process_knt_cells(
+        hdf5_data, organ, 50, 3, plot=False, verbose=verbose
     )
     # Remove points from tissue ground truth as well
     if tissues is not None and len(inds_to_remove) > 0:
         tissues = np.delete(tissues, inds_to_remove, axis=0)
-    return predictions, embeddings, coords, confidence, tissues
+    return hdf5_data, tissues
 
 
 def process_knt_cells(
-    all_predictions,
-    all_embeddings,
-    all_coords,
-    all_confidence,
-    organ,
-    radius,
-    cut_off_count,
-    plot=False,
-    verbose=True,
+    hdf5_data: HDF5Dataset, organ, radius, cut_off_count, plot=False, verbose=True
 ):
-    # Sort by coordinates first to match up with any tissue predictions
-    sort_args = np.lexsort((all_coords[:, 1], all_coords[:, 0]))
-    all_coords = all_coords[sort_args]
-    all_embeddings = all_embeddings[sort_args]
-    all_predictions = all_predictions[sort_args]
-    all_confidence = all_confidence[sort_args]
-
+    hdf5_data = hdf5_data.sort_by_coordinates()
     # Filter by KNT cell type
-    predictions, embeddings, coords, confidence = filter_by_cell_type(
-        all_predictions, all_embeddings, all_coords, all_confidence, "KNT", organ
-    )
+    knt_hdf5_data = hdf5_data.filter_by_cell_type("KNT", organ)
     if verbose:
-        print(f"Data loaded with {len(predictions)} KNT cells")
+        print(f"Data loaded with {len(knt_hdf5_data.cell_predictions)} KNT cells")
 
     # Get indices of KNT cells in radius
-    all_knt_inds = np.nonzero(all_predictions == 10)[0]
-    unique_indices = _get_indices_in_radius(coords, radius)
+    all_knt_inds = np.nonzero(hdf5_data.cell_predictions == 10)[0]
+    unique_indices = _get_indices_in_radius(knt_hdf5_data.coords, radius)
     if len(unique_indices) <= 1:
-        return all_predictions, all_embeddings, all_coords, all_confidence, np.array([])
+        return hdf5_data, np.array([])
     if plot:
         _plot_distances_to_nearest_neighbor([len(x) for x in unique_indices])
 
     # find KNT cells with no neighbors and turn them into SYN
-    all_predictions, predictions = _convert_isolated_knt_into_syn(
-        all_predictions,
-        predictions,
+    all_predictions, knt_predictions = _convert_isolated_knt_into_syn(
+        hdf5_data.cell_predictions,
+        knt_hdf5_data.cell_predictions,
         cut_off_count,
         unique_indices,
         all_knt_inds,
         verbose=verbose,
     )
+    hdf5_data.cell_predictions = all_predictions
+    knt_hdf5_data.cell_predictions = knt_predictions
 
     # remove points with more than cut off neighbors and keep just one point
-    (
-        predictions,
-        embeddings,
-        coords,
-        confidence,
-        unique_inds_to_remove,
-    ) = _cluster_knts_into_point(
-        predictions, embeddings, coords, confidence, cut_off_count, unique_indices
+    knt_hdf5_data, unique_inds_to_remove = _cluster_knts_into_point(
+        knt_hdf5_data, cut_off_count, unique_indices
     )
 
     inds_to_remove_from_total = all_knt_inds[unique_inds_to_remove]
-    all_predictions = np.delete(all_predictions, inds_to_remove_from_total, axis=0)
-    all_embeddings = np.delete(all_embeddings, inds_to_remove_from_total, axis=0)
-    all_coords = np.delete(all_coords, inds_to_remove_from_total, axis=0)
-    all_confidence = np.delete(all_confidence, inds_to_remove_from_total, axis=0)
+    hdf5_data.cell_predictions = np.delete(
+        hdf5_data.cell_predictions, inds_to_remove_from_total, axis=0
+    )
+    hdf5_data.cell_embeddings = np.delete(
+        hdf5_data.cell_embeddings, inds_to_remove_from_total, axis=0
+    )
+    hdf5_data.coords = np.delete(hdf5_data.coords, inds_to_remove_from_total, axis=0)
+    hdf5_data.cell_confidence = np.delete(
+        hdf5_data.cell_confidence, inds_to_remove_from_total, axis=0
+    )
     if verbose:
         print(
             f"Clustered {len(inds_to_remove_from_total)} KNT cells into a single point"
         )
 
-    return (
-        all_predictions,
-        all_embeddings,
-        all_coords,
-        all_confidence,
-        inds_to_remove_from_total,
-    )
+    return hdf5_data, inds_to_remove_from_total
 
 
 def _plot_distances_to_nearest_neighbor(num_in_radius):
@@ -139,10 +109,7 @@ def _convert_isolated_knt_into_syn(
     return all_predictions, knt_predictions
 
 
-def _cluster_knts_into_point(
-    predictions, embeddings, coords, confidence, cut_off_count, unique_indices
-):
-
+def _cluster_knts_into_point(knt_hdf5_data, cut_off_count, unique_indices):
     remaining_inds = [x for x in unique_indices if len(x) > cut_off_count]
     # take all elements except the first to be removed from grouped KNT cells
     inds_to_remove = []
@@ -153,8 +120,16 @@ def _cluster_knts_into_point(
     unique_inds_to_remove = np.unique(inds_to_remove)
 
     # remove clustered
-    predictions = np.delete(predictions, unique_inds_to_remove, axis=0)
-    embeddings = np.delete(embeddings, unique_inds_to_remove, axis=0)
-    coords = np.delete(coords, unique_inds_to_remove, axis=0)
-    confidence = np.delete(confidence, unique_inds_to_remove, axis=0)
-    return predictions, embeddings, coords, confidence, unique_inds_to_remove
+    knt_hdf5_data.cell_predictions = np.delete(
+        knt_hdf5_data.cell_predictions, unique_inds_to_remove, axis=0
+    )
+    knt_hdf5_data.cell_embeddings = np.delete(
+        knt_hdf5_data.cell_embeddings, unique_inds_to_remove, axis=0
+    )
+    knt_hdf5_data.coords = np.delete(
+        knt_hdf5_data.coords, unique_inds_to_remove, axis=0
+    )
+    knt_hdf5_data.cell_confidence = np.delete(
+        knt_hdf5_data.cell_confidence, unique_inds_to_remove, axis=0
+    )
+    return knt_hdf5_data, unique_inds_to_remove

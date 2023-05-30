@@ -6,11 +6,9 @@ import pandas as pd
 
 from happy.organs import get_organ
 import happy.db.eval_runs_interface as db
-from happy.graph.process_knots import process_knt_cells
-from happy.graph.create_graph import (
-    get_groundtruth_patch,
-    get_raw_data,
-)
+from projects.placenta.graphs.processing.process_knots import process_knt_cells
+from happy.graph.graph_creation.get_and_process import get_groundtruth_patch
+from happy.graph.graph_creation.get_and_process import get_hdf5_data
 from happy.utils.utils import get_project_dir
 import h5py
 
@@ -32,7 +30,7 @@ def main(
     cell_label_mapping = {cell.id: cell.label for cell in organ.cells}
 
     # Get hdf5 datasets contained in specified box/patch of WSI
-    predictions, embeddings, coords, confidence = get_raw_data(
+    predictions, embeddings, coords, confidence = get_hdf5_data(
         project_name, run_id, x_min, y_min, width, height
     )
 
