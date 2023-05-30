@@ -664,9 +664,11 @@ def inference(model, data, eval_loader, device):
         if isinstance(model, GraphSAINT):
             model.set_aggr("mean")
         if isinstance(model, ClusterGIN) or isinstance(model, ClusterGCNWeighted):
-            out, _ = model.inference(data.x, data.edge_attr, eval_loader, device)
+            out, graph_embeddings = model.inference(
+                data.x, data.edge_attr, eval_loader, device
+            )
         else:
-            out, _ = model.inference(data.x, eval_loader, device)
+            out, graph_embeddings = model.inference(data.x, eval_loader, device)
     else:
         out = []
         graph_embeddings = []
