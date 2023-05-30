@@ -20,15 +20,15 @@ from happy.organs import get_organ
 from happy.graph.create_graph import (
     get_raw_data,
     setup_graph,
-    process_knts,
     get_groundtruth_patch,
     random_filter,
 )
-from graphs.graphs.embeddings import fit_umap, plot_cell_graph_umap, plot_tissue_umap
-from graphs.graphs.utils import get_feature
+from happy.graph.process_knots import process_knts
+from happy.graph.embeddings_umap import fit_umap, plot_cell_graph_umap, plot_tissue_umap
+from happy.graph.utils.utils import get_feature
 from happy.utils.utils import set_seed
-from graphs.graphs.enums import FeatureArg, MethodArg
-from graphs.analysis.vis_graph_patch import visualize_points
+from happy.graph.enums import FeatureArg, MethodArg
+from happy.graph.utils.visualise_points import visualize_points
 from graphs.graphs.graph_supervised import (
     inference,
     setup_node_splits,

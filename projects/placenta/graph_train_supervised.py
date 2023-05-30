@@ -12,17 +12,17 @@ from happy.organs import get_organ
 from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
-from graphs.graphs.enums import FeatureArg, MethodArg, SupervisedModelsArg
-from graphs.graphs.utils import get_feature, send_graph_to_device
+from happy.graph.enums import FeatureArg, MethodArg, SupervisedModelsArg
+from happy.graph.utils.utils import get_feature, send_graph_to_device
 from happy.utils.utils import set_seed
 from graphs.graphs import graph_supervised
 from happy.graph.create_graph import (
     get_raw_data,
     setup_graph,
     get_groundtruth_patch,
-    process_knts,
     random_filter,
 )
+from happy.graph.process_knots import process_knts
 
 
 def main(

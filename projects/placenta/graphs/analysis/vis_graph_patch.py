@@ -10,8 +10,9 @@ from matplotlib.collections import LineCollection
 from torch_geometric.data import Data
 
 import happy.db.eval_runs_interface as db
+from happy.graph.utils.visualise_points import visualize_points, calc_figsize
 from happy.organs import get_organ
-from happy.utils.hdf5 import (
+from happy.hdf5 import (
     get_datasets_in_patch,
     filter_by_confidence,
     filter_by_cell_type,
@@ -52,7 +53,7 @@ def main(
     percent_to_remove: float = 0.0,
     custom_save_dir: Optional[str] = None,
 ):
-    """Generates a graph and saves it's visualisation. Node are coloured by cell type
+    """Generates a graph and saves its visualisation. Node are coloured by cell type
 
     Args:
         run_id: id of the run which generated the embeddings file
@@ -64,6 +65,9 @@ def main(
         height: height for defining a subsection/patch of the WSI. -1 for all
         top_conf: filter the nodes to only those >90% network confidence
         plot_edges: whether to plot edges or just points
+        single_cell: filter the nodes to only those of a single cell type
+        percent_to_remove: percent of nodes to remove randomly
+        custom_save_dir: custom directory to save the graph visualisation
     """
     # Create database connection
     db.init()
@@ -256,7 +260,7 @@ def vis_delaunay(data, plot_name, save_dir, organ, width, height):
 
     point_size = 1 if len(delaunay.edges) >= 10000 else 2
 
-    figsize = _calc_figsize(data.pos, width, height)
+    figsize = calc_figsize(data.pos, width, height)
     fig = plt.figure(figsize=figsize, dpi=300)
     plt.triplot(delaunay, linewidth=0.5, color="black")
     plt.scatter(
@@ -293,73 +297,6 @@ def vis_intersection(data, k, plot_name, save_dir, organ, width, height):
         height=height,
     )
     print(f"Plot saved to {save_path / plot_name}")
-
-
-def visualize_points(
-    organ,
-    save_path,
-    pos,
-    width=None,
-    height=None,
-    labels=None,
-    edge_index=None,
-    edge_weight=None,
-    colours=None,
-    point_size=None,
-):
-    if colours is None:
-        colours_dict = {cell.id: cell.colour for cell in organ.cells}
-        colours = [colours_dict[label] for label in labels]
-
-    if point_size is None:
-        point_size = 1 if len(pos) >= 10000 else 2
-
-    figsize = _calc_figsize(pos, width, height)
-    fig = plt.figure(figsize=figsize, dpi=300)
-
-    if edge_index is not None:
-        line_collection = []
-        for i, (src, dst) in enumerate(edge_index.t().tolist()):
-            src = pos[src].tolist()
-            dst = pos[dst].tolist()
-            line_collection.append((src, dst))
-        line_colour = (
-            [str(weight) for weight in edge_weight.t()[0].tolist()]
-            if edge_weight is not None
-            else "grey"
-        )
-        lc = LineCollection(line_collection, linewidths=0.5, colors=line_colour)
-        ax = plt.gca()
-        ax.add_collection(lc)
-        ax.autoscale()
-    plt.scatter(
-        pos[:, 0],
-        pos[:, 1],
-        marker=".",
-        s=point_size,
-        zorder=1000,
-        c=colours,
-        cmap="Spectral",
-    )
-    plt.gca().invert_yaxis()
-    plt.axis("off")
-    fig.tight_layout()
-    plt.savefig(save_path, bbox_inches="tight", pad_inches=0.0)
-
-
-def _calc_figsize(pos, width, height):
-    if width is None and height is None:
-        return 8, 8
-    if width == -1 and height == -1:
-        pos_width = max(pos[:, 0]) - min(pos[:, 0])
-        pos_height = max(pos[:, 1]) - min(pos[:, 1])
-        ratio = pos_width / pos_height
-        length = ratio * 8
-        return length, 8
-    else:
-        ratio = width / height
-        length = ratio * 8
-        return length, 8
 
 
 if __name__ == "__main__":

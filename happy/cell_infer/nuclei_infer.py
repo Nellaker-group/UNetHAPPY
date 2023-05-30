@@ -8,8 +8,7 @@ from happy.data.transforms.collaters import collater
 from happy.microscopefile import prediction_saver
 from happy.data.datasets.ms_dataset import NucleiDataset
 from happy.models import retinanet
-from happy.utils.graceful_killer import GracefulKiller
-from happy.utils.utils import load_weights
+from happy.utils.utils import load_weights, GracefulKiller
 from happy.data.transforms.transforms import Normalizer, Resizer
 from happy.db.msfile_interface import get_msfile
 import happy.db.eval_runs_interface as db

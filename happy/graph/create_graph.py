@@ -13,13 +13,12 @@ import seaborn as sns
 import numpy as np
 import torch
 
-from happy.utils.hdf5 import (
+from happy.hdf5 import (
     get_embeddings_file,
     get_datasets_in_patch,
     filter_by_confidence,
     filter_randomly,
 )
-from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
 
 
 def get_groundtruth_patch(organ, project_dir, x_min, y_min, width, height, annot_tsv):
@@ -88,7 +87,7 @@ def get_raw_data(
 
 
 def random_filter(
-    predictions, embeddings, coords, confidence, percent_to_remove, tissues=None,
+    predictions, embeddings, coords, confidence, percent_to_remove, tissues=None
 ):
     predictions, embeddings, coords, confidence, inds_to_remove = filter_randomly(
         predictions, embeddings, coords, confidence, percent_to_remove
@@ -97,27 +96,6 @@ def random_filter(
     if tissues is not None and len(inds_to_remove) > 0:
         tissues = np.delete(tissues, inds_to_remove, axis=0)
     print(f"Randomly removed {len(inds_to_remove)} points")
-    return predictions, embeddings, coords, confidence, tissues
-
-
-def process_knts(
-    organ, predictions, embeddings, coords, confidence, tissues=None, verbose=True
-):
-    # Turn isolated knts into syn and group large knts into one point
-    predictions, embeddings, coords, confidence, inds_to_remove = process_knt_cells(
-        predictions,
-        embeddings,
-        coords,
-        confidence,
-        organ,
-        50,
-        3,
-        plot=False,
-        verbose=verbose,
-    )
-    # Remove points from tissue ground truth as well
-    if tissues is not None and len(inds_to_remove) > 0:
-        tissues = np.delete(tissues, inds_to_remove, axis=0)
     return predictions, embeddings, coords, confidence, tissues
 
 

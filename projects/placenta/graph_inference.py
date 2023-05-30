@@ -20,13 +20,14 @@ import h5py
 import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device, get_project_dir
 from happy.organs import get_organ
-from happy.graph.create_graph import get_raw_data, setup_graph, process_knts
-from graphs.graphs.utils import get_feature
+from happy.graph.create_graph import get_raw_data, setup_graph
+from happy.graph.process_knots import process_knts
+from happy.graph.utils.utils import get_feature
 from happy.utils.utils import set_seed
-from graphs.graphs.enums import FeatureArg, MethodArg
-from graphs.analysis.vis_graph_patch import visualize_points
+from happy.graph.enums import FeatureArg, MethodArg
+from happy.graph.utils.visualise_points import visualize_points
 from graphs.graphs.graph_supervised import inference, setup_node_splits, inference_mlp
-from happy.utils.hdf5 import get_embeddings_file
+from happy.hdf5 import get_embeddings_file
 
 
 def main(

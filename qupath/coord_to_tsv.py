@@ -3,9 +3,9 @@ import pandas as pd
 import typer
 
 import happy.db.eval_runs_interface as db
-from happy.utils.hdf5 import filter_hdf5
+from happy.hdf5 import filter_hdf5
 from happy.organs import get_organ
-from happy.utils.hdf5 import get_embeddings_file
+from happy.hdf5 import get_embeddings_file
 
 
 def main(

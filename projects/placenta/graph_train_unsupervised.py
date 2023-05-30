@@ -11,9 +11,9 @@ from happy.organs import get_organ
 from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
-from graphs.graphs.embeddings import generate_umap
-from graphs.graphs.enums import FeatureArg, MethodArg
-from graphs.graphs.utils import get_feature, send_graph_to_device, save_model
+from happy.graph.embeddings_umap import generate_umap
+from happy.graph.enums import FeatureArg, MethodArg
+from happy.graph.utils.utils import get_feature, send_graph_to_device
 from graphs.graphs import graph_unsupervised
 
 device = get_device()
@@ -123,7 +123,7 @@ def main(
                 logger.log_accuracy("train", epoch - 1, accuracy)
 
             if epoch % 50 == 0 and epoch != epochs:
-                save_model(model, run_path / f"{epoch}_graph_model.pt")
+                torch.save(model, run_path / f"{epoch}_graph_model.pt")
 
             if num_curriculum > 0:
                 save_dir = run_path / "neg_loss_plots"

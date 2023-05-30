@@ -18,9 +18,9 @@ from happy.graph.create_graph import (
     setup_graph,
     get_list_of_subgraphs,
 )
-from projects.placenta.graphs.graphs.enums import MethodArg
-from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
-from projects.placenta.graphs.graphs.utils import remove_far_nodes, get_tile_coordinates
+from happy.graph.enums import MethodArg
+from happy.graph.utils.visualise_points import visualize_points
+from happy.graph.utils.utils import remove_far_nodes, get_tile_coordinates
 from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 

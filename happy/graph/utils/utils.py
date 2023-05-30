@@ -34,9 +34,6 @@ def send_graph_to_device(data, device, tissue_class=None):
     return x, edge_index, edge_attr, tissue_class
 
 
-def save_model(model, save_path):
-    torch.save(model, save_path)
-
 # Similar to the function in microscopefile. May be merged at some point
 def get_tile_coordinates(all_xs, all_ys, tile_width, tile_height):
     print(f"Tiling WSI into tiles of size {tile_width}x{tile_height}")

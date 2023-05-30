@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 
-from happy.utils.vis_plotter import VisdomLinePlotter
+from happy.utils.visdom_plotter import VisdomLinePlotter
 from happy.train.utils import plot_confusion_matrix
 
 

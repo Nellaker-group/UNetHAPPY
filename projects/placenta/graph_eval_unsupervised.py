@@ -17,16 +17,16 @@ from happy.utils.utils import get_device
 from happy.utils.utils import get_project_dir
 from happy.organs import get_organ
 from happy.graph.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
-from graphs.graphs.embeddings import (
+from happy.graph.embeddings_umap import (
     get_graph_embeddings,
     fit_umap,
     plot_cell_graph_umap,
     plot_tissue_umap,
     fit_clustering,
 )
-from graphs.graphs.utils import get_feature
-from graphs.graphs.enums import FeatureArg, MethodArg
-from graphs.analysis.vis_graph_patch import visualize_points
+from happy.graph.utils.utils import get_feature
+from happy.graph.enums import FeatureArg, MethodArg
+from happy.graph.utils.visualise_points import visualize_points
 
 np.random.seed(2)
 

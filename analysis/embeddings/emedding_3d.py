@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import umap
 
 import happy.db.eval_runs_interface as db
-from happy.utils.hdf5 import get_embeddings_file, get_hdf5_datasets
+from happy.hdf5 import get_embeddings_file, get_hdf5_datasets
 from happy.organs import get_organ
 from plots import plot_3d
 

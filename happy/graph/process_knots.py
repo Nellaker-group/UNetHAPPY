@@ -2,7 +2,28 @@ import sklearn.neighbors as sk
 import matplotlib.pyplot as plt
 import numpy as np
 
-from happy.utils.hdf5 import filter_by_cell_type
+from happy.hdf5 import filter_by_cell_type
+
+
+def process_knts(
+    organ, predictions, embeddings, coords, confidence, tissues=None, verbose=True
+):
+    # Turn isolated knts into syn and group large knts into one point
+    predictions, embeddings, coords, confidence, inds_to_remove = process_knt_cells(
+        predictions,
+        embeddings,
+        coords,
+        confidence,
+        organ,
+        50,
+        3,
+        plot=False,
+        verbose=verbose,
+    )
+    # Remove points from tissue ground truth as well
+    if tissues is not None and len(inds_to_remove) > 0:
+        tissues = np.delete(tissues, inds_to_remove, axis=0)
+    return predictions, embeddings, coords, confidence, tissues
 
 
 def process_knt_cells(

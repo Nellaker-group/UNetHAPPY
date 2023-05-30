@@ -12,9 +12,9 @@ from sklearn.metrics import (
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+import happy.db.eval_runs_interface as db
 from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
-import happy.db.eval_runs_interface as db
 from happy.graph.create_graph import get_nodes_within_tiles
 from happy.train.utils import plot_confusion_matrix, get_tissue_confusion_matrix
 
