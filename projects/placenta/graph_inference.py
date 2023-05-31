@@ -49,8 +49,6 @@ def main(
     data = setup_graph(hdf5_data, organ, feature, k, graph_method)
     # Split graph into an inference set across the WSI
     data = setup_node_splits(data, None, False, True, patch_files)
-    #todo: do we need the below line?
-    # x = data.x.to(device)
 
     # Setup trained model
     pretrained_path = (
