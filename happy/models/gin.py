@@ -1,7 +1,7 @@
 import torch
 from torch import nn as nn
 from torch.nn import functional as F
-from torch_geometric.nn import MLP, GINEConv, GINConv
+from torch_geometric.nn import MLP, GINEConv, GINConv, norm
 
 
 class ClusterGIN(nn.Module):
@@ -21,6 +21,7 @@ class ClusterGIN(nn.Module):
         self.reduce_dims = reduce_dims
         self.include_edge_attr = include_edge_attr
         self.convs = nn.ModuleList()
+        self.bns = nn.ModuleList()
 
         for i in range(num_layers):
             in_channels = in_channels if i == 0 else hidden_channels
@@ -33,6 +34,7 @@ class ClusterGIN(nn.Module):
                 self.convs.append(GINEConv(mlp, train_eps=False, edge_dim=1))
             else:
                 self.convs.append(GINConv(mlp, train_eps=False))
+            self.bns.append(norm.BatchNorm(hidden_channels))
 
         if reduce_dims is not None:
             self.lin1 = nn.Linear(hidden_channels, reduce_dims)
