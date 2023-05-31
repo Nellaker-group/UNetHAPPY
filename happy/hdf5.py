@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 
 import numpy as np
+import numpy.typing as npt
 import h5py
 
 import happy.db.eval_runs_interface as db
@@ -93,9 +94,9 @@ class HDF5Dataset:
             self.tissue_confidence = self.tissue_confidence[mask]
         return self
 
-    def filter_by_patch(self, x_min, y_min, width, height):
+    def filter_by_patch(self, x_min, y_min, width, height) -> "HDF5Dataset":
         if x_min == 0 and y_min == 0 and width == -1 and height == -1:
-            return
+            return self
         mask = np.logical_and(
             (np.logical_and(self.coords[:, 0] > x_min, (self.coords[:, 1] > y_min))),
             (
@@ -107,18 +108,18 @@ class HDF5Dataset:
         )
         return self._apply_mask(mask)
 
-    def filter_by_confidence(self, min_conf, max_conf) -> ("HDF5Dataset", np.array()):
+    def filter_by_confidence(self, min_conf, max_conf) -> ("HDF5Dataset", npt.ArrayLike):
         mask = np.logical_and(
             (self.cell_confidence >= min_conf), (self.cell_confidence <= max_conf)
         )
         return self._apply_mask(mask), mask
 
-    def filter_by_cell_type(self, cell_type, organ) -> ("HDF5Dataset", np.array()):
+    def filter_by_cell_type(self, cell_type, organ) -> ("HDF5Dataset", npt.ArrayLike):
         label_map = {cell.label: cell.id for cell in organ.cells}
         mask = self.cell_predictions == label_map[cell_type]
         return self._apply_mask(mask), mask
 
-    def filter_randomly(self, percent_to_remove):
+    def filter_randomly(self, percent_to_remove) -> ("HDF5Dataset", npt.ArrayLike):
         num_to_remove = int(len(self.cell_predictions) * percent_to_remove)
         mask = np.ones(len(self.cell_predictions), dtype=bool)
         remove_indices = np.random.choice(
@@ -127,7 +128,7 @@ class HDF5Dataset:
         mask[remove_indices] = False
         return self._apply_mask(mask), mask
 
-    def sort_by_coordinates(self):
+    def sort_by_coordinates(self) -> "HDF5Dataset":
         sort_args = np.lexsort((self.coords[:, 1], self.coords[:, 0]))
         print("Data sorted by x coordinates")
         return self._apply_mask(sort_args)
@@ -142,11 +143,15 @@ class HDF5Dataset:
             )
             self.start = subset_start
             self.end = subset_end
-            self.cell_predictions = f["cell_predictions"][subset_start:subset_end]
-            self.cell_embeddings = f["cell_embeddings"][subset_start:subset_end]
-            self.cell_confidence = f["cell_confidence"][subset_start:subset_end]
             self.coords = f["coords"][subset_start:subset_end]
-            if file_path.name.contains("tissue"):
+            if "tissue" not in file_path.name:
+                self.cell_predictions = f["predictions"][subset_start:subset_end]
+                self.cell_embeddings = f["embeddings"][subset_start:subset_end]
+                self.cell_confidence = f["confidence"][subset_start:subset_end]
+            elif "tissue" in file_path.name:
+                self.cell_predictions = f["cell_predictions"][subset_start:subset_end]
+                self.cell_embeddings = f["cell_embeddings"][subset_start:subset_end]
+                self.cell_confidence = f["cell_confidence"][subset_start:subset_end]
                 self.tissue_predictions = f["tissue_predictions"][
                     subset_start:subset_end
                 ]
@@ -156,7 +161,7 @@ class HDF5Dataset:
 
 def get_embeddings_file(project_name, run_id, tissue=False):
     embeddings_dir = (
-        Path(__file__).parent.parent.parent
+        Path(__file__).parent.parent
         / "projects"
         / project_name
         / "results"

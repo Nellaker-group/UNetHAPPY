@@ -11,10 +11,10 @@ from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir, set_seed
 from happy.graph.enums import FeatureArg, MethodArg, SupervisedModelsArg
-from happy.graph.graph_creation.get_and_process import get_raw_data, process_raw_data
+from happy.graph.graph_creation.get_and_process import get_and_process_raw_data
 from happy.graph.graph_creation.create_graph import setup_graph
 from happy.graph.runners.train_runner import TrainParams, TrainRunner
-from happy.graph.graph_creation.node_dataset_splits import setup_node_splits
+from happy.graph.graph_creation.node_dataset_splits import setup_splits_by_runid
 
 
 def main(
@@ -52,19 +52,26 @@ def main(
     include_validation: bool = True,
     validation_step: int = 50,
 ):
+    # general setup
     db.init()
     device = get_device()
+    set_seed(seed)
 
     model_type = model_type.value
     graph_method = graph_method.value
     feature = feature.value
-    set_seed(seed)
 
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
     organ = get_organ(organ_name)
 
-    # Data params for saving
+    graph_split_files_dir = project_dir / "graph_splits"
+    if len(val_patch_files) > 0:
+        val_patch_files = [graph_split_files_dir / file for file in val_patch_files]
+    if len(test_patch_files) > 0:
+        test_patch_files = [graph_split_files_dir / file for file in test_patch_files]
+
+    # Graph params for saving
     graph_params = {
         "run_ids": run_ids,
         "x_min": x_min,
@@ -79,15 +86,6 @@ def main(
         "top_conf": top_conf,
     }
 
-    if len(val_patch_files) > 0:
-        val_patch_files = [
-            project_dir / "graph_splits" / file for file in val_patch_files
-        ]
-    if len(test_patch_files) > 0:
-        test_patch_files = [
-            project_dir / "graph_splits" / file for file in test_patch_files
-        ]
-
     # Setup recording of stats per batch and epoch
     logger = Logger(
         list(["train", "train_inf", "val"]), ["loss", "accuracy"], vis=vis, file=True
@@ -95,46 +93,23 @@ def main(
 
     datas = []
     for i, run_id in enumerate(run_ids):
-        # Get raw data and ground truth data
-        hdf5_data, tissue_class = get_raw_data(
-            project_name,
-            organ,
-            project_dir,
-            run_id,
-            x_min,
-            y_min,
-            width,
-            height,
-            tissue_label_tsvs[i],
+        # Get and process raw and ground truth data
+        hdf5_data, tissue_class = get_and_process_raw_data(
+            project_name, organ, project_dir, run_id, graph_params, tissue_label_tsvs[i]
         )
-        # Process raw data
-        hdf5_data, tissue_class = process_raw_data(
-            organ, hdf5_data, tissue_class, group_knts, random_remove, top_conf
-        )
+
         # Covert input cell data into a graph
         data = setup_graph(hdf5_data, organ, feature, k, graph_method, tissue_class)
 
-        # Split nodes into unlabelled, training and validation sets. So far, validation
-        # and test sets are only defined for run_id 56 and 113. If there is training
-        # data in tissue_class for other runs, that data will also be used for training.
-        if run_id == 56 or run_id == 113:
-            data = setup_node_splits(
-                data,
-                tissue_class,
-                True,
-                include_validation,
-                val_patch_files,
-                test_patch_files,
-            )
-        else:
-            if include_validation and len(val_patch_files) == 0:
-                data = setup_node_splits(
-                    data, tissue_class, True, include_validation=True
-                )
-            else:
-                data = setup_node_splits(
-                    data, tissue_class, True, include_validation=False
-                )
+        # Split data into train, val, test sets based on patch files and run_id
+        data = setup_splits_by_runid(
+            data,
+            run_id,
+            tissue_class,
+            include_validation,
+            val_patch_files,
+            test_patch_files,
+        )
         datas.append(data)
 
     # Combine multiple graphs into a single graph

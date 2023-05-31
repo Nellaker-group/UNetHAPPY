@@ -7,27 +7,48 @@ from hdf5 import get_embeddings_file, HDF5Dataset
 from projects.placenta.graphs.processing.process_knots import process_knts
 
 
+def get_and_process_raw_data(
+    project_name, organ, project_dir, run_id, graph_params, tissue_label_tsv
+):
+    hdf5_data, tissue_class = get_raw_data(
+        project_name, organ, project_dir, run_id, graph_params, tissue_label_tsv
+    )
+    hdf5_data, tissue_class = process_raw_data(
+        organ,
+        hdf5_data,
+        tissue_class,
+        graph_params["group_knts"],
+        graph_params["random_remove"],
+        graph_params["top_conf"],
+    )
+    return hdf5_data, tissue_class
+
+
 def get_raw_data(
     project_name,
     organ,
     project_dir,
     run_id,
-    x_min,
-    y_min,
-    width,
-    height,
+    graph_params,
     tissue_label_tsv,
 ):
     # Get training data from hdf5 files
-    hdf5_data = get_hdf5_data(project_name, run_id, x_min, y_min, width, height)
+    hdf5_data = get_hdf5_data(
+        project_name,
+        run_id,
+        graph_params["x_min"],
+        graph_params["y_min"],
+        graph_params["width"],
+        graph_params["height"],
+    )
     # Get ground truth manually annotated data
     _, _, tissue_class = get_groundtruth_patch(
         organ,
         project_dir,
-        x_min,
-        y_min,
-        width,
-        height,
+        graph_params["x_min"],
+        graph_params["y_min"],
+        graph_params["width"],
+        graph_params["height"],
         tissue_label_tsv,
     )
     return hdf5_data, tissue_class

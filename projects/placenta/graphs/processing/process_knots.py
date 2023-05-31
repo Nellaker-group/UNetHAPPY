@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import sklearn.neighbors as sk
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,9 +21,9 @@ def process_knts(organ, hdf5_data, tissues=None, verbose=True):
 def process_knt_cells(
     hdf5_data: HDF5Dataset, organ, radius, cut_off_count, plot=False, verbose=True
 ):
-    hdf5_data = hdf5_data.sort_by_coordinates()
     # Filter by KNT cell type
-    knt_hdf5_data = hdf5_data.filter_by_cell_type("KNT", organ)
+    knt_hdf5_data = deepcopy(hdf5_data)
+    knt_hdf5_data, _ = knt_hdf5_data.filter_by_cell_type("KNT", organ)
     if verbose:
         print(f"Data loaded with {len(knt_hdf5_data.cell_predictions)} KNT cells")
 

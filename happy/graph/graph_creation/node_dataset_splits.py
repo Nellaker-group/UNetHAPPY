@@ -5,6 +5,32 @@ from torch_geometric.transforms import RandomNodeSplit
 from happy.graph.graph_creation.create_graph import get_nodes_within_tiles
 
 
+# Split nodes into unlabelled, training and validation sets. So far, validation
+# and test sets are only defined for run_id 56 and 113. If there is training
+# data in tissue_class for other listed runs, that data will also be used for training.
+def setup_splits_by_runid(
+    data, run_id, tissue_class, include_validation, val_patch_files, test_patch_files
+):
+    # this option will split the nodes in train, val, test based on patch files
+    if run_id == 56 or run_id == 113:
+        data = setup_node_splits(
+            data,
+            tissue_class,
+            True,
+            include_validation,
+            val_patch_files,
+            test_patch_files,
+        )
+    else:
+        # this option will split the nodes randomly into train and val
+        if include_validation and len(val_patch_files) == 0:
+            data = setup_node_splits(data, tissue_class, True, include_validation=True)
+        # this option will have no validation or test set and will use the whole graph
+        else:
+            data = setup_node_splits(data, tissue_class, True, include_validation=False)
+    return data
+
+
 def setup_node_splits(
     data,
     tissue_class,
