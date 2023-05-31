@@ -3,34 +3,19 @@ from typing import Optional, List
 import time
 
 import typer
-import torch
-from torch_geometric.transforms import SIGN
-from torch_geometric.loader import (
-    NeighborSampler,
-    NeighborLoader,
-    ShaDowKHopSampler,
-    DataLoader,
-)
 import numpy as np
 
 import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device, get_project_dir
 from happy.organs import get_organ
-from happy.graph.graph_creation.get_and_process import (
-    get_raw_data,
-    process_raw_data,
-)
 from happy.graph.embeddings_umap import fit_umap, plot_cell_graph_umap, plot_tissue_umap
+from happy.graph.graph_creation.get_and_process import get_and_process_raw_data
 from happy.graph.graph_creation.create_graph import setup_graph
 from happy.utils.utils import set_seed
-from happy.graph.enums import FeatureArg, MethodArg
+from happy.graph.enums import FeatureArg, MethodArg, SupervisedModelsArg
 from happy.graph.utils.visualise_points import visualize_points
-from graphs.graphs.graph_supervised import (
-    inference,
-    evaluate,
-    evaluation_plots,
-    inference_mlp,
-)
+from graphs.graphs.graph_supervised import evaluate, evaluation_plots
+from happy.graph.runners.eval_runner import EvalParams, EvalRunner
 from happy.graph.graph_creation.node_dataset_splits import setup_node_splits
 
 
@@ -52,7 +37,7 @@ def main(
     group_knts: bool = True,
     random_remove: float = 0.0,
     top_conf: bool = False,
-    model_type: str = "sup_graphsage",
+    model_type: SupervisedModelsArg = SupervisedModelsArg.sup_clustergcn,
     graph_method: MethodArg = MethodArg.k,
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
@@ -66,33 +51,32 @@ def main(
     organ = get_organ(organ_name)
     patch_files = [project_dir / "graph_splits" / file for file in val_patch_files]
 
-    print("Begin graph construction...")
-    # Get raw data and ground truth data
-    hdf5_data, tissue_class = get_raw_data(
-        project_name,
-        organ,
-        project_dir,
-        run_id,
-        x_min,
-        y_min,
-        width,
-        height,
-        tissue_label_tsv,
-    )
-    # Process raw data
-    hdf5_data, tissue_class = process_raw_data(
-        organ, hdf5_data, tissue_class, group_knts, random_remove, top_conf
+    # Graph params for saving
+    graph_params = {
+        "run_ids": run_id,
+        "x_min": x_min,
+        "y_min": y_min,
+        "width": width,
+        "height": height,
+        "edge_method": graph_method,
+        "k": k,
+        "feature": feature,
+        "group_knts": group_knts,
+        "random_remove": random_remove,
+        "top_conf": top_conf,
+    }
+    # Get and process raw and ground truth data
+    hdf5_data, tissue_class = get_and_process_raw_data(
+        project_name, organ, project_dir, run_id, graph_params, tissue_label_tsv
     )
 
     # Covert input cell data into a graph
     data = setup_graph(hdf5_data, organ, feature, k, graph_method, tissue_class)
-    pos = data.pos
-    x = data.x.to(device)
 
+    # Split data into validation or test set based on val_patch_files
     data = setup_node_splits(
         data, tissue_class, remove_unlabelled, True, patch_files, verbose=verbose
     )
-    print("Graph construction complete")
 
     # Setup trained model
     pretrained_path = (
@@ -104,17 +88,22 @@ def main(
         / model_weights_dir
         / model_name
     )
-    model = torch.load(pretrained_path, map_location=device)
+    eval_params = EvalParams(data, device, pretrained_path, model_type, 512, organ)
+    eval_runner = EvalRunner.new(eval_params)
+
+    timer_start = time.time()
+    # Run inference and get predicted labels for nodes
+    print("Running inference")
+    out, graph_embeddings, predicted_labels = eval_runner.inference()
+    timer_end = time.time()
+    print(f"total inference time: {timer_end - timer_start:.4f} s")
+
+    # Setup paths
     model_epochs = (
         "model_final"
         if model_name == "graph_model.pt"
         else f"model_{model_name.split('_')[0]}"
     )
-
-    if model_type == "sup_sign":
-        data = SIGN(model.num_layers)(data)  # precompute SIGN fixed embeddings
-
-    # Setup paths
     save_path = (
         Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs / f"run_{run_id}"
     )
@@ -122,66 +111,24 @@ def main(
     conf_str = "_top_conf" if top_conf else ""
     plot_name = f"{val_patch_files[0].split('.csv')[0]}{conf_str}"
 
-    # Dataloader for eval, feeds in whole graph
-    if model_type == "sup_graphsage":
-        eval_loader = NeighborLoader(
-            data,
-            num_neighbors=[-1],
-            batch_size=512,
-            shuffle=False,
-        )
-        eval_loader.data.num_nodes = data.num_nodes
-        eval_loader.data.n_id = torch.arange(data.num_nodes)
-    elif model_type == "sup_shadow":
-        eval_loader = ShaDowKHopSampler(
-            data,
-            depth=6,
-            num_neighbors=5,
-            node_idx=None,
-            batch_size=4000,
-            shuffle=False,
-        )
-    elif model_type == "sup_sign" or model_type == "sup_mlp":
-        eval_loader = DataLoader(range(data.num_nodes), batch_size=512, shuffle=False)
-    else:
-        eval_loader = NeighborSampler(
-            data.edge_index,
-            node_idx=None,
-            sizes=[-1],
-            batch_size=512,
-            shuffle=False,
-        )
-
-    # Run inference and get predicted labels for nodes
-    timer_start = time.time()
-    if model_type == "sup_mlp" or model_type == "sup_sign":
-        out, graph_embeddings, predicted_labels = inference_mlp(
-            model, data, eval_loader, device
-        )
-    else:
-        out, graph_embeddings, predicted_labels = inference(
-            model, data, eval_loader, device
-        )
-    timer_end = time.time()
-    print(f"total time: {timer_end - timer_start:.4f} s")
-
     # restrict to only data in patch_files using val_mask
     val_nodes = data.val_mask
     predicted_labels = predicted_labels[val_nodes]
     out = out[val_nodes]
-    pos = pos[val_nodes]
+    pos = data.pos[val_nodes]
     graph_embeddings = graph_embeddings[val_nodes]
     tissue_class = (
         tissue_class[val_nodes] if tissue_label_tsv is not None else tissue_class
     )
 
+    predictions = hdf5_data.cell_predictions
     # Remove unlabelled (class 0) ground truth points
     if remove_unlabelled and tissue_label_tsv is not None:
         unlabelled_inds, tissue_class, predicted_labels, pos, out = _remove_unlabelled(
             tissue_class, predicted_labels, pos, out
         )
         graph_embeddings = graph_embeddings[unlabelled_inds]
-        predictions = hdf5_data.cell_predictions[unlabelled_inds]
+        predictions = predictions[unlabelled_inds]
 
     if plot_umap:
         # fit and plot umap with cell classes
