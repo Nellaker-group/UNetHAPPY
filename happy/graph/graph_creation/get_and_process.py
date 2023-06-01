@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from hdf5 import get_embeddings_file, HDF5Dataset
+from happy.hdf5 import get_embeddings_file, HDF5Dataset
 from projects.placenta.graphs.processing.process_knots import process_knts
 
 
