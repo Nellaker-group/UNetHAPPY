@@ -19,6 +19,7 @@ from torch_geometric.loader import (
     GraphSAINTRandomWalkSampler,
     ShaDowKHopSampler,
 )
+from torch_geometric.utils import dropout_node
 
 from happy.models.graphsage import SupervisedSAGE
 from happy.models.clustergcn import ClusterGCN, JumpingClusterGCN, ClusterGCNEdges
@@ -44,6 +45,7 @@ class TrainParams:
     layers: int
     hidden_units: int
     dropout: float
+    node_dropout: float
     learning_rate: float
     num_workers: int
     weighted_loss: bool
@@ -165,6 +167,11 @@ class TrainRunner:
         for batch in self.train_loader:
             batch = batch.to(self.params.device)
             self.optimiser.zero_grad()
+
+            batch.edge_index, edge_mask, node_mask = dropout_node(
+                batch.edge_index, p=self.params.node_dropout, num_nodes=batch.num_nodes
+            )
+            batch.edge_attr = batch.edge_attr[edge_mask, :]
 
             result = self.process_batch(batch)
 
