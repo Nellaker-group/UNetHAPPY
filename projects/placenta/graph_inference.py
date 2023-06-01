@@ -1,4 +1,3 @@
-from pathlib import Path
 import time
 
 import typer
@@ -14,6 +13,7 @@ from projects.placenta.graphs.processing.process_knots import process_knts
 from happy.utils.utils import set_seed
 from happy.graph.enums import FeatureArg, SupervisedModelsArg, MethodArg
 from happy.graph.utils.visualise_points import visualize_points
+from happy.graph.utils.utils import get_model_eval_path
 from happy.graph.graph_creation.node_dataset_splits import setup_node_splits
 from happy.graph.graph_creation.create_graph import setup_graph
 from happy.graph.runners.eval_runner import EvalParams, EvalRunner
@@ -70,16 +70,8 @@ def main(
     timer_end = time.time()
     print(f"total inference time: {timer_end - timer_start:.4f} s")
 
-    # Setup paths
-    model_epochs = (
-        "model_final"
-        if model_name == "graph_model.pt"
-        else f"model_{model_name.split('_')[0]}"
-    )
-    save_path = (
-        Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs / f"run_{run_id}"
-    )
-    save_path.mkdir(parents=True, exist_ok=True)
+    # Setup path to save results
+    save_path = get_model_eval_path(model_name, pretrained_path, run_id)
     plot_name = "all_wsi"
 
     # Visualise cluster labels on graph patch

@@ -7,6 +7,17 @@ import numpy as np
 import pandas as pd
 
 
+def get_model_eval_path(model_name, pretrained_path, run_id):
+    model_epochs = (
+        "model_final"
+        if model_name == "graph_model.pt"
+        else f"model_{model_name.split('_')[0]}"
+    )
+    save_path = pretrained_path.parent / "eval" / model_epochs / f"run_{run_id}"
+    save_path.mkdir(parents=True, exist_ok=True)
+    return save_path
+
+
 def get_feature(feature, predictions, embeddings, organ=None):
     if feature == "predictions":
         cell_classes = [cell.id for cell in organ.cells]

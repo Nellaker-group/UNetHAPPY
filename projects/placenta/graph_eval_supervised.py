@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Optional, List
 import time
 
@@ -6,15 +5,15 @@ import typer
 import numpy as np
 
 import happy.db.eval_runs_interface as db
-from happy.utils.utils import get_device, get_project_dir
 from happy.organs import get_organ
+from happy.utils.utils import get_device, get_project_dir, set_seed
 from happy.graph.embeddings_umap import fit_umap, plot_cell_graph_umap, plot_tissue_umap
 from happy.graph.graph_creation.get_and_process import get_and_process_raw_data
 from happy.graph.graph_creation.create_graph import setup_graph
-from happy.utils.utils import set_seed
 from happy.graph.enums import FeatureArg, MethodArg, SupervisedModelsArg
+from happy.graph.utils.utils import get_model_eval_path
 from happy.graph.utils.visualise_points import visualize_points
-from graphs.graphs.graph_supervised import evaluate, evaluation_plots
+from happy.graph.utils.evaluation import evaluate, evaluation_plots
 from happy.graph.runners.eval_runner import EvalParams, EvalRunner
 from happy.graph.graph_creation.node_dataset_splits import setup_node_splits
 
@@ -83,7 +82,7 @@ def main(
         project_dir
         / "results"
         / "graph"
-        / model_type
+        / model_type.value
         / exp_name
         / model_weights_dir
         / model_name
@@ -98,16 +97,8 @@ def main(
     timer_end = time.time()
     print(f"total inference time: {timer_end - timer_start:.4f} s")
 
-    # Setup paths
-    model_epochs = (
-        "model_final"
-        if model_name == "graph_model.pt"
-        else f"model_{model_name.split('_')[0]}"
-    )
-    save_path = (
-        Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs / f"run_{run_id}"
-    )
-    save_path.mkdir(parents=True, exist_ok=True)
+    # Setup path to save results
+    save_path = get_model_eval_path(model_name, pretrained_path, run_id)
     conf_str = "_top_conf" if top_conf else ""
     plot_name = f"{val_patch_files[0].split('.csv')[0]}{conf_str}"
 
