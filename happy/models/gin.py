@@ -76,6 +76,7 @@ class ClusterGIN(nn.Module):
                 else:
                     x = conv((x, x_target), edge_index)
                 if i != len(self.convs) - 1 or self.reduce_dims is not None:
+                    x = self.bns[i](x)
                     x = F.relu(x)
                 xs.append(x)
             x_all = torch.cat(xs, dim=0)
