@@ -37,7 +37,6 @@ def main(
     ax = sns.lineplot(data=accuracy_stats)
     plt.rcParams["figure.dpi"] = 600
     ax.set(xlabel="Epoch", ylabel="Accuracy", ylim=[0.1, 1.0])
-    plt.legend(labels=['training', 'training_inference', 'validation'])
     plt.savefig(run_path / "accuracy_curves.png", dpi=300)
     plt.close()
     plt.clf()

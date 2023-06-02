@@ -48,6 +48,7 @@ class ClusterGIN(nn.Module):
                 x = conv(x, edge_index)
             if i == len(self.convs) - 1 and self.reduce_dims is None:
                 continue
+            x = self.bns[i](x)
             x = F.relu(x)
             x = F.dropout(x, p=self.dropout, training=self.training)
         if self.reduce_dims is not None:
