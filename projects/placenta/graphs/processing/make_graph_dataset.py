@@ -1,12 +1,14 @@
 import torch
 import pandas as pd
 
+import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_project_dir
 from happy.graph.graph_creation.get_and_process import get_hdf5_data
 from happy.graph.graph_creation.create_graph import setup_cell_tissue_graph
 
 
 def main():
+    db.init()
     project_dir = get_project_dir("placenta")
     lesion_dirs = project_dir / "annotations" / "lesion" / "single"
     save_dir = project_dir / "datasets" / "lesion" / "single"
@@ -20,6 +22,7 @@ def main():
             hdf5_data = get_hdf5_data("placenta", run_id, 0, 0, -1, -1, tissue=True)
             data = setup_cell_tissue_graph(hdf5_data, k=8, graph_method="intersection")
             torch.save(data, save_dir / f"run_{run_id}.pt")
+            print(f"Saved run: {run_id}")
 
 
 if __name__ == "__main__":

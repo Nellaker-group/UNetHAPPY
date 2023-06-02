@@ -136,10 +136,10 @@ class HDF5Dataset:
     def _load_hdf5_datasets(self, file_path, start, num_points):
         with h5py.File(file_path, "r") as f:
             subset_start = (
-                int(len(f["predictions"]) * start) if 1 > start > 0 else int(start)
+                int(len(f["coords"]) * start) if 1 > start > 0 else int(start)
             )
             subset_end = (
-                len(f["predictions"]) if num_points == -1 else subset_start + num_points
+                len(f["coords"]) if num_points == -1 else subset_start + num_points
             )
             self.start = subset_start
             self.end = subset_end
