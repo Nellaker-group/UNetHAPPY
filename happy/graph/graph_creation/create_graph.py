@@ -15,6 +15,21 @@ import torch
 from happy.graph.utils.utils import get_feature
 
 
+def setup_cell_tissue_graph(hdf5_data, k, graph_method):
+    # combine cell and tissue embeddings into one feature
+    feature_data = np.concatenate(
+        (hdf5_data.cell_embeddings, hdf5_data.tissue_embeddings), axis=1
+    )
+    # todo: check the embeddings
+    data = construct_graph(hdf5_data.coords, k, feature_data, graph_method, loop=False)
+    data = ToUndirected()(data)
+    data.edge_index, data.edge_attr = add_self_loops(
+        data["edge_index"], data["edge_attr"], fill_value="mean"
+    )
+    return data
+
+
+
 def setup_graph(hdf5_data, organ, feature, k, graph_method, tissue_class=None):
     feature_data = get_feature(
         feature, hdf5_data.cell_predictions, hdf5_data.cell_embeddings, organ
