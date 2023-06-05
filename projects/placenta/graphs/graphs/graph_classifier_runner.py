@@ -1,10 +1,10 @@
 from dataclasses import dataclass, asdict
 from typing import Optional
 import json
+import time
 
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 from torch_geometric.loader import DataLoader
 import numpy as np
 
@@ -24,7 +24,7 @@ class Params:
     epochs: int
     layers: int
     hidden_units: int
-    dropout: float
+    pooling_ratio: float
     learning_rate: float
     num_workers: int
     organ: Organ
@@ -136,6 +136,7 @@ class Runner:
         total_loss = 0
         total_correct = 0
         for batch in self.train_loader:
+            start = time.time()
             batch.y = torch.FloatTensor(np.array(batch.y))
             batch = batch.to(self.params.device)
             self.optimiser.zero_grad()
@@ -150,12 +151,17 @@ class Runner:
             correct = (pred.eq(batch.y.int())).float()
             accuracy = correct.mean().item()
 
-            print(f"batch loss: {loss.item()} | batch acc {accuracy}")
+            print(f"batch loss: {loss.item():.4f} | batch acc {accuracy:.4f}")
 
             total_loss += loss.item() * batch.num_graphs
             total_correct += accuracy
+            timer_end = time.time()
+            print(
+                f"batch size {self.params.batch_size}, "
+                f"time per batch: {timer_end - start:.4f}s "
+            )
         return total_loss / len(self.train_loader.dataset), total_correct / len(
-            self.train_loader.dataset
+            self.train_loader
         )
 
     @torch.no_grad()
@@ -169,12 +175,16 @@ class Runner:
             out = self.model(batch)
             loss = self.criterion(out, batch.y)
             loss.backward()
-            pred = out.max(dim=1)[1]
+
+            pred_threshold = 0.5
+            pred = ((torch.sigmoid(out)).gt(pred_threshold)).int()
+            correct = (pred.eq(batch.y.int())).float()
+            accuracy = correct.mean().item()
 
             total_loss += loss.item() * batch.num_graphs
-            total_correct += pred.eq(batch.y).sum().item()
-        return total_loss / len(self.train_loader.dataset), total_correct / len(
-            self.train_loader.dataset
+            total_correct += accuracy
+        return total_loss / len(self.val_loader.dataset), total_correct / len(
+            self.val_loader
         )
 
     def save_state(self, run_path, epoch):
@@ -185,5 +195,8 @@ class TopKRunner(Runner):
     def setup_model(self):
         return TopKClassifer(
             self.params.datasets["train"][0].num_node_features,
+            self.params.hidden_units,
             self.num_classes,
+            self.params.layers,
+            self.params.pooling_ratio,
         )

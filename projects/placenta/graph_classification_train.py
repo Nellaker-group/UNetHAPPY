@@ -22,9 +22,9 @@ def main(
     model_type: GraphClassificationModelsArg = GraphClassificationModelsArg.top_k,
     batch_size: int = 2,
     epochs: int = 100,
-    layers: int = 4,
-    hidden_units: int = 256,
-    dropout: float = 0.5,
+    layers: int = 3,
+    hidden_units: int = 128,
+    pooling_ratio: float = 0.8,
     learning_rate: float = 0.001,
     num_workers: int = 12,
 ):
@@ -53,7 +53,7 @@ def main(
         epochs,
         layers,
         hidden_units,
-        dropout,
+        pooling_ratio,
         learning_rate,
         num_workers,
         organ,
@@ -75,7 +75,7 @@ def train(train_runner, logger, run_path):
         print("Training:")
         prev_best_val = 0
         for epoch in range(1, epochs + 1):
-            loss, accuracy = train_runner.train(logger)
+            loss, accuracy = train_runner.train()
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
 
