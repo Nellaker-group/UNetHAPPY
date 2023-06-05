@@ -27,10 +27,21 @@ class Tissue:
         return f"{self.label}"
 
 
+@dataclass(frozen=True)
+class Lesion:
+    label: str
+    name: str
+    id: int
+
+    def __str__(self):
+        return f"{self.label}"
+
+
 class Organ:
-    def __init__(self, cells: List[Cell], tissues: List[Tissue]):
+    def __init__(self, cells: List[Cell], tissues: List[Tissue], lesions: List[Lesion]):
         self.cells = cells
         self.tissues = tissues
+        self.lesions = lesions
 
     def cell_by_id(self, i: int):
         return self.cells[i]
@@ -73,6 +84,16 @@ PLACENTA = Organ(
         Tissue("Fibrin", "Fibrin", "#0079fa", 11),
         Tissue("Avascular", "Avascular Villi", "#450270", 12),
     ],
+    [
+        Lesion("healthy", "Healthy", 0),
+        Lesion("infarction", "Infarction", 1),
+        Lesion("perivillous_fibrin", "Perivillous Fibrin", 2),
+        Lesion("intervillous_thrombos", "Intervillous Thrombos", 3),
+        Lesion("avascular_villi", "Avascular Villi", 5),
+        Lesion("inflammation", "Inflammation", 6),
+        Lesion("edemic", "Villous Edema", 7),
+        Lesion("small_villi", "Small Villi", 8),
+    ],
 )
 PLACENTA_CORD = Organ(
     [
@@ -85,9 +106,10 @@ PLACENTA_CORD = Organ(
         Cell("MES", "Mesenchymal Cell", "#ff00ff", "#ff00ff", 6, 6, 6),
     ],
     [],
+    [],
 )
-LIVER = Organ([], [])
-ADIPOCYTE = Organ([], [])
+LIVER = Organ([], [], [])
+ADIPOCYTE = Organ([], [], [])
 
 
 def get_organ(organ_name):

@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class FeatureArg(str, Enum):
     predictions = "predictions"
     embeddings = "embeddings"
@@ -24,3 +25,7 @@ class SupervisedModelsArg(str, Enum):
     sup_gat = "sup_gat"
     sup_gatv2 = "sup_gatv2"
     sup_mlp = "sup_mlp"
+
+
+class GraphClassificationModelsArg(str, Enum):
+    top_k = "top_k"
