@@ -38,13 +38,10 @@ def main(
     organ = get_organ(organ_name)
 
     # Setup recording of stats per batch and epoch
-    logger = Logger(
-        list(["train", "val"]), ["loss", "accuracy"], vis=False, file=True
-    )
+    logger = Logger(list(["train", "val"]), ["loss", "accuracy"], vis=False, file=True)
 
     # Get Dataset of lesion graphs (combination of single and multi lesions)
-    data_dir = project_dir / "annotations" / "lesion"
-    datasets = setup_lesion_datasets(organ, data_dir, combine=True, test=False)
+    datasets = setup_lesion_datasets(organ, project_dir, combine=True, test=False)
 
     # Setup training parameters, including dataloaders, models, loss, etc.
     run_params = Params(
@@ -78,7 +75,7 @@ def train(train_runner, logger, run_path):
         print("Training:")
         prev_best_val = 0
         for epoch in range(1, epochs + 1):
-            loss, accuracy = train_runner.train()
+            loss, accuracy = train_runner.train(logger)
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
 
@@ -103,33 +100,37 @@ def train(train_runner, logger, run_path):
     print("Saved final model")
 
 
-def setup_lesion_datasets(organ, data_dir, combine=True, test=False):
+def setup_lesion_datasets(organ, project_dir, combine=True, test=False):
     datasets = {}
     if combine:
-        single_lesion_train_data = LesionDataset(organ, data_dir / "single", "train")
-        multi_lesion_train_data = LesionDataset(organ, data_dir / "multi", "train")
+        single_lesion_train_data = LesionDataset(organ, project_dir, "single", "train")
+        multi_lesion_train_data = LesionDataset(organ, project_dir, "multi", "train")
         datasets["train"] = single_lesion_train_data.combine_with_other_dataset(
             multi_lesion_train_data
         )
-        single_lesion_val_data = LesionDataset(organ, data_dir / "single", "val")
-        multi_lesion_val_data = LesionDataset(organ, data_dir / "multi", "val")
+        single_lesion_val_data = LesionDataset(organ, project_dir, "single", "val")
+        multi_lesion_val_data = LesionDataset(organ, project_dir, "multi", "val")
         datasets["val"] = single_lesion_val_data.combine_with_other_dataset(
             multi_lesion_val_data
         )
         if test:
-            single_lesion_test_data = LesionDataset(organ, data_dir / "single", "test")
-            multi_lesion_test_data = LesionDataset(organ, data_dir / "multi", "test")
+            single_lesion_test_data = LesionDataset(
+                organ, project_dir, "single", "test"
+            )
+            multi_lesion_test_data = LesionDataset(organ, project_dir, "multi", "test")
             datasets["test"] = single_lesion_test_data.combine_with_other_dataset(
                 multi_lesion_test_data
             )
     else:
-        datasets["train_single"] = LesionDataset(organ, data_dir / "single", "train")
-        datasets["train_multi"] = LesionDataset(organ, data_dir / "multi", "train")
-        datasets["val_single"] = LesionDataset(organ, data_dir / "single", "val")
-        datasets["val_multi"] = LesionDataset(organ, data_dir / "multi", "val")
+        datasets["train_single"] = LesionDataset(organ, project_dir, "single", "train")
+        datasets["train_multi"] = LesionDataset(organ, project_dir, "multi", "train")
+        datasets["val_single"] = LesionDataset(organ, project_dir, "single", "val")
+        datasets["val_multi"] = LesionDataset(organ, project_dir, "multi", "val")
         if test:
-            datasets["test_single"] = LesionDataset(organ, data_dir / "single", "test")
-            datasets["test_multi"] = LesionDataset(organ, data_dir / "multi", "test")
+            datasets["test_single"] = LesionDataset(
+                organ, project_dir, "single", "test"
+            )
+            datasets["test_multi"] = LesionDataset(organ, project_dir, "multi", "test")
     return datasets
 
 

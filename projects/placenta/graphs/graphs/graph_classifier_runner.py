@@ -4,7 +4,9 @@ import json
 
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
 from torch_geometric.loader import DataLoader
+import numpy as np
 
 from happy.organs import Organ
 from happy.graph.enums import GraphClassificationModelsArg
@@ -101,7 +103,7 @@ class Runner:
         )
 
     def _setup_criterion(self):
-        self._criterion = nn.NLLLoss()
+        return nn.BCEWithLogitsLoss()
 
     def _setup_dataloader(self):
         if not self.test:
@@ -134,6 +136,7 @@ class Runner:
         total_loss = 0
         total_correct = 0
         for batch in self.train_loader:
+            batch.y = torch.FloatTensor(np.array(batch.y))
             batch = batch.to(self.params.device)
             self.optimiser.zero_grad()
 
@@ -141,10 +144,16 @@ class Runner:
             loss = self.criterion(out, batch.y)
             loss.backward()
             self.optimiser.step()
-            pred = out.max(dim=1)[1]
+
+            pred_threshold = 0.5
+            pred = ((torch.sigmoid(out)).gt(pred_threshold)).int()
+            correct = (pred.eq(batch.y.int())).float()
+            accuracy = correct.mean().item()
+
+            print(f"batch loss: {loss.item()} | batch acc {accuracy}")
 
             total_loss += loss.item() * batch.num_graphs
-            total_correct += pred.eq(batch.y).sum().item()
+            total_correct += accuracy
         return total_loss / len(self.train_loader.dataset), total_correct / len(
             self.train_loader.dataset
         )

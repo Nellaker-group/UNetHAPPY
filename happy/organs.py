@@ -89,10 +89,10 @@ PLACENTA = Organ(
         Lesion("infarction", "Infarction", 1),
         Lesion("perivillous_fibrin", "Perivillous Fibrin", 2),
         Lesion("intervillous_thrombos", "Intervillous Thrombos", 3),
-        Lesion("avascular_villi", "Avascular Villi", 5),
-        Lesion("inflammation", "Inflammation", 6),
-        Lesion("edemic", "Villous Edema", 7),
-        Lesion("small_villi", "Small Villi", 8),
+        Lesion("avascular_villi", "Avascular Villi", 4),
+        Lesion("inflammation", "Inflammation", 5),
+        Lesion("edemic", "Villous Edema", 6),
+        Lesion("small_villi", "Small Villi", 7),
     ],
 )
 PLACENTA_CORD = Organ(
