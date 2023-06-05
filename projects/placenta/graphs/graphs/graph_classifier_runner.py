@@ -27,6 +27,7 @@ class Params:
     pooling_ratio: float
     learning_rate: float
     num_workers: int
+    subsample_ratio: bool
     organ: Organ
 
     def save(self, seed, exp_name, run_path):
@@ -137,6 +138,10 @@ class Runner:
         total_correct = 0
         for batch in self.train_loader:
             start = time.time()
+
+            if self.params.subsample_ratio > 0.0:
+                batch = self._subsample(batch)
+
             batch.y = torch.FloatTensor(np.array(batch.y))
             batch = batch.to(self.params.device)
             self.optimiser.zero_grad()
@@ -189,6 +194,16 @@ class Runner:
 
     def save_state(self, run_path, epoch):
         torch.save(self.model, run_path / f"{epoch}_c_graph_model.pt")
+
+    def _subsample(self, batch):
+        num_to_remove = int(batch.num_nodes * self.params.subsample_ratio)
+        mask = np.ones(batch.num_nodes, dtype=bool)
+        remove_indices = np.random.choice(
+            np.arange(batch.num_nodes), num_to_remove, replace=False
+        )
+        mask[remove_indices] = False
+        remaining_indices = np.where(mask)[0]
+        return batch.subgraph(remaining_indices)
 
 
 class TopKRunner(Runner):

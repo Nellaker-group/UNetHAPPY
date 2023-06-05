@@ -20,13 +20,14 @@ def main(
     exp_name: str = typer.Option(...),
     pretrained: Optional[str] = None,
     model_type: GraphClassificationModelsArg = GraphClassificationModelsArg.top_k,
-    batch_size: int = 2,
+    batch_size: int = 3,
     epochs: int = 100,
     layers: int = 3,
     hidden_units: int = 128,
     pooling_ratio: float = 0.8,
     learning_rate: float = 0.001,
     num_workers: int = 12,
+    subsample_ratio: float = 0.0,
 ):
     # general setup
     db.init()
@@ -56,6 +57,7 @@ def main(
         pooling_ratio,
         learning_rate,
         num_workers,
+        subsample_ratio,
         organ,
     )
     runner = Runner.new(run_params, test=False)
