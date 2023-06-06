@@ -25,9 +25,9 @@ class Params:
     layers: int
     hidden_units: int
     pooling_ratio: float
+    subsample_ratio: float
     learning_rate: float
     num_workers: int
-    subsample_ratio: float
     organ: Organ
 
     def save(self, seed, exp_name, run_path):
@@ -201,14 +201,11 @@ class Runner:
         torch.save(self.model, run_path / f"{epoch}_c_graph_model.pt")
 
     def _subsample(self, batch):
-        num_to_remove = int(batch.num_nodes * self.params.subsample_ratio)
-        mask = np.ones(batch.num_nodes, dtype=bool)
-        remove_indices = np.random.choice(
-            np.arange(batch.num_nodes), num_to_remove, replace=False
+        num_to_keep = int(batch.num_nodes * self.params.subsample_ratio)
+        keep_indices = np.random.choice(
+            np.arange(batch.num_nodes), num_to_keep, replace=False
         )
-        mask[remove_indices] = False
-        remaining_indices = np.where(mask)[0]
-        return batch.subgraph(remaining_indices)
+        return batch.subgraph(torch.LongTensor(keep_indices))
 
 
 class TopKRunner(Runner):

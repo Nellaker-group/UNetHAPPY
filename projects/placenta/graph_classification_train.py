@@ -25,10 +25,28 @@ def main(
     layers: int = 3,
     hidden_units: int = 128,
     pooling_ratio: float = 0.8,
+    subsample_ratio: float = 0.0,
     learning_rate: float = 0.001,
     num_workers: int = 12,
-    subsample_ratio: float = 0.0,
 ):
+    """ Trains a graph classifier model on the lesion focused dataset.
+
+    Args:
+        seed: set the random seed for reproducibility
+        project_name: name of project dir
+        organ_name: name of organ
+        exp_name: name given to this experiment for saving results and models
+        pretrained: path to pretrained model (optional)
+        model_type: type of model and pooling to train
+        batch_size: number of graphs in each batch
+        epochs: number of epochs to train for
+        layers: number of model and pooling layers
+        hidden_units: number of hidden units in each layer
+        pooling_ratio: the ratio of nodes to pool down to in each pooling layer
+        subsample_ratio: the ratio of node to first subsample each graph down to
+        learning_rate: the learning rate of the model
+        num_workers: number of workers for the dataloader
+    """
     # general setup
     db.init()
     device = get_device()
@@ -55,9 +73,9 @@ def main(
         layers,
         hidden_units,
         pooling_ratio,
+        subsample_ratio,
         learning_rate,
         num_workers,
-        subsample_ratio,
         organ,
     )
     runner = Runner.new(run_params, test=False)
