@@ -1,5 +1,6 @@
 from matplotlib import pyplot as plt
 from matplotlib.collections import LineCollection
+import torch
 
 
 def visualize_points(
@@ -14,6 +15,9 @@ def visualize_points(
     colours=None,
     point_size=None,
 ):
+    if isinstance(labels[0], torch.Tensor):
+        labels = labels.tolist()
+
     if colours is None:
         colours_dict = {cell.id: cell.colour for cell in organ.cells}
         colours = [colours_dict[label] for label in labels]

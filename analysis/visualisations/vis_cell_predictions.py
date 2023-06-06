@@ -5,11 +5,8 @@ import typer
 
 import happy.db.eval_runs_interface as db
 from happy.organs import get_organ
-from happy.hdf5 import (
-    get_datasets_in_patch,
-    filter_by_cell_type,
-    get_embeddings_file,
-)
+from happy.hdf5 import get_embeddings_file
+from happy.graph.graph_creation.get_and_process import get_hdf5_data
 from happy.utils.utils import get_project_dir
 from happy.graph.utils.visualise_points import visualize_points
 
@@ -38,18 +35,10 @@ def main(
 
     # Get path to embeddings hdf5 files
     embeddings_path = get_embeddings_file(project_name, run_id)
-    print(f"Getting data from: {embeddings_path}")
-
-    # Get hdf5 datasets contained in specified box/patch of WSI
-    predictions, embeddings, coords, confidence = get_datasets_in_patch(
-        embeddings_path, 0, 0, -1, -1
-    )
-    print(f"Data loaded with {len(predictions)} nodes")
+    hdf5_data = get_hdf5_data(project_name, run_id, 0, 0, -1, -1)
 
     if single_cell:
-        predictions, embeddings, coords, confidence = filter_by_cell_type(
-            predictions, embeddings, coords, confidence, single_cell, organ
-        )
+        hdf5_data = hdf5_data.filter_by_cell_type(single_cell, organ)
 
     # setup save location and filename
     base_save_dir = project_dir / "visualisations" / "graphs"
@@ -63,8 +52,8 @@ def main(
     visualize_points(
         organ,
         save_dir / plot_name,
-        coords.astype("int32"),
-        labels=predictions,
+        hdf5_data.coords.astype("int32"),
+        labels=hdf5_data.cell_predictions,
         width=-1,
         height=-1,
     )
