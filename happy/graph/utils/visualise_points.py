@@ -15,8 +15,9 @@ def visualize_points(
     colours=None,
     point_size=None,
 ):
-    if isinstance(labels[0], torch.Tensor):
-        labels = labels.tolist()
+    if labels is not None:
+        if isinstance(labels[0], torch.Tensor):
+            labels = labels.tolist()
 
     if colours is None:
         colours_dict = {cell.id: cell.colour for cell in organ.cells}
@@ -50,7 +51,7 @@ def visualize_points(
         s=point_size,
         zorder=1000,
         c=colours,
-        cmap="Spectral",
+        cmap="viridis",
     )
     plt.gca().invert_yaxis()
     plt.axis("off")
