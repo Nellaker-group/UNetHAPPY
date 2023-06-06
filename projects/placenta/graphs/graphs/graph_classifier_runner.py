@@ -5,6 +5,7 @@ import time
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch_geometric.loader import DataLoader
 import numpy as np
 
@@ -104,7 +105,7 @@ class Runner:
         )
 
     def _setup_criterion(self):
-        return nn.BCEWithLogitsLoss()
+        return _FocalLoss()
 
     def _setup_dataloader(self):
         if not self.test:
@@ -113,11 +114,13 @@ class Runner:
                 batch_size=self.params.batch_size,
                 num_workers=self.params.num_workers,
                 shuffle=True,
+                persistent_workers=True,
             )
             val_loader = DataLoader(
                 self.params.datasets["val"],
                 batch_size=self.params.batch_size,
                 num_workers=self.params.num_workers,
+                persistent_workers=True,
             )
         else:
             train_loader = None
@@ -217,3 +220,17 @@ class TopKRunner(Runner):
             self.params.layers,
             self.params.pooling_ratio,
         )
+
+
+class _FocalLoss(nn.Module):
+    def __init__(self, alpha=0.25, gamma=2.0):
+        super(_FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+
+    def forward(self, inputs, targets):
+        BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
+        pt = torch.exp(-BCE_loss)
+        F_loss = self.alpha * (1 - pt) ** self.gamma * BCE_loss
+
+        return F_loss.mean()

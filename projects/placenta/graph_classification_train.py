@@ -10,7 +10,9 @@ from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir, set_seed
 from happy.graph.enums import GraphClassificationModelsArg
 from projects.placenta.graphs.graphs.graph_classifier_runner import Params, Runner
-from projects.placenta.graphs.graphs.lesion_dataset import LesionDataset
+from projects.placenta.graphs.graphs.graph_classification_utils import (
+    setup_lesion_datasets,
+)
 
 
 def main(
@@ -26,10 +28,10 @@ def main(
     hidden_units: int = 128,
     pooling_ratio: float = 0.8,
     subsample_ratio: float = 0.0,
-    learning_rate: float = 0.001,
+    learning_rate: float = 0.0005,
     num_workers: int = 12,
 ):
-    """ Trains a graph classifier model on the lesion focused dataset.
+    """Trains a graph classifier model on the lesion focused dataset.
 
     Args:
         seed: set the random seed for reproducibility
@@ -119,40 +121,6 @@ def train(train_runner, logger, run_path):
     # Save the final trained model
     train_runner.save_state(run_path, "final")
     print("Saved final model")
-
-
-def setup_lesion_datasets(organ, project_dir, combine=True, test=False):
-    datasets = {}
-    if combine:
-        single_lesion_train_data = LesionDataset(organ, project_dir, "single", "train")
-        multi_lesion_train_data = LesionDataset(organ, project_dir, "multi", "train")
-        datasets["train"] = single_lesion_train_data.combine_with_other_dataset(
-            multi_lesion_train_data
-        )
-        single_lesion_val_data = LesionDataset(organ, project_dir, "single", "val")
-        multi_lesion_val_data = LesionDataset(organ, project_dir, "multi", "val")
-        datasets["val"] = single_lesion_val_data.combine_with_other_dataset(
-            multi_lesion_val_data
-        )
-        if test:
-            single_lesion_test_data = LesionDataset(
-                organ, project_dir, "single", "test"
-            )
-            multi_lesion_test_data = LesionDataset(organ, project_dir, "multi", "test")
-            datasets["test"] = single_lesion_test_data.combine_with_other_dataset(
-                multi_lesion_test_data
-            )
-    else:
-        datasets["train_single"] = LesionDataset(organ, project_dir, "single", "train")
-        datasets["train_multi"] = LesionDataset(organ, project_dir, "multi", "train")
-        datasets["val_single"] = LesionDataset(organ, project_dir, "single", "val")
-        datasets["val_multi"] = LesionDataset(organ, project_dir, "multi", "val")
-        if test:
-            datasets["test_single"] = LesionDataset(
-                organ, project_dir, "single", "test"
-            )
-            datasets["test_multi"] = LesionDataset(organ, project_dir, "multi", "test")
-    return datasets
 
 
 if __name__ == "__main__":
