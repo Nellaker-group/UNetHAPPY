@@ -74,15 +74,16 @@ def train(train_runner, logger, run_path):
     epochs = train_runner.params.epochs
 
     try:
-        print("Training:")
         prev_best_val = 0
         for epoch in range(1, epochs + 1):
+            print("Training:")
             loss, accuracy = train_runner.train()
             logger.log_loss("train", epoch - 1, loss)
             logger.log_accuracy("train", epoch - 1, accuracy)
 
+            print("Validation:")
             val_loss, val_accuracy = train_runner.validate()
-            logger.log_loss("train", epoch - 1, val_loss)
+            logger.log_loss("val", epoch - 1, val_loss)
             logger.log_accuracy("val", epoch - 1, val_accuracy)
             logger.to_csv(run_path / "c_graph_train_stats.csv")
             # Save new best model
