@@ -39,6 +39,14 @@ class LesionDataset(Dataset):
         data.y = self.lesions[idx]
         return data
 
+    def get_data_by_run_id(self, run_id):
+        idx = (self.run_ids == run_id).nonzero()[0][0]
+        return torch.load(self.data_paths[idx])
+
+    def get_lesion_by_run_id(self, run_id):
+        idx = (self.run_ids == run_id).nonzero()[0][0]
+        return self.lesions[idx]
+
     def combine_with_other_dataset(self, second_dataset):
         self.split_df = pd.concat([self.split_df, second_dataset.split_df])
         self.run_ids = np.concatenate([self.run_ids, second_dataset.run_ids])
