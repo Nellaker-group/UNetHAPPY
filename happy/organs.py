@@ -55,12 +55,15 @@ class Organ:
         return self.tissues[labels[label]]
 
     def remove_lesion_by_label(self, label):
+        labels = [lesion.label for lesion in self.lesions]
+        if label not in labels:
+            raise ValueError(f"Lesion {label} not found in organ")
         for i, lesion in enumerate(self.lesions):
             if lesion.label == label:
                 idx_to_remove = i
         assert idx_to_remove is not None
-        self.lesions.pop(idx_to_remove)
-        return self
+        lesions = self.lesions[:idx_to_remove] + self.lesions[idx_to_remove+1 :]
+        return lesions
 
 
 PLACENTA = Organ(

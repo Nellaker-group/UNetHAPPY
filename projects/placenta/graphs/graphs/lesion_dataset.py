@@ -1,3 +1,5 @@
+from copy import copy
+
 import torch
 from torch_geometric.data import Dataset
 import pandas as pd
@@ -17,7 +19,7 @@ class LesionDataset(Dataset):
         pre_transform=None,
         pre_filter=None,
     ):
-        self.organ = organ
+        self.organ = copy(organ) # Copy so that lesion removal works across datasets
         self.split = split
         self.lesions_to_remove = lesions_to_remove
         self.data_dir = root / "datasets" / "lesion" / dataset_type
@@ -63,7 +65,7 @@ class LesionDataset(Dataset):
             ~self.split_df["lesion"].isin(self.lesions_to_remove)
         ]
         for lesion in self.lesions_to_remove:
-            self.organ = self.organ.remove_lesion_by_label(lesion)
+            self.organ.lesions = self.organ.remove_lesion_by_label(lesion)
 
     def _get_lesions(self):
         lesions = self.split_df.groupby("run_id")["lesion"].apply(list).to_numpy()
