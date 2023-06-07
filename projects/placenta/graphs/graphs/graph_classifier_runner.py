@@ -29,6 +29,7 @@ class Params:
     subsample_ratio: float
     learning_rate: float
     num_workers: int
+    lesions_to_remove: Optional[list[str]]
     organ: Organ
 
     def save(self, seed, exp_name, run_path):

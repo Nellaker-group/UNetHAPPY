@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 import typer
 
@@ -30,6 +30,7 @@ def main(
     subsample_ratio: float = 0.0,
     learning_rate: float = 0.0005,
     num_workers: int = 12,
+    lesions_to_remove: Optional[List[str]] = None,
 ):
     """Trains a graph classifier model on the lesion focused dataset.
 
@@ -62,7 +63,13 @@ def main(
     logger = Logger(list(["train", "val"]), ["loss", "accuracy"], vis=False, file=True)
 
     # Get Dataset of lesion graphs (combination of single and multi lesions)
-    datasets = setup_lesion_datasets(organ, project_dir, combine=True, test=False)
+    datasets = setup_lesion_datasets(
+        organ,
+        project_dir,
+        combine=True,
+        test=False,
+        lesions_to_remove=lesions_to_remove,
+    )
 
     # Setup training parameters, including dataloaders, models, loss, etc.
     run_params = Params(
@@ -78,6 +85,7 @@ def main(
         subsample_ratio,
         learning_rate,
         num_workers,
+        lesions_to_remove,
         organ,
     )
     runner = Runner.new(run_params, test=False)

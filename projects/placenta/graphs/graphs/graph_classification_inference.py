@@ -1,10 +1,7 @@
 import time
-import os
 
 import typer
 import torch
-import pandas as pd
-from sklearn.preprocessing import MultiLabelBinarizer
 
 import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device, get_project_dir

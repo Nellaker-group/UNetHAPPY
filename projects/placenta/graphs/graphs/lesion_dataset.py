@@ -12,16 +12,20 @@ class LesionDataset(Dataset):
         root,
         dataset_type,
         split,
+        lesions_to_remove=None,
         transform=None,
         pre_transform=None,
         pre_filter=None,
     ):
         self.organ = organ
         self.split = split
+        self.lesions_to_remove = lesions_to_remove
         self.data_dir = root / "datasets" / "lesion" / dataset_type
         self.annotations_dir = root / "annotations" / "lesion" / dataset_type
 
         self.split_df = pd.read_csv(self.annotations_dir / f"{self.split}_lesion.csv")
+        if self.lesions_to_remove is not None:
+            self._remove_lesions()
         self.run_ids = (
             self.split_df.groupby("run_id")["lesion"].apply(list).index.to_numpy()
         )
@@ -53,6 +57,13 @@ class LesionDataset(Dataset):
         self.lesions = np.concatenate([self.lesions, second_dataset.lesions])
         self.data_paths = np.concatenate([self.data_paths, second_dataset.data_paths])
         return self
+
+    def _remove_lesions(self):
+        self.split_df = self.split_df[
+            ~self.split_df["lesion"].isin(self.lesions_to_remove)
+        ]
+        for lesion in self.lesions_to_remove:
+            self.organ = self.organ.remove_lesion_by_label(lesion)
 
     def _get_lesions(self):
         lesions = self.split_df.groupby("run_id")["lesion"].apply(list).to_numpy()

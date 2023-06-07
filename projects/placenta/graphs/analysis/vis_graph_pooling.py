@@ -27,6 +27,7 @@ def main(
     model_name: str = typer.Option(...),
     run_id: int = typer.Option(...),
     model_type: GraphClassificationModelsArg = GraphClassificationModelsArg.top_k,
+    plot_edges: bool = True,
     plot_scores: bool = True,
 ):
     db.init()
@@ -35,9 +36,14 @@ def main(
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
 
+    if not plot_edges:
+        edge_index = None
+
     # Get hdf5 for the original cell and tissue labels
     if not plot_scores:
         hdf5_data = get_hdf5_data(project_name, run_id, 0, 0, -1, -1, tissue=True)
+        cell_predictions = hdf5_data.cell_predictions
+        tissue_predictions = hdf5_data.tissue_predictions
 
     # Get graph to infer over
     data_dir = project_dir / "datasets" / "lesion"
@@ -90,6 +96,7 @@ def main(
             colours=colours,
             width=int(data.pos[:, 0].max()) - int(data.pos[:, 0].min()),
             height=int(data.pos[:, 1].max()) - int(data.pos[:, 1].min()),
+            edge_index=data.edge_index,
         )
         plot_name = f"original_tissues.png"
         colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
@@ -101,12 +108,11 @@ def main(
         colours=colours,
         width=int(data.pos[:, 0].max()) - int(data.pos[:, 0].min()),
         height=int(data.pos[:, 1].max()) - int(data.pos[:, 1].min()),
+        edge_index=data.edge_index,
     )
 
     # Visualise pooled graphs
     pooled_graph = data
-    cell_predictions = hdf5_data.cell_predictions
-    tissue_predictions = hdf5_data.tissue_predictions
     for i, pooled_output in enumerate(pooling_outputs):
         x = pooled_output[0]
         edge_index = pooled_output[1]
@@ -134,6 +140,7 @@ def main(
                 - int(pooled_graph.pos[:, 0].min()),
                 height=int(pooled_graph.pos[:, 1].max())
                 - int(pooled_graph.pos[:, 1].min()),
+                edge_index=edge_index,
             )
             plot_name = f"pool_{i}_tissues.png"
             tissue_predictions = tissue_predictions[perm]
@@ -147,6 +154,7 @@ def main(
             width=int(pooled_graph.pos[:, 0].max()) - int(pooled_graph.pos[:, 0].min()),
             height=int(pooled_graph.pos[:, 1].max())
             - int(pooled_graph.pos[:, 1].min()),
+            edge_index=edge_index,
         )
 
 

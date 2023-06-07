@@ -54,6 +54,14 @@ class Organ:
         labels = {tissue.label: tissue.id for tissue in self.tissues}
         return self.tissues[labels[label]]
 
+    def remove_lesion_by_label(self, label):
+        for i, lesion in enumerate(self.lesions):
+            if lesion.label == label:
+                idx_to_remove = i
+        assert idx_to_remove is not None
+        self.lesions.pop(idx_to_remove)
+        return self
+
 
 PLACENTA = Organ(
     [
