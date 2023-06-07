@@ -28,7 +28,6 @@ def setup_cell_tissue_graph(hdf5_data, k, graph_method):
     return data
 
 
-
 def setup_graph(hdf5_data, organ, feature, k, graph_method, tissue_class=None):
     feature_data = get_feature(
         feature, hdf5_data.cell_predictions, hdf5_data.cell_embeddings, organ

@@ -36,9 +36,6 @@ def main(
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
 
-    if not plot_edges:
-        edge_index = None
-
     # Get hdf5 for the original cell and tissue labels
     if not plot_scores:
         hdf5_data = get_hdf5_data(project_name, run_id, 0, 0, -1, -1, tissue=True)
@@ -115,7 +112,6 @@ def main(
     # Visualise pooled graphs
     pooled_graph = data
     for i, pooled_output in enumerate(pooling_outputs):
-        x = pooled_output[0]
         edge_index = pooled_output[1]
         perm = pooled_output[4].to("cpu")
         scores = pooled_output[5].to("cpu").numpy()
@@ -123,8 +119,9 @@ def main(
         if not plot_edges:
             edge_index = None
 
-        perm = torch.unique(perm, sorted=True)
-        pooled_graph = pooled_graph.subgraph(perm)
+        # perm = torch.unique(perm, sorted=True)
+        # pooled_graph = pooled_graph.subgraph(perm)
+        pooled_graph.pos = pooled_graph.pos[perm]
 
         print(f"Generating image for pooling layer {i}")
         if plot_scores:
@@ -179,7 +176,7 @@ def get_pooled_graph(model, data):
 
     model.eval()
     with torch.no_grad():
-        model(data)
+        model.forward_old(data)
 
     for handle in hook_handles:
         handle.remove()

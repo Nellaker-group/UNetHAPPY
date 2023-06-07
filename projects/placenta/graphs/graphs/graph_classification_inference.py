@@ -1,4 +1,5 @@
 import time
+from typing import List, Optional
 
 import typer
 import torch
@@ -22,6 +23,7 @@ def main(
     model_name: str = typer.Option(...),
     run_id: int = typer.Option(...),
     model_type: GraphClassificationModelsArg = GraphClassificationModelsArg.top_k,
+    lesions_to_remove: Optional[List[str]] = None,
 ):
     db.init()
     set_seed(seed)
@@ -30,7 +32,13 @@ def main(
     organ = get_organ(organ_name)
 
     # get data graph and ground truth
-    datasets = setup_lesion_datasets(organ, project_dir, combine=True, test=False)
+    datasets = setup_lesion_datasets(
+        organ,
+        project_dir,
+        combine=True,
+        test=False,
+        lesions_to_remove=lesions_to_remove,
+    )
     train_dataset = datasets["train"]
     val_dataset = datasets["val"]
     trainval_dataset = train_dataset.combine_with_other_dataset(val_dataset)
@@ -56,7 +64,7 @@ def main(
     print(f"Running inference on run {run_id}")
     model.eval()
     with torch.no_grad():
-        out = model(data)
+        out = model.forward_old(data)
     timer_end = time.time()
     print(f"total inference time: {timer_end - timer_start:.4f} s")
 
@@ -70,6 +78,7 @@ def main(
     print(f"Ground truth: {lesion.numpy().astype(int)}")
     print(f"Predicted: {pred.numpy()}")
     print(f"Accuracy: {accuracy:.4f}")
+
 
 if __name__ == "__main__":
     typer.run(main)
