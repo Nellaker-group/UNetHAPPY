@@ -77,6 +77,7 @@ def main(
 
     # Get data back onto cpu for results saving
     data = data.to("cpu")
+    edge_index = data.edge_index
 
     # Setup path to save results
     save_path = get_model_eval_path(model_name, pretrained_path, run_id)
@@ -96,7 +97,7 @@ def main(
             colours=colours,
             width=int(data.pos[:, 0].max()) - int(data.pos[:, 0].min()),
             height=int(data.pos[:, 1].max()) - int(data.pos[:, 1].min()),
-            edge_index=data.edge_index,
+            edge_index=edge_index,
         )
         plot_name = f"original_tissues.png"
         colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
@@ -118,6 +119,9 @@ def main(
         edge_index = pooled_output[1]
         perm = pooled_output[4].to("cpu")
         scores = pooled_output[5].to("cpu").numpy()
+
+        if not plot_edges:
+            edge_index = None
 
         perm = torch.unique(perm, sorted=True)
         pooled_graph = pooled_graph.subgraph(perm)

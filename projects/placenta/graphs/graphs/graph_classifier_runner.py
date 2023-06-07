@@ -213,7 +213,7 @@ class Runner:
 class TopKRunner(Runner):
     def setup_model(self):
         return TopKClassifer(
-            self.params.datasets["train"][0].num_node_features,
+            next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.num_classes,
             self.params.layers,

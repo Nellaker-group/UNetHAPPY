@@ -31,6 +31,7 @@ def main(
     learning_rate: float = 0.0005,
     num_workers: int = 12,
     lesions_to_remove: Optional[List[str]] = None,
+    local: bool = False,
 ):
     """Trains a graph classifier model on the lesion focused dataset.
 
@@ -49,6 +50,7 @@ def main(
         subsample_ratio: the ratio of node to first subsample each graph down to
         learning_rate: the learning rate of the model
         num_workers: number of workers for the dataloader
+        local: a flag to extract one local graph for testing locally
     """
     # general setup
     db.init()
@@ -69,6 +71,7 @@ def main(
         combine=True,
         test=False,
         lesions_to_remove=lesions_to_remove,
+        local=local
     )
 
     # Setup training parameters, including dataloaders, models, loss, etc.

@@ -2,9 +2,15 @@ from projects.placenta.graphs.graphs.lesion_dataset import LesionDataset
 
 
 def setup_lesion_datasets(
-    organ, project_dir, combine=True, test=False, lesions_to_remove=None
+    organ, project_dir, combine=True, test=False, lesions_to_remove=None, local=False
 ):
     datasets = {}
+    if local:
+        datasets["train"] = LesionDataset(
+            organ, project_dir, "single", "val", lesions_to_remove
+        )
+        datasets['val'] = datasets['train']
+        return datasets
     if combine:
         single_lesion_train_data = LesionDataset(
             organ, project_dir, "single", "train", lesions_to_remove
