@@ -114,10 +114,10 @@ def train(train_runner, logger, run_path):
             logger.log_loss("val", epoch - 1, val_loss)
             logger.log_accuracy("val", epoch - 1, val_accuracy)
             logger.to_csv(run_path / "c_graph_train_stats.csv")
-            # Save new best model
+            # Save new model every epoch
+            train_runner.save_state(run_path, epoch)
             if val_accuracy >= prev_best_val:
-                train_runner.save_state(run_path, epoch)
-                print("Saved best model")
+                print("Best current accuracy")
                 prev_best_val = val_accuracy
 
     except KeyboardInterrupt:
