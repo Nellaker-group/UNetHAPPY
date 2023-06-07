@@ -60,6 +60,9 @@ class LesionDataset(Dataset):
         self.data_paths = np.concatenate([self.data_paths, second_dataset.data_paths])
         return self
 
+    def get_num_classes(self):
+        return len(self.organ.lesions)
+
     def _remove_lesions(self):
         self.split_df = self.split_df[
             ~self.split_df["lesion"].isin(self.lesions_to_remove)

@@ -86,7 +86,6 @@ def main(
         learning_rate,
         num_workers,
         lesions_to_remove,
-        organ,
     )
     runner = Runner.new(run_params, test=False)
 

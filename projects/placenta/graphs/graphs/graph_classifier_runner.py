@@ -9,7 +9,6 @@ import torch.nn.functional as F
 from torch_geometric.loader import DataLoader
 import numpy as np
 
-from happy.organs import Organ
 from happy.graph.enums import GraphClassificationModelsArg
 from happy.models.graph_classifier import TopKClassifer
 from projects.placenta.graphs.graphs.lesion_dataset import LesionDataset
@@ -30,11 +29,10 @@ class Params:
     learning_rate: float
     num_workers: int
     lesions_to_remove: Optional[list[str]]
-    organ: Organ
 
     def save(self, seed, exp_name, run_path):
         to_save = {
-            k: v for k, v in asdict(self).items() if k not in ("datasets", "organ")
+            k: v for k, v in asdict(self).items() if k not in ("datasets")
         }
         to_save["seed"] = seed
         to_save["exp_name"] = exp_name
@@ -51,7 +49,7 @@ class Runner:
         self._val_loader: Optional[DataLoader] = None
         self._optimiser: Optional[torch.optim.Optimizer] = None
         self._criterion: Optional[nn.Module] = None
-        self.num_classes = len(self.params.organ.lesions)
+        self.num_classes = next(iter(self.params.datasets.values())).get_num_classes()
 
     @staticmethod
     def new(params: Params, test: bool = False) -> "Runner":
