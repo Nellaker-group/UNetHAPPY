@@ -64,7 +64,7 @@ def main(
     print(f"Running inference on run {run_id}")
     model.eval()
     with torch.no_grad():
-        out = model.forward_old(data)
+        out = model(data)
     timer_end = time.time()
     print(f"total inference time: {timer_end - timer_start:.4f} s")
 

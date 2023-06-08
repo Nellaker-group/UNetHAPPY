@@ -6,7 +6,6 @@ import copy
 import numpy as np
 import typer
 import torch
-from torch_geometric.nn import TopKPooling
 
 import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device, get_project_dir
@@ -16,8 +15,9 @@ from happy.graph.enums import GraphClassificationModelsArg
 from happy.graph.utils.visualise_points import visualize_points
 from happy.graph.utils.utils import get_model_eval_path
 from happy.graph.graph_creation.get_and_process import get_hdf5_data
+from happy.models.utils.custom_layers import KnnEdges
 
-
+# TODO: this gets different pooling and edge results when run on cpu vs gpu. Need to retrain a model and check
 def main(
     seed: int = 0,
     project_name: str = "placenta",
@@ -63,7 +63,7 @@ def main(
         / model_weights_dir
         / model_name
     )
-    model = torch.load(pretrained_path)
+    model = torch.load(pretrained_path, map_location=device)
 
     timer_start = time.time()
     # Run inference and get predicted labels for nodes
@@ -95,6 +95,7 @@ def main(
             width=int(data.pos[:, 0].max()) - int(data.pos[:, 0].min()),
             height=int(data.pos[:, 1].max()) - int(data.pos[:, 1].min()),
             edge_index=edge_index,
+            point_size=0.05,
         )
         plot_name = f"original_tissues.png"
         colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
@@ -107,21 +108,17 @@ def main(
         width=int(data.pos[:, 0].max()) - int(data.pos[:, 0].min()),
         height=int(data.pos[:, 1].max()) - int(data.pos[:, 1].min()),
         edge_index=data.edge_index,
+        point_size=0.05,
     )
 
     # Visualise pooled graphs
-    pooled_graph = data
     for i, pooled_output in enumerate(pooling_outputs):
-        edge_index = pooled_output[1]
-        perm = pooled_output[4].to("cpu")
-        scores = pooled_output[5].to("cpu").numpy()
-
+        pos = pooled_output[1].to("cpu")
+        edge_index = pooled_output[2].to("cpu")
+        perm = pooled_output[5].to("cpu")
+        scores = pooled_output[6].to("cpu").numpy()
         if not plot_edges:
             edge_index = None
-
-        # perm = torch.unique(perm, sorted=True)
-        # pooled_graph = pooled_graph.subgraph(perm)
-        pooled_graph.pos = pooled_graph.pos[perm]
 
         print(f"Generating image for pooling layer {i}")
         if plot_scores:
@@ -135,13 +132,12 @@ def main(
             visualize_points(
                 organ,
                 save_path / plot_name,
-                pooled_graph.pos,
+                pos,
                 colours=colours,
-                width=int(pooled_graph.pos[:, 0].max())
-                - int(pooled_graph.pos[:, 0].min()),
-                height=int(pooled_graph.pos[:, 1].max())
-                - int(pooled_graph.pos[:, 1].min()),
+                width=int(pos[:, 0].max()) - int(pos[:, 0].min()),
+                height=int(pos[:, 1].max()) - int(pos[:, 1].min()),
                 edge_index=edge_index,
+                point_size=0.05,
             )
             plot_name = f"pool_{i}_tissues.png"
             tissue_predictions = tissue_predictions[perm]
@@ -150,12 +146,12 @@ def main(
         visualize_points(
             organ,
             save_path / plot_name,
-            pooled_graph.pos,
+            pos,
             colours=colours,
-            width=int(pooled_graph.pos[:, 0].max()) - int(pooled_graph.pos[:, 0].min()),
-            height=int(pooled_graph.pos[:, 1].max())
-            - int(pooled_graph.pos[:, 1].min()),
+            width=int(pos[:, 0].max()) - int(pos[:, 0].min()),
+            height=int(pos[:, 1].max()) - int(pos[:, 1].min()),
             edge_index=edge_index,
+            point_size=0.05,
         )
 
 
@@ -168,15 +164,15 @@ def get_pooled_graph(model, data):
 
     hook_handles = []
     for module in model.modules():
-        if isinstance(module, TopKPooling):
+        if isinstance(module, KnnEdges):
             hook_handles.append(module.register_forward_hook(hook))
 
     if len(hook_handles) == 0:
-        warnings.warn("The 'model' does not have any 'TopKPooling' layers")
+        warnings.warn("The 'model' does not have any 'KnnEdges' layers")
 
     model.eval()
     with torch.no_grad():
-        model.forward_old(data)
+        model(data)
 
     for handle in hook_handles:
         handle.remove()
