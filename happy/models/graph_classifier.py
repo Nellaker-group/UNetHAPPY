@@ -94,7 +94,7 @@ class SAGClassifer(nn.Module):
             self.convs.append(GraphConv(in_channels, hidden_channels, aggr="mean"))
             self.pools.append(SAGPooling(hidden_channels, ratio=pool_ratio))
             self.knn_edge_transform.append(
-                KnnEdges(start_k=6, k_increment=2, no_op=True)
+                KnnEdges(start_k=6, k_increment=2, no_op=False)
             )
 
         self.jump = JumpingKnowledge(mode="cat")
@@ -113,9 +113,10 @@ class SAGClassifer(nn.Module):
         xs = []
         for i, conv in enumerate(self.convs):
             x = F.relu(conv(x, edge_index))
-            x, _, _, batch, perm, score = self.pools[i](x, edge_index, None, batch)
+            x, edge_index, _, batch, perm, score = self.pools[i](
+                x, edge_index, None, batch
+            )
             xs += [gmp(x, batch)]
-            x, edge_index, _, batch, perm, _ = self.pools[i](x, edge_index, None, batch)
             _, pos, edge_index, edge_attr, _, _, _ = self.knn_edge_transform[i](
                 x, pos, edge_index, edge_attr, batch, perm, score, i
             )
@@ -123,8 +124,7 @@ class SAGClassifer(nn.Module):
         x = self.jump(xs)
         x = F.relu(self.lin1(x))
         x = F.dropout(x, p=0.5, training=self.training)
-        x = F.relu(self.lin2(x))
-        x = self.lin3(x)
+        x = self.lin2(x)
 
         return x
 

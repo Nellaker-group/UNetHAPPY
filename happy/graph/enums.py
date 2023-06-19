@@ -29,3 +29,4 @@ class SupervisedModelsArg(str, Enum):
 
 class GraphClassificationModelsArg(str, Enum):
     top_k = "top_k"
+    sag = "sag"

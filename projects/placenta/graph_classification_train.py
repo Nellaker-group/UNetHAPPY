@@ -54,7 +54,8 @@ def main(
     """
     # general setup
     db.init()
-    device = get_device()
+    # device = get_device()
+    device = "cpu"
     set_seed(seed)
 
     project_dir = get_project_dir(project_name)

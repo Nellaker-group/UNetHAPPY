@@ -17,7 +17,7 @@ from happy.graph.utils.utils import get_model_eval_path
 from happy.graph.graph_creation.get_and_process import get_hdf5_data
 from happy.models.utils.custom_layers import KnnEdges
 
-# TODO: this gets different pooling and edge results when run on cpu vs gpu. Need to retrain a model and check
+
 def main(
     seed: int = 0,
     project_name: str = "placenta",
