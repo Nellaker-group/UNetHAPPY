@@ -142,7 +142,11 @@ class ASAPClassifer(nn.Module):
         for i in range(num_layers):
             in_channels = in_channels if i == 0 else hidden_channels
             self.convs.append(GraphConv(in_channels, hidden_channels, aggr="mean"))
-            self.pools.append(ASAPooling(hidden_channels, ratio=pool_ratio))
+            self.pools.append(
+                ASAPooling(
+                    hidden_channels, ratio=pool_ratio, dropout=0.3, GNN=GraphConv
+                )
+            )
             self.knn_edge_transform.append(
                 KnnEdges(start_k=6, k_increment=2, no_op=False)
             )
@@ -164,9 +168,7 @@ class ASAPClassifer(nn.Module):
         xs = []
         for i, conv in enumerate(self.convs):
             x = F.relu(conv(x, edge_index))
-            x, edge_index, _, batch, perm = self.pools[i](
-                x, edge_index, None, batch
-            )
+            x, edge_index, _, batch, perm = self.pools[i](x, edge_index, None, batch)
             xs += [gmp(x, batch)]
             _, pos, edge_index, edge_attr, _, _, _ = self.knn_edge_transform[i](
                 x, pos, edge_index, edge_attr, batch, perm, score, i
