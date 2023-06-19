@@ -10,7 +10,7 @@ from torch_geometric.loader import DataLoader
 import numpy as np
 
 from happy.graph.enums import GraphClassificationModelsArg
-from happy.models.graph_classifier import TopKClassifer, SAGClassifer
+from happy.models.graph_classifier import TopKClassifer, SAGClassifer, ASAPClassifer
 from projects.placenta.graphs.graphs.lesion_dataset import LesionDataset
 
 
@@ -55,7 +55,8 @@ class Runner:
     def new(params: Params, test: bool = False) -> "Runner":
         cls = {
             GraphClassificationModelsArg.top_k: TopKRunner,
-            GraphClassificationModelsArg.sag: SagRunner,
+            GraphClassificationModelsArg.sag: SAGRunner,
+            GraphClassificationModelsArg.asap: ASAPRunner,
         }
         ModelClass = cls[params.model_type]
         return ModelClass(params, test)
@@ -221,9 +222,19 @@ class TopKRunner(Runner):
             self.params.pooling_ratio,
         )
 
-class SagRunner(Runner):
+class SAGRunner(Runner):
     def setup_model(self):
         return SAGClassifer(
+            next(iter(self.params.datasets.values())).num_node_features,
+            self.params.hidden_units,
+            self.num_classes,
+            self.params.layers,
+            self.params.pooling_ratio,
+        )
+
+class ASAPRunner(Runner):
+    def setup_model(self):
+        return ASAPClassifer(
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.num_classes,
