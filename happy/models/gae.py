@@ -1,19 +1,58 @@
 import torch
-from torch_geometric.utils import add_self_loops, remove_self_loops
-from torch_geometric.nn import GraphUNet
+from torch_geometric.nn.conv import GCNConv
+from torch_geometric.nn.pool import fps
+from torch_geometric.nn.unpool import knn_interpolate
+
+from happy.models.utils.custom_layers import KnnEdges
 
 
-class UNet(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, depth, pool_ratio):
-        super(UNet, self).__init__()
-        self.conv = GraphUNet(
-            in_channels, hidden_channels, in_channels, depth, pool_ratio)
+class GAE(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels, depth, pool_ratio=0.25):
+        super().__init__()
+        self.in_channels = in_channels
+        self.hidden_channels = hidden_channels
+        self.depth = depth
+        self.pool_ratio = pool_ratio
 
-    def forward(self, data):
-        x, edge_index, batch = data.x, data.edge_index, data.batch
-        edge_index, _ = remove_self_loops(edge_index)
-        edge_index, _ = add_self_loops(edge_index, num_nodes=x.size(0))
+        self.down_convs = torch.nn.ModuleList()
+        self.knn_edge_transform = torch.nn.ModuleList()
+        self.up_convs = torch.nn.ModuleList()
+        self.lin = torch.nn.Linear(hidden_channels, hidden_channels)
 
-        d, latent_x, latent_edge, batch = self.conv(x, edge_index, batch)
-        d = d.to(self.device)
-        return d, latent_x, latent_edge, batch
+        for i in range(depth):
+            in_channels = in_channels if i == 0 else hidden_channels
+            self.down_convs.append(GCNConv(in_channels, hidden_channels, improved=True))
+            self.knn_edge_transform.append(
+                KnnEdges(start_k=6, k_increment=1, no_op=False)
+            )
+        for i in range(depth):
+            self.up_convs.append(
+                GCNConv(hidden_channels, hidden_channels, improved=True)
+            )
+
+    def forward(self, x, pos, edge_index, batch):
+        # todo: if this uses too much memory, we can save perm rather than pos
+        # Save for reconstruction
+        all_pos = [pos]
+        edge_indices = [edge_index]
+
+        # Downward pass
+        for i in range(self.depth):
+            x = self.down_convs[i](x, edge_index)
+            x = torch.relu(x)
+            perm = fps(x, batch, ratio=self.pool_ratio)
+            x, pos, edge_index, _, _, _, _ = self.knn_edge_transform[i](
+                x, pos, edge_index, None, batch, perm, None, i
+            )
+            x = x[perm]
+            all_pos.append(pos)
+            edge_indices.append(edge_index)
+
+        # Upward pass
+        for i in range(self.depth):
+            x = self.up_convs[i](x, edge_indices[-i - 1])
+            x = torch.relu(x)
+            x = knn_interpolate(x, all_pos[-i - 1], all_pos[-i - 2], k=6)
+
+        x = self.lin(x)
+        return x
