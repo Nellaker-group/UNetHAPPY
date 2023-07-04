@@ -41,6 +41,7 @@ def main(
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
     tissue_label_tsv: Optional[str] = None,
+    compress_labels: bool = False,
     verbose: bool = True,
 ):
     db.init()
@@ -141,7 +142,7 @@ def main(
     # Evaluate against ground truth tissue annotations
     if tissue_label_tsv is not None:
         _print_prediction_stats(tissue_class, tissue_label_mapping)
-        evaluate(tissue_class, predicted_labels, out, organ, remove_unlabelled)
+        evaluate(tissue_class, predicted_labels, out, organ, compress_labels)
         evaluation_plots(tissue_class, predicted_labels, out, organ, save_path)
 
     # Visualise cluster labels on graph patch

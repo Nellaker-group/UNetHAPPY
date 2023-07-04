@@ -22,6 +22,7 @@ class Tissue:
     name: str
     colour: str
     id: int
+    alt_id: int
 
     def __str__(self):
         return f"{self.label}"
@@ -81,19 +82,19 @@ PLACENTA = Organ(
         Cell("KNT", "Syncytial Knot", "#7CFFFA", "#00ffff", 10, 0, 1),
     ],
     [
-        Tissue("Unlabelled", "Unlabelled", "#000000", 0),
-        Tissue("Sprout", "Villus Sprout", "#ff3cfe", 1),
-        Tissue("MVilli", "Mesenchymal Villi", "#f60239", 2),
-        Tissue("TVilli", "Terminal Villi", "#ff6e3a", 3),
-        Tissue("ImIVilli", "Immature Intermediate Villi", "#5a000f", 4),
-        Tissue("MIVilli", "Mature Intermediate Villi", "#ffac3b", 5),
-        Tissue("AVilli", "Anchoring Villi", "#ffcfe2", 6),
-        Tissue("SVilli", "Stem Villi", "#ffdc3d", 7),
-        Tissue("Chorion", "Chorionic Plate", "#005a01", 8),
-        Tissue("Maternal", "Basal Plate/Septum", "#00cba7", 9),
-        Tissue("Inflam", "Inflammatory Response", "#7cfffa", 10),
-        Tissue("Fibrin", "Fibrin", "#0079fa", 11),
-        Tissue("Avascular", "Avascular Villi", "#450270", 12),
+        Tissue("Unlabelled", "Unlabelled", "#000000", 0, 0),
+        Tissue("Sprout", "Villus Sprout", "#ff3cfe", 1, 3),
+        Tissue("MVilli", "Mesenchymal Villi", "#f60239", 2, 2),
+        Tissue("TVilli", "Terminal Villi", "#ff6e3a", 3, 3),
+        Tissue("ImIVilli", "Immature Intermediate Villi", "#5a000f", 4, 4),
+        Tissue("MIVilli", "Mature Intermediate Villi", "#ffac3b", 5, 5),
+        Tissue("AVilli", "Anchoring Villi", "#ffcfe2", 6, 7),
+        Tissue("SVilli", "Stem Villi", "#ffdc3d", 7, 7),
+        Tissue("Chorion", "Chorionic Plate", "#005a01", 8, 8),
+        Tissue("Maternal", "Basal Plate/Septum", "#00cba7", 9, 9),
+        Tissue("Inflam", "Inflammatory Response", "#7cfffa", 10, 10),
+        Tissue("Fibrin", "Fibrin", "#0079fa", 11, 11),
+        Tissue("Avascular", "Avascular Villi", "#450270", 12, 11),
     ],
     [
         Lesion("healthy", "Healthy", 0),

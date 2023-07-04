@@ -31,3 +31,6 @@ class GraphClassificationModelsArg(str, Enum):
     top_k = "top_k"
     sag = "sag"
     asap = "asap"
+
+class AutoEncoderModelsArg(str, Enum):
+    fps = "fps"
