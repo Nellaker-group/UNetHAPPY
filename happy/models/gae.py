@@ -50,9 +50,9 @@ class GAE(torch.nn.Module):
 
         # Upward pass
         for i in range(self.depth):
+            x = knn_interpolate(x, all_pos[-i - 1], all_pos[-i - 2], k=6)
             x = self.up_convs[i](x, edge_indices[-i - 1])
             x = torch.relu(x)
-            x = knn_interpolate(x, all_pos[-i - 1], all_pos[-i - 2], k=6)
 
         x = self.lin(x)
         return x
