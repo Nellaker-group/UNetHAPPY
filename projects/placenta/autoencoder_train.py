@@ -1,6 +1,7 @@
 from typing import Optional
 
 import typer
+import numpy as np
 
 import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device
@@ -61,7 +62,7 @@ def main(
     organ = get_organ(organ_name)
 
     # Setup recording of stats per batch and epoch
-    logger = Logger(list(["train", "val"]), ["loss", "accuracy"], vis=False, file=True)
+    logger = Logger(list(["train", "val"]), ["loss"], vis=False, file=True)
 
     # Get Dataset of lesion graphs (combination of single and multi lesions)
     datasets = setup_lesion_datasets(
@@ -101,23 +102,21 @@ def train(train_runner, logger, run_path):
     epochs = train_runner.params.epochs
 
     try:
-        prev_best_val = 0
+        prev_best_val = np.inf
         for epoch in range(1, epochs + 1):
             print("Training:")
-            loss, accuracy = train_runner.train()
+            loss = train_runner.train()
             logger.log_loss("train", epoch - 1, loss)
-            logger.log_accuracy("train", epoch - 1, accuracy)
 
             print("Validation:")
-            val_loss, val_accuracy = train_runner.validate()
+            val_loss = train_runner.validate()
             logger.log_loss("val", epoch - 1, val_loss)
-            logger.log_accuracy("val", epoch - 1, val_accuracy)
-            logger.to_csv(run_path / "c_graph_train_stats.csv")
+            logger.to_csv(run_path / "gae_train_stats.csv")
             # Save new model every epoch
             train_runner.save_state(run_path, epoch)
-            if val_accuracy >= prev_best_val:
-                print("Best current accuracy")
-                prev_best_val = val_accuracy
+            if val_loss >= prev_best_val:
+                print("Best current val loss")
+                prev_best_val = val_loss
 
     except KeyboardInterrupt:
         save_hp = input("Would you like to save anyway? y/n: ")
