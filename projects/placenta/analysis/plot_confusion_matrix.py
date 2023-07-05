@@ -9,7 +9,7 @@ import seaborn as sns
 from happy.train.utils import get_tissue_confusion_matrix, plot_confusion_matrix
 from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
-from happy.graph.create_graph import get_groundtruth_patch
+from happy.graph.graph_creation.get_and_process import get_groundtruth_patch
 
 
 def main(

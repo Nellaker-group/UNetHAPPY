@@ -7,10 +7,9 @@ import pandas as pd
 from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 import happy.db.eval_runs_interface as db
-from happy.utils.hdf5 import get_datasets_in_patch, get_embeddings_file
-from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
-from happy.graph.create_graph import get_groundtruth_patch
-from happy.graph.create_graph import get_nodes_within_tiles
+from happy.graph.graph_creation.get_and_process import get_raw_data
+from projects.placenta.graphs.processing.process_knots import process_knts
+from happy.graph.graph_creation.create_graph import get_nodes_within_tiles
 from projects.placenta.analysis.wsi_cell_tissue_stats import get_cells_within_tissues
 
 
@@ -34,23 +33,10 @@ def main(
     cell_dfs = []
     tissue_dfs = []
     for i, run_id in enumerate(run_ids):
-        tissue_label_tsv = tissue_label_tsvs[i]
-
-        # Get path to embeddings hdf5 files
-        embeddings_path = get_embeddings_file(project_name, run_id)
-        # Get hdf5 datasets contained in specified box/patch of WSI
-        predictions, embeddings, cell_coords, confidence = get_datasets_in_patch(
-            embeddings_path, 0, 0, -1, -1
+        # Get raw data and ground truth data
+        hdf5_data, tissue_class = get_raw_data(
+            project_name, organ, project_dir, run_id, 0, 0, -1, -1, tissue_label_tsvs[i]
         )
-        # Get ground truth manually annotated data
-        xs_tissue, ys_tissue, tissue_class = get_groundtruth_patch(
-            organ, project_dir, 0, 0, -1, -1, tissue_label_tsv
-        )
-        sort_args = np.lexsort((cell_coords[:, 1], cell_coords[:, 0]))
-        predictions = predictions[sort_args]
-        embeddings = embeddings[sort_args]
-        cell_coords = cell_coords[sort_args]
-        confidence = confidence[sort_args]
 
         # Get patch of interest from patch file
         if len(patch_files) != 0:
@@ -60,7 +46,11 @@ def main(
                 patches_df = pd.read_csv(file)
                 for row in patches_df.itertuples(index=False):
                     node_inds = get_nodes_within_tiles(
-                        (row.x, row.y), row.width, row.height, xs_tissue, ys_tissue
+                        (row.x, row.y),
+                        row.width,
+                        row.height,
+                        hdf5_data.coords[:, 0],
+                        hdf5_data.coords[:, 1],
                     )
                     patch_node_inds.extend(node_inds)
                     if use_path_class:
@@ -72,27 +62,16 @@ def main(
                 f"Removing {len(tissue_class) - len(patch_node_inds)} unlabelled nodes"
             )
 
-        predictions = predictions[patch_node_inds]
-        embeddings = embeddings[patch_node_inds]
-        cell_coords = cell_coords[patch_node_inds]
-        confidence = confidence[patch_node_inds]
-        xs_tissue = xs_tissue[patch_node_inds]
-        ys_tissue = ys_tissue[patch_node_inds]
+        hdf5_data = hdf5_data._apply_mask(patch_node_inds)
         tissue_class = tissue_class[patch_node_inds]
 
         if group_knts:
-            (
-                predictions,
-                embeddings,
-                cell_coords,
-                confidence,
-                inds_to_remove,
-            ) = process_knt_cells(
-                predictions, embeddings, cell_coords, confidence, organ, 50, 3
-            )
+            hdf5_data, tissue_class = process_knts(organ, hdf5_data, tissue_class)
 
         # print cell predictions from hdf5 file
-        unique_cells, cell_counts = np.unique(predictions, return_counts=True)
+        unique_cells, cell_counts = np.unique(
+            hdf5_data.cell_predictions, return_counts=True
+        )
         unique_cell_labels = []
         for label in unique_cells:
             unique_cell_labels.append(cell_label_mapping[label])
@@ -107,18 +86,21 @@ def main(
         # # print tissue ground truth
         if not use_path_class:
             tissue_df = pd.DataFrame(
-                {"x": xs_tissue, "y": ys_tissue, "Tissues": tissue_class}
+                {
+                    "x": hdf5_data.coords[:, 0],
+                    "y": hdf5_data.coords[:, 1],
+                    "Tissues": tissue_class,
+                }
             )
             tissue_df["Tissues"] = tissue_df["Tissues"].map(tissue_label_mapping)
         else:
             tissue_df = pd.DataFrame(
-                {"x": xs_tissue, "y": ys_tissue, "Tissues": path_class}
+                {
+                    "x": hdf5_data.coords[:, 0],
+                    "y": hdf5_data.coords[:, 1],
+                    "Tissues": path_class,
+                }
             )
-        # remove rows where knots were removed
-        if group_knts:
-            tissue_df = tissue_df.loc[
-                ~tissue_df.index.isin(inds_to_remove)
-            ].reset_index(drop=True)
         unique_tissues, tissue_counts = np.unique(
             tissue_df["Tissues"], return_counts=True
         )
@@ -132,7 +114,11 @@ def main(
 
         # get number of cell types within each tissue type
         cell_df = pd.DataFrame(
-            {"x": cell_coords[:, 0], "y": cell_coords[:, 1], "Cells": predictions}
+            {
+                "x": hdf5_data.coords[:, 0],
+                "y": hdf5_data.coords[:, 1],
+                "Cells": hdf5_data.cell_predictions,
+            }
         )
         cell_df["Cells"] = cell_df.Cells.map(cell_label_mapping)
         cell_df.sort_values(by=["x", "y"], inplace=True, ignore_index=True)

@@ -11,7 +11,7 @@ from sklearn.neighbors import LocalOutlierFactor
 
 import happy.db.eval_runs_interface as db
 from happy.db.msfile_interface import get_msfile_by_run
-from happy.utils.hdf5 import get_embeddings_file, get_hdf5_datasets
+from happy.hdf5 import get_embeddings_file, get_hdf5_datasets
 from happy.organs import get_organ
 
 

@@ -33,8 +33,8 @@ def main(
     Multiple datasets can be combined by passing in 'dataset_names' multiple times with
     the correct datasets directory name.
 
-    Visualising the batch and epoch level training stats requires having a visdom
-    server running on port 8998.
+    Visualising the batch and epoch metrics during training requires having a visdom
+    server running on port 8998 (and vis=True).
 
     Args:
         project_name: name of the project dir to save results to
@@ -47,7 +47,7 @@ def main(
         epochs: number of epochs to train for
         batch: batch size of the training set
         val_batch: batch size of the validation sets
-        learning_rate: learning rate which decreases every 8 epochs
+        learning_rate: initial learning rate which decreases every step size
         decay_gamma: amount to decay learning rate by. Set to 1 for no decay.
         step_size: epoch at which to apply learning rate decay.
         init_from_inc: whether to use imagenet pretrained weights

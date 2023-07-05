@@ -14,9 +14,9 @@ from happy.microscopefile.prediction_saver import PredictionSaver
 from happy.data.datasets.ms_dataset import CellDataset
 from happy.data.transforms.collaters import cell_collater
 from happy.data.transforms.transforms import Normalizer, Resizer
-from happy.utils.graceful_killer import GracefulKiller
+from happy.utils.utils import GracefulKiller
 from happy.models.model_builder import build_cell_classifer
-from happy.utils.hdf5 import get_embeddings_file
+from happy.hdf5 import get_embeddings_file
 import happy.db.eval_runs_interface as db
 
 

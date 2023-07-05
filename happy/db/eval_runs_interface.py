@@ -51,9 +51,9 @@ def get_embeddings_path(run_id, embeddings_dir=None):
 
         eval_run.embeddings_path = path_with_file
         eval_run.save()
-        return str(path_with_file)
+        return path_with_file
     else:
-        return eval_run.embeddings_path
+        return Path(eval_run.embeddings_path)
 
 
 # Updates temporary run tile state table with a new tiles run state

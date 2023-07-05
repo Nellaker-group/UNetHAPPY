@@ -1,3 +1,5 @@
+import warnings
+
 import umap
 import umap.plot
 import pandas as pd
@@ -7,6 +9,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# temporary fix for datashader version bug. Should be fixed by new datashader release.
+np.warnings = warnings
 
 def plot_interactive(
     plot_name, slide_name, organ, predictions, confidence, coords, mapper

@@ -57,15 +57,18 @@ def fit_clustering(num_clusters, graph_embeddings, clustering_method, mapper=Non
 
 
 def plot_tissue_umap(
-    organ, mapper, plot_name, save_dir, predicted_labels, label_names=False
+    organ, mapper, plot_name, save_dir, predicted_labels
 ):
-    # Note: this only works for 9-label tissue ids
-    if label_names:
-        labels = np.array([organ.tissues[pred].label for pred in predicted_labels])
-    else:
-        labels = predicted_labels
-    plot = umap.plot.points(mapper, labels=labels)
-    plot_name = f"labelled_{plot_name}.png"
+    colours_dict = {tissue.label: tissue.colour for tissue in organ.tissues}
+    labels = np.array([organ.tissues[pred].label for pred in predicted_labels])
+
+    filtered_colour_dict = colours_dict.copy()
+    for key in colours_dict.keys():
+        if key not in labels:
+            filtered_colour_dict.pop(key)
+
+    plot = umap.plot.points(mapper, labels=labels, color_key=filtered_colour_dict)
+    plot_name = f"tissue_{plot_name}_umap.png"
     plot.figure.savefig(save_dir / plot_name)
     print(f"Clustered UMAP saved to {save_dir / plot_name}")
     plt.close(plot.figure)

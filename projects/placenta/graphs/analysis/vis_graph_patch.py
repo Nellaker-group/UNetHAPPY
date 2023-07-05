@@ -10,20 +10,16 @@ from matplotlib.collections import LineCollection
 from torch_geometric.data import Data
 
 import happy.db.eval_runs_interface as db
+from happy.graph.utils.visualise_points import visualize_points
 from happy.organs import get_organ
-from happy.utils.hdf5 import (
-    get_datasets_in_patch,
-    filter_by_confidence,
-    filter_by_cell_type,
-    filter_randomly,
-    get_embeddings_file,
-)
+from happy.hdf5 import get_embeddings_file
+from happy.graph.graph_creation.get_and_process import get_hdf5_data
 from happy.utils.utils import get_project_dir
-from happy.graph.create_graph import (
+from happy.graph.graph_creation.create_graph import (
     make_k_graph,
     make_radius_k_graph,
     make_voronoi,
-    make_delaunay_triangulation,
+    make_delaunay_graph,
     make_intersection_graph,
 )
 
@@ -49,13 +45,14 @@ def main(
     top_conf: bool = False,
     plot_edges: bool = False,
     single_cell: Optional[str] = None,
-    percent_to_remove: float = 0.0,
+    percent_to_keep: float = 0.0,
     custom_save_dir: Optional[str] = None,
 ):
-    """Generates a graph and saves it's visualisation. Node are coloured by cell type
+    """Generates a graph and saves its visualisation. Node are coloured by cell type
 
     Args:
         run_id: id of the run which generated the embeddings file
+        project_name: name of the project
         organ_name: name of the organ to get the cell colours
         method: graph creation method to use.
         x_min: min x coordinate for defining a subsection/patch of the WSI
@@ -64,6 +61,9 @@ def main(
         height: height for defining a subsection/patch of the WSI. -1 for all
         top_conf: filter the nodes to only those >90% network confidence
         plot_edges: whether to plot edges or just points
+        single_cell: filter the nodes to only those of a single cell type
+        percent_to_keep: percent of nodes to random remove down to
+        custom_save_dir: custom directory to save the graph visualisation
     """
     # Create database connection
     db.init()
@@ -71,33 +71,27 @@ def main(
     organ = get_organ(organ_name)
     project_dir = get_project_dir(project_name)
 
-    # Get path to embeddings hdf5 files
-    embeddings_path = get_embeddings_file(project_name, run_id)
-    print(f"Getting data from: {embeddings_path}")
-
     # Get hdf5 datasets contained in specified box/patch of WSI
-    predictions, embeddings, coords, confidence = get_datasets_in_patch(
-        embeddings_path, x_min, y_min, width, height
-    )
-    print(f"Data loaded with {len(predictions)} nodes")
+    embeddings_path = get_embeddings_file(project_name, run_id)
+    hdf5_data = get_hdf5_data(project_name, run_id, x_min, y_min, width, height)
 
     if top_conf:
-        predictions, embeddings, coords, confidence = filter_by_confidence(
-            predictions, embeddings, coords, confidence, 0.9, 1.0
-        )
-
+        hdf5_data = hdf5_data.filter_by_confidence(0.9, 1.0)
     if single_cell:
-        predictions, embeddings, coords, confidence = filter_by_cell_type(
-            predictions, embeddings, coords, confidence, single_cell, organ
-        )
-
-    if percent_to_remove > 0.0:
-        predictions, embeddings, coords, confidence, _ = filter_randomly(
-            predictions, embeddings, coords, confidence, percent_to_remove
-        )
+        hdf5_data = hdf5_data.filter_by_cell_type(single_cell)
 
     # Make graph data object
-    data = Data(x=predictions, pos=torch.Tensor(coords.astype("int32")))
+    data = Data(
+        x=torch.Tensor(hdf5_data.cell_predictions),
+        pos=torch.Tensor(hdf5_data.coords.astype("int32")),
+    )
+
+    keep_indices = None
+    if percent_to_keep > 0.0:
+        num_to_keep = int(data.num_nodes * percent_to_keep)
+        keep_indices = torch.LongTensor(
+            np.random.choice(np.arange(data.num_nodes), num_to_keep, replace=False)
+        )
 
     # setup save location and filename
     save_dirs = Path(*embeddings_path.parts[-3:-1])
@@ -109,36 +103,65 @@ def main(
     plot_name = f"x{x_min}_y{y_min}_top_conf" if top_conf else f"x{x_min}_y{y_min}"
     plot_name = f"{plot_name}_{single_cell}" if single_cell else plot_name
     plot_name = (
-        f"{plot_name}_{percent_to_remove}_removed"
-        if percent_to_remove > 0.0
-        else plot_name
+        f"{plot_name}_{percent_to_keep}_reduced" if percent_to_keep > 0.0 else plot_name
     )
 
     method = method.value
     if method == "k":
         vis_for_range_k(
-            6, 7, data, plot_name, save_dir, organ, width, height, plot_edges
+            6,
+            7,
+            data,
+            plot_name,
+            save_dir,
+            organ,
+            width,
+            height,
+            plot_edges,
+            keep_indices,
         )
     elif method == "radius":
-        vis_for_range_radius(200, 260, 20, data, plot_name, save_dir, organ)
+        vis_for_range_radius(
+            200, 260, 20, data, plot_name, save_dir, organ, keep_indices
+        )
     elif method == "voronoi":
         vis_voronoi(data, plot_name, save_dir, organ)
     elif method == "delaunay":
-        vis_delaunay(data, plot_name, save_dir, organ, width, height)
+        vis_delaunay(data, plot_name, save_dir, organ, width, height, keep_indices)
     elif method == "intersection":
-        vis_intersection(data, 6, plot_name, save_dir, organ, width, height)
+        vis_intersection(
+            data, 6, plot_name, save_dir, organ, width, height, keep_indices
+        )
     elif method == "all":
         vis_for_range_k(
-            6, 7, data, plot_name, save_dir, organ, width, height, plot_edges
+            6,
+            7,
+            data,
+            plot_name,
+            save_dir,
+            organ,
+            width,
+            height,
+            plot_edges,
+            keep_indices,
         )
         vis_voronoi(data, plot_name, save_dir, organ)
-        vis_delaunay(data, plot_name, save_dir, organ, width, height)
+        vis_delaunay(data, plot_name, save_dir, organ, width, height, keep_indices)
     else:
         raise ValueError(f"no such method: {method}")
 
 
 def vis_for_range_k(
-    k_start, k_end, data, plot_name, save_dir, organ, width, height, plot_edges=True
+    k_start,
+    k_end,
+    data,
+    plot_name,
+    save_dir,
+    organ,
+    width,
+    height,
+    plot_edges=True,
+    keep_indices=None,
 ):
     # Specify save graph vis location
     save_path = save_dir / "max_radius"
@@ -147,6 +170,8 @@ def vis_for_range_k(
     # Generate vis for different values of k
     for k in range(k_start, k_end):
         data = make_k_graph(data, k)
+        if keep_indices is not None:
+            data = data.subgraph(keep_indices)
         if not plot_edges:
             edge_index = None
             edge_weight = None
@@ -169,7 +194,9 @@ def vis_for_range_k(
         print(f"Plot saved to {save_path / plot_name}")
 
 
-def vis_for_range_radius(rad_start, rad_end, k, data, plot_name, save_dir, organ):
+def vis_for_range_radius(
+    rad_start, rad_end, k, data, plot_name, save_dir, organ, keep_indices=None
+):
     for radius in range(rad_start, rad_end, 10):
         # Specify save graph vis location
         save_path = save_dir / f"radius_{radius}"
@@ -177,6 +204,8 @@ def vis_for_range_radius(rad_start, rad_end, k, data, plot_name, save_dir, organ
 
         # Generate vis for radius and k
         data = make_radius_k_graph(data, radius, k)
+        if keep_indices is not None:
+            data = data.subgraph(keep_indices)
 
         print(f"Plotting...")
         plot_name = f"k{k}_{plot_name}.png"
@@ -243,44 +272,17 @@ def vis_voronoi(data, plot_name, save_dir, organ, show_points=False):
     print(f"Plot saved to {save_path / plot_name}")
 
 
-def vis_delaunay(data, plot_name, save_dir, organ, width, height):
-    colours_dict = {cell.id: cell.colour for cell in organ.cells}
-    colours = [colours_dict[label] for label in data.x]
-
+def vis_delaunay(data, plot_name, save_dir, organ, width, height, keep_indices=None):
     # Specify save graph vis location
     save_path = save_dir / "delaunay"
     save_path.mkdir(parents=True, exist_ok=True)
 
-    delaunay = make_delaunay_triangulation(data)
-    print(f"Plotting...")
+    data = make_delaunay_graph(data)
+    if keep_indices is not None:
+        data = data.subgraph(keep_indices)
+    edge_index = data.edge_index
+    edge_weight = data.edge_attr
 
-    point_size = 1 if len(delaunay.edges) >= 10000 else 2
-
-    figsize = _calc_figsize(data.pos, width, height)
-    fig = plt.figure(figsize=figsize, dpi=300)
-    plt.triplot(delaunay, linewidth=0.5, color="black")
-    plt.scatter(
-        data.pos[:, 0], data.pos[:, 1], marker=".", s=point_size, zorder=1000, c=colours
-    )
-    plt.gca().invert_yaxis()
-    plt.axis("off")
-    fig.tight_layout()
-
-    plot_name = f"{plot_name}.png"
-    plt.savefig(save_path / plot_name)
-    print(f"Plot saved to {save_path / plot_name}")
-
-
-def vis_intersection(data, k, plot_name, save_dir, organ, width, height):
-    # Specify save graph vis location
-    save_path = save_dir / "intersection"
-    save_path.mkdir(parents=True, exist_ok=True)
-
-    intersection_graph = make_intersection_graph(data, k)
-    edge_index = intersection_graph.edge_index
-    edge_weight = intersection_graph.edge_attr
-
-    plot_name = f"k{k}_{plot_name}.png"
     print(f"Plotting...")
     visualize_points(
         organ,
@@ -295,71 +297,32 @@ def vis_intersection(data, k, plot_name, save_dir, organ, width, height):
     print(f"Plot saved to {save_path / plot_name}")
 
 
-def visualize_points(
-    organ,
-    save_path,
-    pos,
-    width=None,
-    height=None,
-    labels=None,
-    edge_index=None,
-    edge_weight=None,
-    colours=None,
-    point_size=None,
+def vis_intersection(
+    data, k, plot_name, save_dir, organ, width, height, keep_indices=None
 ):
-    if colours is None:
-        colours_dict = {cell.id: cell.colour for cell in organ.cells}
-        colours = [colours_dict[label] for label in labels]
+    # Specify save graph vis location
+    save_path = save_dir / "intersection"
+    save_path.mkdir(parents=True, exist_ok=True)
 
-    if point_size is None:
-        point_size = 1 if len(pos) >= 10000 else 2
+    data = make_intersection_graph(data, k)
+    if keep_indices is not None:
+        data = data.subgraph(keep_indices)
+    edge_index = data.edge_index
+    edge_weight = data.edge_attr
 
-    figsize = _calc_figsize(pos, width, height)
-    fig = plt.figure(figsize=figsize, dpi=300)
-
-    if edge_index is not None:
-        line_collection = []
-        for i, (src, dst) in enumerate(edge_index.t().tolist()):
-            src = pos[src].tolist()
-            dst = pos[dst].tolist()
-            line_collection.append((src, dst))
-        line_colour = (
-            [str(weight) for weight in edge_weight.t()[0].tolist()]
-            if edge_weight is not None
-            else "grey"
-        )
-        lc = LineCollection(line_collection, linewidths=0.5, colors=line_colour)
-        ax = plt.gca()
-        ax.add_collection(lc)
-        ax.autoscale()
-    plt.scatter(
-        pos[:, 0],
-        pos[:, 1],
-        marker=".",
-        s=point_size,
-        zorder=1000,
-        c=colours,
-        cmap="Spectral",
+    plot_name = f"k{k}_{plot_name}.png"
+    print(f"Plotting...")
+    visualize_points(
+        organ,
+        save_path / plot_name,
+        data.pos,
+        labels=data.x,
+        edge_index=edge_index,
+        edge_weight=edge_weight,
+        width=width,
+        height=height,
     )
-    plt.gca().invert_yaxis()
-    plt.axis("off")
-    fig.tight_layout()
-    plt.savefig(save_path, bbox_inches="tight", pad_inches=0.0)
-
-
-def _calc_figsize(pos, width, height):
-    if width is None and height is None:
-        return 8, 8
-    if width == -1 and height == -1:
-        pos_width = max(pos[:, 0]) - min(pos[:, 0])
-        pos_height = max(pos[:, 1]) - min(pos[:, 1])
-        ratio = pos_width / pos_height
-        length = ratio * 8
-        return length, 8
-    else:
-        ratio = width / height
-        length = ratio * 8
-        return length, 8
+    print(f"Plot saved to {save_path / plot_name}")
 
 
 if __name__ == "__main__":

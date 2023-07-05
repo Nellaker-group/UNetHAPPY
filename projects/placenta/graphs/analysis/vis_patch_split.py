@@ -5,9 +5,9 @@ import typer
 import numpy as np
 import pandas as pd
 
-from happy.graph.create_graph import get_groundtruth_patch
-from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
-from happy.graph.create_graph import get_nodes_within_tiles
+from happy.graph.graph_creation.get_and_process import get_groundtruth_patch
+from happy.graph.utils.visualise_points import visualize_points
+from happy.graph.graph_creation.create_graph import get_nodes_within_tiles
 from happy.utils.utils import get_project_dir
 from happy.organs import get_organ
 

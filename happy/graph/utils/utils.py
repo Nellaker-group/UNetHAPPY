@@ -7,6 +7,17 @@ import numpy as np
 import pandas as pd
 
 
+def get_model_eval_path(model_name, pretrained_path, run_id):
+    model_epochs = (
+        "model_final"
+        if model_name == "graph_model.pt"
+        else f"model_{model_name.split('_')[0]}"
+    )
+    save_path = pretrained_path.parent / "eval" / model_epochs / f"run_{run_id}"
+    save_path.mkdir(parents=True, exist_ok=True)
+    return save_path
+
+
 def get_feature(feature, predictions, embeddings, organ=None):
     if feature == "predictions":
         cell_classes = [cell.id for cell in organ.cells]
@@ -28,13 +39,11 @@ def get_feature(feature, predictions, embeddings, organ=None):
 
 def send_graph_to_device(data, device, tissue_class=None):
     x, edge_index = data.x.to(device), data.edge_index.to(device)
+    edge_attr = data.edge_attr.to(device)
     if not tissue_class is None:
         tissue_class = torch.Tensor(tissue_class).type(torch.LongTensor).to(device)
-    return x, edge_index, tissue_class
+    return x, edge_index, edge_attr, tissue_class
 
-
-def save_model(model, save_path):
-    torch.save(model, save_path)
 
 # Similar to the function in microscopefile. May be merged at some point
 def get_tile_coordinates(all_xs, all_ys, tile_width, tile_height):

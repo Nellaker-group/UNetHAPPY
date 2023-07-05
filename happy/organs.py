@@ -22,15 +22,27 @@ class Tissue:
     name: str
     colour: str
     id: int
+    alt_id: int
+
+    def __str__(self):
+        return f"{self.label}"
+
+
+@dataclass(frozen=True)
+class Lesion:
+    label: str
+    name: str
+    id: int
 
     def __str__(self):
         return f"{self.label}"
 
 
 class Organ:
-    def __init__(self, cells: List[Cell], tissues: List[Tissue]):
+    def __init__(self, cells: List[Cell], tissues: List[Tissue], lesions: List[Lesion]):
         self.cells = cells
         self.tissues = tissues
+        self.lesions = lesions
 
     def cell_by_id(self, i: int):
         return self.cells[i]
@@ -42,6 +54,17 @@ class Organ:
     def tissue_by_label(self, label):
         labels = {tissue.label: tissue.id for tissue in self.tissues}
         return self.tissues[labels[label]]
+
+    def remove_lesion_by_label(self, label):
+        labels = [lesion.label for lesion in self.lesions]
+        if label not in labels:
+            raise ValueError(f"Lesion {label} not found in organ")
+        for i, lesion in enumerate(self.lesions):
+            if lesion.label == label:
+                idx_to_remove = i
+        assert idx_to_remove is not None
+        lesions = self.lesions[:idx_to_remove] + self.lesions[idx_to_remove+1 :]
+        return lesions
 
 
 PLACENTA = Organ(
@@ -59,19 +82,29 @@ PLACENTA = Organ(
         Cell("KNT", "Syncytial Knot", "#7CFFFA", "#00ffff", 10, 0, 1),
     ],
     [
-        Tissue("Unlabelled", "Unlabelled", "#000000", 0),
-        Tissue("Sprout", "Villus Sprout", "#ff3cfe", 1),
-        Tissue("MVilli", "Mesenchymal Villi", "#f60239", 2),
-        Tissue("TVilli", "Terminal Villi", "#ff6e3a", 3),
-        Tissue("ImIVilli", "Immature Intermediate Villi", "#5a000f", 4),
-        Tissue("MIVilli", "Mature Intermediate Villi", "#ffac3b", 5),
-        Tissue("AVilli", "Anchoring Villi", "#ffcfe2", 6),
-        Tissue("SVilli", "Stem Villi", "#ffdc3d", 7),
-        Tissue("Chorion", "Chorionic Plate", "#005a01", 8),
-        Tissue("Maternal", "Basal Plate/Septum", "#00cba7", 9),
-        Tissue("Inflam", "Inflammatory Response", "#7cfffa", 10),
-        Tissue("Fibrin", "Fibrin", "#0079fa", 11),
-        Tissue("Avascular", "Avascular Villi", "#450270", 12),
+        Tissue("Unlabelled", "Unlabelled", "#000000", 0, 0),
+        Tissue("Sprout", "Villus Sprout", "#ff3cfe", 1, 3),
+        Tissue("MVilli", "Mesenchymal Villi", "#f60239", 2, 2),
+        Tissue("TVilli", "Terminal Villi", "#ff6e3a", 3, 3),
+        Tissue("ImIVilli", "Immature Intermediate Villi", "#5a000f", 4, 4),
+        Tissue("MIVilli", "Mature Intermediate Villi", "#ffac3b", 5, 5),
+        Tissue("AVilli", "Anchoring Villi", "#ffcfe2", 6, 7),
+        Tissue("SVilli", "Stem Villi", "#ffdc3d", 7, 7),
+        Tissue("Chorion", "Chorionic Plate", "#005a01", 8, 8),
+        Tissue("Maternal", "Basal Plate/Septum", "#00cba7", 9, 9),
+        Tissue("Inflam", "Inflammatory Response", "#7cfffa", 10, 10),
+        Tissue("Fibrin", "Fibrin", "#0079fa", 11, 11),
+        Tissue("Avascular", "Avascular Villi", "#450270", 12, 11),
+    ],
+    [
+        Lesion("healthy", "Healthy", 0),
+        Lesion("infarction", "Infarction", 1),
+        Lesion("perivillous_fibrin", "Perivillous Fibrin", 2),
+        Lesion("intervillous_thrombos", "Intervillous Thrombos", 3),
+        Lesion("avascular_villi", "Avascular Villi", 4),
+        Lesion("inflammation", "Inflammation", 5),
+        Lesion("edemic", "Villous Edema", 6),
+        Lesion("small_villi", "Small Villi", 7),
     ],
 )
 PLACENTA_CORD = Organ(
@@ -85,9 +118,10 @@ PLACENTA_CORD = Organ(
         Cell("MES", "Mesenchymal Cell", "#ff00ff", "#ff00ff", 6, 6, 6),
     ],
     [],
+    [],
 )
-LIVER = Organ([], [])
-ADIPOCYTE = Organ([], [])
+LIVER = Organ([], [], [])
+ADIPOCYTE = Organ([], [], [])
 
 
 def get_organ(organ_name):

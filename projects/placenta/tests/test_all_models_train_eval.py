@@ -1,11 +1,9 @@
 import os
 import shutil
 
-import pytest
-
 from projects.placenta.graph_train_supervised import main as graph_train
 from projects.placenta.graph_eval_supervised import main as graph_eval
-from projects.placenta.graphs.graphs.enums import *
+from happy.graph.enums import *
 from happy.utils.utils import get_project_dir
 
 

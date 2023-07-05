@@ -3,9 +3,8 @@ import pandas as pd
 import typer
 
 import happy.db.eval_runs_interface as db
-from happy.utils.hdf5 import filter_hdf5
+from happy.hdf5 import get_embeddings_file, HDF5Dataset
 from happy.organs import get_organ
-from happy.utils.hdf5 import get_embeddings_file
 
 
 def main(
@@ -42,7 +41,7 @@ def main(
     else:
         save_path = save_dir / f"{min_conf}_{max_conf}_{slide_name}.tsv"
         coords, preds = _get_filtered_confidence_predictions(
-            organ, project_name, run_id, min_conf, max_conf
+            project_name, run_id, min_conf, max_conf
         )
 
     coord_to_tsv(coords, preds, save_path, organ, nuclei_only)
@@ -70,21 +69,12 @@ def _get_db_predictions(run_id):
 
 
 def _get_filtered_confidence_predictions(
-    organ, project_name, run_id, metric_start, metric_end
+    project_name, run_id, metric_start, metric_end
 ):
     embeddings_file = get_embeddings_file(project_name, run_id)
-
-    predictions, _, coords, _, _, _, _ = filter_hdf5(
-        organ,
-        embeddings_file,
-        start=0,
-        num_points=-1,
-        metric_type="confidence",
-        metric_start=metric_start,
-        metric_end=metric_end,
-    )
+    hdf5_data = HDF5Dataset(embeddings_file)
+    predictions, _, coords, _ = hdf5_data.filter_by_confidence(metric_start, metric_end)
     print(f"confidence bounds: {metric_start}-{metric_end}")
-
     return coords, predictions
 
 

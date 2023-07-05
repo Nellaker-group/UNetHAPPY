@@ -9,7 +9,7 @@ import numpy as np
 
 from happy.models.graphsage import SAGE
 from happy.models.infomax import Encoder, corruption, summary_fn
-from projects.placenta.graphs.graphs.samplers.samplers import (
+from happy.graph.samplers.custom_samplers import (
     PosNegNeighborSampler,
     CurriculumPosNegNeighborSampler,
     SimpleCurriculumPosNegNeighborSampler,

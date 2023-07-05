@@ -1,3 +1,4 @@
+import signal
 import time
 from collections import OrderedDict
 from pathlib import Path
@@ -77,3 +78,15 @@ def process_image(img):
 def load_image(image_path):
     img = skimage.io.imread(image_path)
     return process_image(img)
+
+
+class GracefulKiller:
+    kill_now = False
+
+    def __init__(self):
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
+
+    def exit_gracefully(self, signum, frame):
+        self.kill_now = True
+        print("End of program. Exiting gracefully after current loop")

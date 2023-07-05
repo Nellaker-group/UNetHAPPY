@@ -13,14 +13,14 @@ from sklearn_extra.cluster import KMedoids
 from sklearn.metrics.cluster import normalized_mutual_info_score, adjusted_rand_score
 
 import happy.db.eval_runs_interface as db
-from happy.graph.create_graph import (
-    get_raw_data,
-    setup_graph,
+from happy.graph.graph_creation.create_graph import (
+    construct_graph,
     get_list_of_subgraphs,
 )
-from projects.placenta.graphs.graphs.enums import MethodArg
-from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
-from projects.placenta.graphs.graphs.utils import remove_far_nodes, get_tile_coordinates
+from happy.graph.graph_creation.get_and_process import get_hdf5_data
+from happy.graph.enums import MethodArg
+from happy.graph.utils.visualise_points import visualize_points
+from happy.graph.utils.utils import remove_far_nodes, get_tile_coordinates
 from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 
@@ -53,11 +53,11 @@ def main(
     save_dir = project_dir / "results" / "patch_graph" / f"run_{run_id}"
     save_dir.mkdir(parents=True, exist_ok=True)
     # Get raw data from hdf5 across WSI
-    predictions, _, coords, confidence = get_raw_data(
+    predictions, _, coords, confidence = get_hdf5_data(
         project_name, run_id, x_min, y_min, width, height
     )
     # Create the graph from the raw data
-    data = setup_graph(
+    data = construct_graph(
         coords, k, predictions, graph_method.value, norm_edges=False, loop=False
     )
     # Remove edges and isolated nodes from graph when edges are too long

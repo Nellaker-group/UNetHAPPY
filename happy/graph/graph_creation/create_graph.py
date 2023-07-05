@@ -1,10 +1,9 @@
-import os
-
 import pandas as pd
+from torch_geometric.utils import add_self_loops
 from torch_cluster import radius_graph
 from torch_geometric.data import Data
 from torch_geometric.utils.subgraph import subgraph
-from torch_geometric.transforms import Distance, KNNGraph
+from torch_geometric.transforms import Distance, KNNGraph, ToUndirected
 from scipy.spatial import Voronoi
 from tqdm import tqdm
 import matplotlib.tri as tri
@@ -13,115 +12,37 @@ import seaborn as sns
 import numpy as np
 import torch
 
-from happy.utils.hdf5 import (
-    get_embeddings_file,
-    get_datasets_in_patch,
-    filter_by_confidence,
-    filter_randomly,
-)
-from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
+from happy.graph.utils.utils import get_feature
 
 
-def get_groundtruth_patch(organ, project_dir, x_min, y_min, width, height, annot_tsv):
-    if not annot_tsv:
-        print("No tissue annotation tsv supplied")
-        return None, None, None
-    tissue_label_path = project_dir / "results" / "tissue_annots" / annot_tsv
-    if not os.path.exists(str(tissue_label_path)):
-        print("No tissue label tsv found")
-        return None, None, None
-
-    ground_truth_df = pd.read_csv(tissue_label_path, sep="\t")
-    xs = ground_truth_df["px"].to_numpy()
-    ys = ground_truth_df["py"].to_numpy()
-    tissue_classes = ground_truth_df["class"].to_numpy()
-
-    if x_min == 0 and y_min == 0 and width == -1 and height == -1:
-        sort_args = np.lexsort((ys, xs))
-        tissue_ids = np.array(
-            [organ.tissue_by_label(tissue_name).id for tissue_name in tissue_classes]
-        )
-        return xs[sort_args], ys[sort_args], tissue_ids[sort_args]
-
-    mask = np.logical_and(
-        (np.logical_and(xs > x_min, (ys > y_min))),
-        (np.logical_and(xs < (x_min + width), (ys < (y_min + height)))),
+def setup_cell_tissue_graph(hdf5_data, k, graph_method):
+    # combine cell and tissue embeddings into one feature
+    feature_data = np.concatenate(
+        (hdf5_data.cell_embeddings, hdf5_data.tissue_embeddings), axis=1
     )
-    patch_xs = xs[mask]
-    patch_ys = ys[mask]
-    patch_tissue_classes = tissue_classes[mask]
-
-    patch_tissue_ids = np.array(
-        [organ.tissue_by_label(tissue_name).id for tissue_name in patch_tissue_classes]
+    data = construct_graph(hdf5_data.coords, k, feature_data, graph_method, loop=False)
+    data = ToUndirected()(data)
+    data.edge_index, data.edge_attr = add_self_loops(
+        data["edge_index"], data["edge_attr"], fill_value="mean"
     )
-    sort_args = np.lexsort((patch_ys, patch_xs))
-
-    return patch_xs[sort_args], patch_ys[sort_args], patch_tissue_ids[sort_args]
+    return data
 
 
-def get_raw_data(
-    project_name, run_id, x_min, y_min, width, height, top_conf=False, verbose=True
-):
-    embeddings_path = get_embeddings_file(project_name, run_id)
-    if verbose:
-        print(f"Getting data from: {embeddings_path}")
-        print(f"Using patch of size: x{x_min}, y{y_min}, w{width}, h{height}")
-    # Get hdf5 datasets contained in specified box/patch of WSI
-    predictions, embeddings, coords, confidence = get_datasets_in_patch(
-        embeddings_path, x_min, y_min, width, height, verbose=verbose
+def setup_graph(hdf5_data, organ, feature, k, graph_method, tissue_class=None):
+    feature_data = get_feature(
+        feature, hdf5_data.cell_predictions, hdf5_data.cell_embeddings, organ
     )
-    if top_conf:
-        predictions, embeddings, coords, confidence = filter_by_confidence(
-            predictions, embeddings, coords, confidence, 0.9, 1.0
-        )
-    if verbose:
-        print(f"Data loaded with {len(predictions)} nodes")
-    sort_args = np.lexsort((coords[:, 1], coords[:, 0]))
-    coords = coords[sort_args]
-    predictions = predictions[sort_args]
-    embeddings = embeddings[sort_args]
-    confidence = confidence[sort_args]
-    if verbose:
-        print("Data sorted by x coordinates")
-
-    return predictions, embeddings, coords, confidence
-
-
-def random_filter(
-    predictions, embeddings, coords, confidence, percent_to_remove, tissues=None,
-):
-    predictions, embeddings, coords, confidence, inds_to_remove = filter_randomly(
-        predictions, embeddings, coords, confidence, percent_to_remove
+    data = construct_graph(hdf5_data.coords, k, feature_data, graph_method, loop=False)
+    if tissue_class is not None:
+        data.y = torch.Tensor(tissue_class).type(torch.LongTensor)
+    data = ToUndirected()(data)
+    data.edge_index, data.edge_attr = add_self_loops(
+        data["edge_index"], data["edge_attr"], fill_value="mean"
     )
-    # Remove points from tissue ground truth as well
-    if tissues is not None and len(inds_to_remove) > 0:
-        tissues = np.delete(tissues, inds_to_remove, axis=0)
-    print(f"Randomly removed {len(inds_to_remove)} points")
-    return predictions, embeddings, coords, confidence, tissues
+    return data
 
 
-def process_knts(
-    organ, predictions, embeddings, coords, confidence, tissues=None, verbose=True
-):
-    # Turn isolated knts into syn and group large knts into one point
-    predictions, embeddings, coords, confidence, inds_to_remove = process_knt_cells(
-        predictions,
-        embeddings,
-        coords,
-        confidence,
-        organ,
-        50,
-        3,
-        plot=False,
-        verbose=verbose,
-    )
-    # Remove points from tissue ground truth as well
-    if tissues is not None and len(inds_to_remove) > 0:
-        tissues = np.delete(tissues, inds_to_remove, axis=0)
-    return predictions, embeddings, coords, confidence, tissues
-
-
-def setup_graph(
+def construct_graph(
     coords, k, feature, graph_method, norm_edges=True, loop=True, verbose=True
 ):
     data = Data(x=torch.Tensor(feature), pos=torch.Tensor(coords.astype("int32")))
