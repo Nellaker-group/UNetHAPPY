@@ -139,8 +139,6 @@ class Runner:
             if self.params.subsample_ratio > 0.0:
                 batch = self._subsample(batch)
 
-            print(f"Num nodes after subsampling: {batch.num_nodes}")
-
             batch = batch.to(self.params.device)
             self.optimiser.zero_grad()
 

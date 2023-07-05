@@ -33,7 +33,7 @@ def main(
     num_workers: int = 12,
     local: bool = False,
 ):
-    """Trains a graph classifier model on the lesion focused dataset.
+    """Trains a graph autoencoder compression model on the lesion dataset.
 
     Args:
         seed: set the random seed for reproducibility

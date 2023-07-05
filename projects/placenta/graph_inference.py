@@ -35,6 +35,23 @@ def main(
     save_tsv: bool = False,
     save_embeddings: bool = False,
 ):
+    """ Runs inference over a WSI for plotting and saving embeddings and predictions.
+
+    Args:
+        seed: set the random seed for reproducibility
+        project_name: name of the project dir to save results to
+        organ_name: name of organ for getting the cells and tissues
+        exp_name: name of the experiment directory to get the model weights from
+        model_weights_dir: timestamp directory containing model weights
+        model_name: name of the pickle file containing the model weights
+        run_id: run_id cells to evaluate over
+        k: value of k for kNN graph edge construction method
+        feature: one of 'embeddings' or 'predictions'
+        model_type: which type of supervised graph model the weights are from
+        graph_method: which type of edge construction to use
+        save_tsv: whether to save the predictions as a tsv file
+        save_embeddings: whether to save the embeddings and predictions as a hdf5 file
+    """
     db.init()
     set_seed(seed)
     device = get_device()

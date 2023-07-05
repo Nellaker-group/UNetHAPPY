@@ -44,6 +44,35 @@ def main(
     compress_labels: bool = False,
     verbose: bool = True,
 ):
+    """ Runs inference over a WSI or a region of a WSI. If ground truth data is
+    provided, it will produce evaluation metrics and plots.
+
+    Args:
+        seed: set the random seed for reproducibility
+        project_name: name of the project dir to save results to
+        organ_name: name of organ for getting the cells and tissues
+        exp_name: name of the experiment directory to get the model weights from
+        model_weights_dir: timestamp directory containing model weights
+        model_name: name of the pickle file containing the model weights
+        run_id: run_id cells to evaluate over
+        x_min: bottom left x coordinate of the region to evaluate over (0 for full WSI)
+        y_min: bottom left y coordinate of the region to evaluate over (0 for full WSI)
+        width: width of the region to evaluate over (-1 for full WSI)
+        height: height of the region to evaluate over (-1 for full WSI)
+        val_patch_files: list of files containing validation or test regions
+        k: value of k for kNN graph edge construction method
+        feature: one of 'embeddings' or 'predictions'
+        group_knts: whether to first group knt predictions into one node
+        random_remove: what proportion of the nodes to randomly remove
+        top_conf: whether to filter cells by top confidence predictions only
+        model_type: which type of supervised graph model the weights are from
+        graph_method: which type of edge construction to use
+        plot_umap: whether to plot the UMAP of the cell and tissue embeddings (slow)
+        remove_unlabelled: whether to remove unlabelled nodes from the evaluation
+        tissue_label_tsv: tsv file containing ground truth tissue labels for each cell
+        compress_labels: whether to compress the labels into fewer classes (in organ)
+        verbose: whether to print graph setup
+    """
     db.init()
     set_seed(seed)
     device = get_device()

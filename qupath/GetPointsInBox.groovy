@@ -3,13 +3,13 @@ Gets local coordinates of points in "TAnnot" boxes and saves them and the boxes 
 """
 import static qupath.lib.gui.scripting.QPEx.*
 
-def classNames = ["CYT", "HOF", "SYN", "FIB", "VEN"] as String[]
+def classNames = ["CYT", "HOF", "SYN", "FIB", "VEN", "VMY", "MAT", "WBC", "MES", "EVT", "KNT", "EPI", "MAC"] as String[]
 
 def slideName = getCurrentServer().getPath().split("/")[-1]
 def slideNumber = slideName.split("-")[0]
 
 def fileName = slideNumber + "_from_groovy.csv"
-def saveDir = "/Users/claudiavanea/code/py/phd/triin_data/" + fileName
+def saveDir = "/Users/{path_to_happy}/dev-happy/projects/placenta/results/annotation_csvs/" + fileName
 
 // Get all manually annotated box areas
 def allBoxAnnot = getAnnotationObjects().findAll({ it.getPathClass().getName() == "TAnnot" })
@@ -25,6 +25,14 @@ def points = getAnnotationObjects().findAll({
     it.getPathClass().getName() != "TAnnot"
             && it.getPathClass().getName() != "FAnnot" && it.getPathClass().getName() != "Discuss"
 })
+// Remove classes without any points
+nullClasses = []
+for (className in classNames) {
+    if (points.find({ it.getPathClass().getName() == className }) == null) {
+        nullClasses.add(className)
+    }
+}
+classNames -= nullClasses
 
 def getRelativeCoords(cellClassArray, x, y, width, height) {
     // Get the global coordinates of cell classes in the box
@@ -41,14 +49,17 @@ def getPointsInBoxes(classNames, points, xs, ys, widths, heights) {
     def pointsDict = [:]
     def pointsInBoxDict = [:]
     for (className in classNames) {
-        pointsDict[className] = points.find({ it.getPathClass().getName() == className })
-        pointsInBoxDict[className] = []
+        classPoints = points.find({ it.getPathClass().getName() == className })
+        if (classPoints != null) {
+            pointsDict[className] = classPoints
+            pointsInBoxDict[className] = []
 
-        // Loop through each annotation box and extract the relative coordinates of each cell class in the box
-        for (int i = 0; i < xs.size(); i++) {
-            // Append such that the box indexes and coordinate indexes match
-            pointsInBoxDict[className] << getRelativeCoords(pointsDict[className], xs[i], ys[i], widths[0], heights[0])
-        };
+            // Loop through each annotation box and extract the relative coordinates of each cell class in the box
+            for (int i = 0; i < xs.size(); i++) {
+                // Append such that the box indexes and coordinate indexes match
+                pointsInBoxDict[className] << getRelativeCoords(pointsDict[className], xs[i], ys[i], widths[0], heights[0])
+            };
+        }
     }
     return pointsInBoxDict
 }

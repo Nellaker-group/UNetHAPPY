@@ -23,10 +23,6 @@ def main(
     organ_name: str = "placenta",
     exp_name: str = typer.Option(...),
     run_ids: List[int] = typer.Option([]),
-    x_min: int = 0,
-    y_min: int = 0,
-    width: int = -1,
-    height: int = -1,
     k: int = 5,
     feature: FeatureArg = FeatureArg.embeddings,
     group_knts: bool = True,
@@ -53,6 +49,40 @@ def main(
     include_validation: bool = True,
     validation_step: int = 50,
 ):
+    """ Train a supervised model on a cell graph for tissue node classification.
+
+    Args:
+        seed: set the random seed for reproducibility
+        project_name: name of the project dir to save results to
+        organ_name: name of organ for getting the cells and tissues
+        exp_name: name of the experiment directory to save results to
+        run_ids: the run_ids of the cell graphs to use for training
+        k: value of k for kNN graph edge construction method
+        feature: one of 'embeddings' or 'predictions'
+        group_knts: whether to first group knt predictions into one node
+        random_remove: what proportion of the nodes to randomly remove
+        pretrained: path to pretraind model (optional)
+        top_conf: whether to filter cells by top confidence predictions only
+        model_type: which type of supervised graph model to use
+        graph_method: which type of edge construction to use
+        batch_size: number of nodes per batch
+        num_neighbours: varies by model_type, broadly the sampled neighbours per node
+        epochs: number of epochs to train for
+        layers: number of layers in the model
+        hidden_units: number of hidden units per layer in the model
+        dropout: model parameter dropout rate
+        node_dropout: node dropout rate
+        learning_rate: learning rate for the optimizer
+        weighted_loss: whether to use weighted loss (usually true)
+        use_custom_weights: whether to use custom weights
+        num_workers: number of workers for the dataloader
+        vis: whether to use visdom for visualisation
+        tissue_label_tsvs: list of tsv files containing tissue labels for each run_id
+        val_patch_files: list of files with regions to use for validation
+        test_patch_files: list of files with regions to use for test
+        include_validation: whether to include validation in training
+        validation_step: at how many epochs to run validation
+    """
     # general setup
     db.init()
     device = get_device()
@@ -75,10 +105,6 @@ def main(
     # Graph params for saving
     graph_params = {
         "run_ids": run_ids,
-        "x_min": x_min,
-        "y_min": y_min,
-        "width": width,
-        "height": height,
         "edge_method": graph_method,
         "k": k,
         "feature": feature,
