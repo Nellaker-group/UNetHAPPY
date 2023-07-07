@@ -172,7 +172,7 @@ class Runner:
         return total_loss / len(self.val_loader.dataset)
 
     def save_state(self, run_path, epoch):
-        torch.save(self.model, run_path / f"{epoch}_c_graph_model.pt")
+        torch.save(self.model, run_path / f"{epoch}_gae_model.pt")
 
     def _subsample(self, batch):
         num_to_keep = int(batch.num_nodes * self.params.subsample_ratio)
