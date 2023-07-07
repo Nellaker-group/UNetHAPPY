@@ -110,13 +110,11 @@ class Runner:
                 batch_size=self.params.batch_size,
                 num_workers=self.params.num_workers,
                 shuffle=True,
-                persistent_workers=True,
             )
             val_loader = DataLoader(
                 self.params.datasets["val"],
                 batch_size=self.params.batch_size,
                 num_workers=self.params.num_workers,
-                persistent_workers=True,
             )
         else:
             train_loader = None
@@ -164,7 +162,7 @@ class Runner:
 
             batch = batch.to(self.params.device)
 
-            out = self.model(batch)
+            out = self.model(batch.x, batch.pos, batch.edge_index, batch.batch)
             loss = self.criterion(out, batch.x)
 
             print(f"batch loss: {loss.item():.4f}")
