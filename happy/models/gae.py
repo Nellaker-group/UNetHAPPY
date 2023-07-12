@@ -61,7 +61,7 @@ class GAE(torch.nn.Module):
                 batch_x=all_batch[-i - 1],
                 batch_y=all_batch[-i - 2],
             )
-            x = self.up_convs[i](x, edge_indices[-i - 1])
+            x = self.up_convs[i](x, edge_indices[-i - 2])
             x = torch.relu(x)
 
         x = self.lin(x)
