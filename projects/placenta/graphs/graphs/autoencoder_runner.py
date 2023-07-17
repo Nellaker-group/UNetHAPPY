@@ -9,7 +9,7 @@ from torch_geometric.loader import DataLoader
 import numpy as np
 
 from happy.graph.enums import AutoEncoderModelsArg
-from happy.models.gae import GAE
+from happy.models.gae import GAE, GAERandom
 from projects.placenta.graphs.graphs.lesion_dataset import LesionDataset
 
 
@@ -52,6 +52,8 @@ class Runner:
     def new(params: Params, test: bool = False) -> "Runner":
         cls = {
             AutoEncoderModelsArg.fps: FPSRunner,
+            AutoEncoderModelsArg.fps_cosine: FPSCosineRunner,
+            AutoEncoderModelsArg.random: RandomRunner,
         }
         ModelClass = cls[params.model_type]
         return ModelClass(params, test)
@@ -89,7 +91,7 @@ class Runner:
     @property
     def criterion(self):
         if self._criterion is None:
-            self._criterion = self._setup_criterion()
+            self._criterion = self.setup_criterion()
         return self._criterion
 
     def _setup_loaders(self):
@@ -99,9 +101,6 @@ class Runner:
         self._optimiser = torch.optim.Adam(
             self.model.parameters(), lr=self.params.learning_rate
         )
-
-    def _setup_criterion(self):
-        return torch.nn.MSELoss()
 
     def _setup_dataloader(self):
         if not self.test:
@@ -124,6 +123,10 @@ class Runner:
                 num_workers=self.params.num_workers,
             )
         return train_loader, val_loader
+
+    @classmethod
+    def setup_criterion(cls):
+        raise NotImplementedError(f"setup_model not implemented for {cls.__name__}")
 
     @classmethod
     def setup_model(cls):
@@ -190,3 +193,68 @@ class FPSRunner(Runner):
             self.params.depth,
             self.params.pooling_ratio,
         )
+
+    def setup_criterion(self):
+        return torch.nn.MSELoss()
+
+
+class FPSCosineRunner(FPSRunner):
+    def setup_criterion(self):
+        return torch.nn.CosineEmbeddingLoss()
+
+    def train(self):
+        self.model.train()
+        total_loss = 0
+        for batch in self.train_loader:
+            start = time.time()
+            if self.params.subsample_ratio > 0.0:
+                batch = self._subsample(batch)
+
+            batch = batch.to(self.params.device)
+            self.optimiser.zero_grad()
+
+            out = self.model(batch.x, batch.pos, batch.edge_index, batch.batch)
+            cosine_target = torch.ones(out.shape[0]).to(self.params.device)
+            loss = self.criterion(out, batch.x, cosine_target)
+            loss.backward()
+            self.optimiser.step()
+
+            print(f"batch loss: {loss.item():.4f}")
+            total_loss += loss.item() * batch.num_graphs
+            timer_end = time.time()
+            print(f"time per batch: {timer_end - start:.4f}s ")
+        return total_loss / len(self.train_loader.dataset)
+
+    @torch.no_grad()
+    def validate(self):
+        self.model.eval()
+        total_loss = 0
+        for batch in self.val_loader:
+            start = time.time()
+            if self.params.subsample_ratio > 0.0:
+                batch = self._subsample(batch)
+
+            batch = batch.to(self.params.device)
+
+            out = self.model(batch.x, batch.pos, batch.edge_index, batch.batch)
+            cosine_target = torch.ones(out.shape[0]).to(self.params.device)
+            loss = self.criterion(out, batch.x, cosine_target)
+
+            print(f"batch loss: {loss.item():.4f}")
+            total_loss += loss.item() * batch.num_graphs
+            timer_end = time.time()
+            print(f"time per batch: {timer_end - start:.4f}s ")
+        return total_loss / len(self.val_loader.dataset)
+
+
+class RandomRunner(Runner):
+    def setup_model(self):
+        return GAERandom(
+            next(iter(self.params.datasets.values())).num_node_features,
+            self.params.hidden_units,
+            self.params.depth,
+            self.params.pooling_ratio,
+        )
+
+    def setup_criterion(self):
+        return torch.nn.MSELoss()

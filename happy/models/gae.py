@@ -66,3 +66,45 @@ class GAE(torch.nn.Module):
 
         x = self.lin(x)
         return x
+
+
+class GAERandom(GAE):
+    def __init__(self, in_channels, hidden_channels, depth, pool_ratio=0.25):
+        super().__init__(in_channels, hidden_channels, depth, pool_ratio)
+
+    def forward(self, x, pos, edge_index, batch):
+        # Save for reconstruction
+        all_pos = [pos]
+        edge_indices = [edge_index]
+        all_batch = [batch]
+
+        # Downward pass
+        for i in range(self.depth):
+            x = self.down_convs[i](x, edge_index)
+            x = torch.relu(x)
+            num_to_keep = int(x.shape[0] * self.pool_ratio)
+            perm = torch.randperm(x.shape[0])[:num_to_keep]
+            batch = batch[perm]
+            x, pos, edge_index, _, _, _, _ = self.knn_edge_transform[i](
+                x, pos, edge_index, None, batch, perm, None, i
+            )
+            x = x[perm]
+            all_pos.append(pos)
+            edge_indices.append(edge_index)
+            all_batch.append(batch)
+
+        # Upward pass
+        for i in range(self.depth):
+            x = knn_interpolate(
+                x,
+                all_pos[-i - 1],
+                all_pos[-i - 2],
+                k=6,
+                batch_x=all_batch[-i - 1],
+                batch_y=all_batch[-i - 2],
+            )
+            x = self.up_convs[i](x, edge_indices[-i - 2])
+            x = torch.relu(x)
+
+        x = self.lin(x)
+        return x

@@ -34,3 +34,5 @@ class GraphClassificationModelsArg(str, Enum):
 
 class AutoEncoderModelsArg(str, Enum):
     fps = "fps"
+    fps_cosine = "fps_cosine"
+    random = "random"
