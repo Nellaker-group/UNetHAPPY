@@ -54,6 +54,7 @@ class Runner:
             AutoEncoderModelsArg.fps: FPSRunner,
             AutoEncoderModelsArg.fps_cosine: FPSCosineRunner,
             AutoEncoderModelsArg.random: RandomRunner,
+            AutoEncoderModelsArg.random_cosine: RandomCosineRunner,
         }
         ModelClass = cls[params.model_type]
         return ModelClass(params, test)
@@ -198,7 +199,15 @@ class FPSRunner(Runner):
         return torch.nn.MSELoss()
 
 
-class FPSCosineRunner(FPSRunner):
+class FPSCosineRunner(Runner):
+    def setup_model(self):
+        return GAE(
+            next(iter(self.params.datasets.values())).num_node_features,
+            self.params.hidden_units,
+            self.params.depth,
+            self.params.pooling_ratio,
+        )
+
     def setup_criterion(self):
         return torch.nn.CosineEmbeddingLoss()
 
@@ -258,3 +267,13 @@ class RandomRunner(Runner):
 
     def setup_criterion(self):
         return torch.nn.MSELoss()
+
+
+class RandomCosineRunner(FPSCosineRunner):
+    def setup_model(self):
+        return GAERandom(
+            next(iter(self.params.datasets.values())).num_node_features,
+            self.params.hidden_units,
+            self.params.depth,
+            self.params.pooling_ratio,
+        )

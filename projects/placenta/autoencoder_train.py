@@ -30,7 +30,7 @@ def main(
     pooling_ratio: float = 0.25,
     subsample_ratio: float = 0.5,
     learning_rate: float = 0.0005,
-    num_workers: int = 12,
+    num_workers: int = 6,
     local: bool = False,
 ):
     """Trains a graph autoencoder compression model on the lesion dataset.
