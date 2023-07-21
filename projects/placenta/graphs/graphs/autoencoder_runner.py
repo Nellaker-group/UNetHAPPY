@@ -23,6 +23,7 @@ class Params:
     epochs: int
     depth: int
     hidden_units: int
+    use_edge_weights: bool
     pooling_ratio: float
     subsample_ratio: float
     learning_rate: float
@@ -144,7 +145,7 @@ class Runner:
             batch = batch.to(self.params.device)
             self.optimiser.zero_grad()
 
-            out = self.model(batch.x, batch.pos, batch.edge_index, batch.batch)
+            out = self.model(batch)
             loss = self.criterion(out, batch.x)
             loss.backward()
             self.optimiser.step()
@@ -166,7 +167,7 @@ class Runner:
 
             batch = batch.to(self.params.device)
 
-            out = self.model(batch.x, batch.pos, batch.edge_index, batch.batch)
+            out = self.model(batch)
             loss = self.criterion(out, batch.x)
 
             print(f"batch loss: {loss.item():.4f}")
@@ -192,6 +193,7 @@ class FPSRunner(Runner):
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.params.depth,
+            self.params.use_edge_weights,
             self.params.pooling_ratio,
         )
 
@@ -205,6 +207,7 @@ class FPSCosineRunner(Runner):
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.params.depth,
+            self.params.use_edge_weights,
             self.params.pooling_ratio,
         )
 
@@ -222,7 +225,7 @@ class FPSCosineRunner(Runner):
             batch = batch.to(self.params.device)
             self.optimiser.zero_grad()
 
-            out = self.model(batch.x, batch.pos, batch.edge_index, batch.batch)
+            out = self.model(batch)
             cosine_target = torch.ones(out.shape[0]).to(self.params.device)
             loss = self.criterion(out, batch.x, cosine_target)
             loss.backward()
@@ -245,7 +248,7 @@ class FPSCosineRunner(Runner):
 
             batch = batch.to(self.params.device)
 
-            out = self.model(batch.x, batch.pos, batch.edge_index, batch.batch)
+            out = self.model(batch)
             cosine_target = torch.ones(out.shape[0]).to(self.params.device)
             loss = self.criterion(out, batch.x, cosine_target)
 
@@ -262,6 +265,7 @@ class RandomRunner(Runner):
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.params.depth,
+            self.params.use_edge_weights,
             self.params.pooling_ratio,
         )
 
@@ -275,5 +279,6 @@ class RandomCosineRunner(FPSCosineRunner):
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.params.depth,
+            self.params.use_edge_weights,
             self.params.pooling_ratio,
         )

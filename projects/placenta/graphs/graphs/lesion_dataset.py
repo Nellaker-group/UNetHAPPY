@@ -43,6 +43,7 @@ class LesionDataset(Dataset):
     def get(self, idx):
         data = torch.load(self.data_paths[idx])
         data.y = self.lesions[idx]
+        data.edge_weights = data.edge_attr[:, 0]
         return data
 
     def get_data_by_run_id(self, run_id):
