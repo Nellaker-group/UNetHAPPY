@@ -73,18 +73,17 @@ def main(
     x = data.x
     pos = data.pos
     edge_index = data.edge_index
-    batch = data.batch
     for i in range(num_pooling_steps):
         if pooling_method == "fps":
-            perm = fps(pos, ratio=pooling_ratio, batch=batch)
+            perm = fps(pos, ratio=pooling_ratio)
         elif pooling_method == "random":
-            num_to_keep = int(x.shape[0] * pooling_ratio)
-            perm = torch.randperm(x.shape[0])[:num_to_keep]
+            num_to_keep = int(pos.shape[0] * pooling_ratio)
+            perm = torch.randperm(pos.shape[0])[:num_to_keep]
         else:
             raise ValueError(f"Unknown pooling method {pooling_method}")
         perms.append(perm)
-        x, pos, edge_index, _, batch, _, _ = knn_edges(
-            x, pos, edge_index, None, batch, perm, None, i
+        x, pos, edge_index, _, _, _, _ = knn_edges(
+            x, pos, edge_index, None, None, perm, None, i
         )
         datas.append(Data(x=x[perm], pos=pos, edge_index=edge_index))
         print(f"Finished pooling step {i+1}")
@@ -132,7 +131,7 @@ def main(
 
     # Visualise pooled graphs
     if plot_downsampling:
-        for i, data in enumerate(datas[:-1]):
+        for i, data in enumerate(datas[1:]):
             perm = perms[i].to("cpu")
             pos = data.pos.to("cpu")
             if plot_edges:
@@ -197,7 +196,7 @@ def main(
     x = x.to("cpu").numpy()
     similarity_sums = defaultdict(float)
     neighbor_counts = defaultdict(int)
-    edge_index = edge_index.to("cpu").numpy()
+    edge_index = data.edge_index.to("cpu").numpy()
     for node1, node2 in edge_index.reshape(-1, 2):
         if node1 <= node2:
             similarity = cosine_similarity([x[node1]], [x[node2]])[0][0]

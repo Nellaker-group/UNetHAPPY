@@ -55,8 +55,8 @@ class GAE(torch.nn.Module):
             x = torch.relu(x)
             perm = fps(pos, batch, ratio=self.pool_ratio)
             batch = batch[perm]
-            x, pos, edge_index, _, _, _, _ = self.knn_edge_transform[i](
-                x, pos, edge_index, None, batch, perm, None, i
+            x, pos, edge_index, edge_weights, _, _, _ = self.knn_edge_transform[i](
+                x, pos, edge_index, edge_weights, batch, perm, None, i
             )
             x = x[perm]
             all_pos.append(pos)
@@ -111,8 +111,8 @@ class GAERandom(GAE):
             num_to_keep = int(x.shape[0] * self.pool_ratio)
             perm = torch.randperm(x.shape[0])[:num_to_keep]
             batch = batch[perm]
-            x, pos, edge_index, _, _, _, _ = self.knn_edge_transform[i](
-                x, pos, edge_index, None, batch, perm, None, i
+            x, pos, edge_index, edge_weights, _, _, _ = self.knn_edge_transform[i](
+                x, pos, edge_index, edge_weights, batch, perm, None, i
             )
             x = x[perm]
             all_pos.append(pos)

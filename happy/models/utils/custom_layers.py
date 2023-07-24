@@ -111,5 +111,6 @@ class KnnEdges(nn.Module):
         edge_index = knn_graph(pos, k=k, batch=batch, loop=True)
         temp_data = Data(pos=pos, edge_index=edge_index, edge_attr=edge_attr)
         temp_data = Distance(cat=False, norm=True)(temp_data)
-        edge_attr = temp_data.edge_attr
+        if edge_attr is not None:
+            edge_attr = temp_data.edge_attr
         return x, pos, edge_index, edge_attr, batch, perm, score
