@@ -24,6 +24,7 @@ class Params:
     depth: int
     hidden_units: int
     use_edge_weights: bool
+    use_node_degree: bool
     pooling_ratio: float
     subsample_ratio: float
     learning_rate: float
@@ -194,6 +195,7 @@ class FPSRunner(Runner):
             self.params.hidden_units,
             self.params.depth,
             self.params.use_edge_weights,
+            self.params.use_node_degree,
             "fps",
             self.params.pooling_ratio,
         )
@@ -209,6 +211,7 @@ class FPSCosineRunner(Runner):
             self.params.hidden_units,
             self.params.depth,
             self.params.use_edge_weights,
+            self.params.use_node_degree,
             "fps",
             self.params.pooling_ratio,
         )
@@ -268,6 +271,7 @@ class RandomRunner(Runner):
             self.params.hidden_units,
             self.params.depth,
             self.params.use_edge_weights,
+            self.params.use_node_degree,
             "random",
             self.params.pooling_ratio,
         )
@@ -283,6 +287,7 @@ class RandomCosineRunner(FPSCosineRunner):
             self.params.hidden_units,
             self.params.depth,
             self.params.use_edge_weights,
+            self.params.use_node_degree,
             "random",
             self.params.pooling_ratio,
         )

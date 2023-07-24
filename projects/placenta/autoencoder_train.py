@@ -27,7 +27,8 @@ def main(
     epochs: int = 2,
     depth: int = 3,
     hidden_units: int = 128,
-    use_edge_weights: bool = True,
+    use_edge_weights: bool = False,
+    use_node_degree: bool = False,
     pooling_ratio: float = 0.25,
     subsample_ratio: float = 0.5,
     learning_rate: float = 0.001,
@@ -48,6 +49,7 @@ def main(
         depth: number of pooling and unpooling layers
         hidden_units: number of hidden units in each layer
         use_edge_weights: whether to use edge weights in the model
+        use_node_degree: whether to use node degree as an up conv node feature
         pooling_ratio: the ratio of nodes to pool down to in each pooling layer
         subsample_ratio: the ratio of node to first subsample each graph down to
         learning_rate: the learning rate of the model
@@ -86,6 +88,7 @@ def main(
         depth,
         hidden_units,
         use_edge_weights,
+        use_node_degree,
         pooling_ratio,
         subsample_ratio,
         learning_rate,

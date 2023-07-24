@@ -8,13 +8,21 @@ from happy.models.utils.custom_layers import KnnEdges
 
 class GAE(torch.nn.Module):
     def __init__(
-        self, in_channels, hidden_channels, depth, use_edge_weights, pool_method, pool_ratio=0.25
+        self,
+        in_channels,
+        hidden_channels,
+        depth,
+        use_edge_weights,
+        use_node_degree,
+        pool_method,
+        pool_ratio=0.25,
     ):
         super().__init__()
         self.in_channels = in_channels
         self.hidden_channels = hidden_channels
         self.depth = depth
         self.use_edge_weights = use_edge_weights
+        self.use_node_degree = use_node_degree
         self.pool_method = pool_method
         self.pool_ratio = pool_ratio
 
@@ -30,9 +38,14 @@ class GAE(torch.nn.Module):
                 KnnEdges(start_k=6, k_increment=1, no_op=False)
             )
         for i in range(depth):
-            self.up_convs.append(
-                GCNConv(hidden_channels, hidden_channels, improved=True)
-            )
+            if self.use_node_degree:
+                self.up_convs.append(
+                    GCNConv(hidden_channels + 1, hidden_channels, improved=True)
+                )
+            else:
+                self.up_convs.append(
+                    GCNConv(hidden_channels, hidden_channels, improved=True)
+                )
 
     def forward(self, batch):
         if not self.use_edge_weights:
@@ -43,7 +56,6 @@ class GAE(torch.nn.Module):
         edge_weights = batch.edge_weights
         batch = batch.batch
 
-        # todo: if this uses too much memory, we can save perm rather than pos
         # Save for reconstruction
         all_pos = [pos]
         edge_indices = [edge_index]
@@ -81,9 +93,13 @@ class GAE(torch.nn.Module):
                 batch_x=all_batch[-i - 1],
                 batch_y=all_batch[-i - 2],
             )
+            if self.use_node_degree:
+                node_degree = (
+                    edge_index.flatten().bincount(minlength=x.shape[0]).unsqueeze(1)
+                )
+                x = torch.cat((x, node_degree), dim=1)
             x = self.up_convs[i](x, edge_indices[-i - 2], all_edge_weights[-i - 2])
             x = torch.relu(x)
 
         x = self.lin(x)
         return x
-
