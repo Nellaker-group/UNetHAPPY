@@ -24,6 +24,7 @@ def main(
     num_pooling_steps: int = typer.Option(...),
     subsample_ratio: float = 0.5,
     pooling_ratio: float = 0.5,
+    pooling_method: str = "fps",
     plot_edges: bool = True,
     plot_downsampling: bool = True,
     include_cells: bool = True,
@@ -65,8 +66,8 @@ def main(
     # Setup knn edge layer
     knn_edges = KnnEdges(start_k=6, k_increment=1, no_op=not plot_edges)
 
-    # Apply FPS Pooling and edge reconstruction
-    print(f"Applying fps pooling and knn edges if required")
+    # Apply pooling and edge reconstruction
+    print(f"Applying pooling and knn edges if required")
     perms = []
     datas = [data]
     x = data.x
@@ -74,7 +75,13 @@ def main(
     edge_index = data.edge_index
     batch = data.batch
     for i in range(num_pooling_steps):
-        perm = fps(pos, ratio=pooling_ratio, batch=batch)
+        if pooling_method == "fps":
+            perm = fps(pos, ratio=pooling_ratio, batch=batch)
+        elif pooling_method == "random":
+            num_to_keep = int(x.shape[0] * pooling_ratio)
+            perm = torch.randperm(x.shape[0])[:num_to_keep]
+        else:
+            raise ValueError(f"Unknown pooling method {pooling_method}")
         perms.append(perm)
         x, pos, edge_index, _, batch, _, _ = knn_edges(
             x, pos, edge_index, None, batch, perm, None, i
@@ -86,7 +93,11 @@ def main(
     data = data.to("cpu")
     edge_index = data.edge_index
     save_path = (
-        project_dir / "visualisations" / "graphs" / "fps_pooling" / f"run_{run_id}"
+        project_dir
+        / "visualisations"
+        / "graphs"
+        / f"{pooling_method}_pooling"
+        / f"run_{run_id}"
     )
     save_path.mkdir(parents=True, exist_ok=True)
 
