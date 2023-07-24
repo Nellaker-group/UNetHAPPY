@@ -9,7 +9,7 @@ from torch_geometric.loader import DataLoader
 import numpy as np
 
 from happy.graph.enums import AutoEncoderModelsArg
-from happy.models.gae import GAE, GAERandom
+from happy.models.gae import GAE
 from projects.placenta.graphs.graphs.lesion_dataset import LesionDataset
 
 
@@ -194,6 +194,7 @@ class FPSRunner(Runner):
             self.params.hidden_units,
             self.params.depth,
             self.params.use_edge_weights,
+            "fps",
             self.params.pooling_ratio,
         )
 
@@ -208,6 +209,7 @@ class FPSCosineRunner(Runner):
             self.params.hidden_units,
             self.params.depth,
             self.params.use_edge_weights,
+            "fps",
             self.params.pooling_ratio,
         )
 
@@ -261,11 +263,12 @@ class FPSCosineRunner(Runner):
 
 class RandomRunner(Runner):
     def setup_model(self):
-        return GAERandom(
+        return GAE(
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.params.depth,
             self.params.use_edge_weights,
+            "random",
             self.params.pooling_ratio,
         )
 
@@ -275,10 +278,11 @@ class RandomRunner(Runner):
 
 class RandomCosineRunner(FPSCosineRunner):
     def setup_model(self):
-        return GAERandom(
+        return GAE(
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.params.depth,
             self.params.use_edge_weights,
+            "random",
             self.params.pooling_ratio,
         )

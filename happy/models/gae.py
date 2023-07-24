@@ -8,13 +8,14 @@ from happy.models.utils.custom_layers import KnnEdges
 
 class GAE(torch.nn.Module):
     def __init__(
-        self, in_channels, hidden_channels, depth, use_edge_weights, pool_ratio=0.25
+        self, in_channels, hidden_channels, depth, use_edge_weights, pool_method, pool_ratio=0.25
     ):
         super().__init__()
         self.in_channels = in_channels
         self.hidden_channels = hidden_channels
         self.depth = depth
         self.use_edge_weights = use_edge_weights
+        self.pool_method = pool_method
         self.pool_ratio = pool_ratio
 
         self.down_convs = torch.nn.ModuleList()
@@ -53,7 +54,13 @@ class GAE(torch.nn.Module):
         for i in range(self.depth):
             x = self.down_convs[i](x, edge_index, edge_weights)
             x = torch.relu(x)
-            perm = fps(pos, batch, ratio=self.pool_ratio)
+            if self.pool_method == "fps":
+                perm = fps(pos, batch, ratio=self.pool_ratio)
+            elif self.pool_method == "random":
+                num_to_keep = int(x.shape[0] * self.pool_ratio)
+                perm = torch.randperm(x.shape[0])[:num_to_keep]
+            else:
+                raise NotImplementedError
             batch = batch[perm]
             x, pos, edge_index, edge_weights, _, _, _ = self.knn_edge_transform[i](
                 x, pos, edge_index, edge_weights, batch, perm, None, i
@@ -80,58 +87,3 @@ class GAE(torch.nn.Module):
         x = self.lin(x)
         return x
 
-
-class GAERandom(GAE):
-    def __init__(
-        self, in_channels, hidden_channels, depth, use_edge_weights, pool_ratio=0.25
-    ):
-        super().__init__(
-            in_channels, hidden_channels, depth, use_edge_weights, pool_ratio
-        )
-
-    def forward(self, batch):
-        if not self.use_edge_weights:
-            batch.edge_weights = None
-        x = batch.x
-        pos = batch.pos
-        edge_index = batch.edge_index
-        edge_weights = batch.edge_weights
-        batch = batch.batch
-
-        # Save for reconstruction
-        all_pos = [pos]
-        edge_indices = [edge_index]
-        all_edge_weights = [edge_weights]
-        all_batch = [batch]
-
-        # Downward pass
-        for i in range(self.depth):
-            x = self.down_convs[i](x, edge_index, edge_weights)
-            x = torch.relu(x)
-            num_to_keep = int(x.shape[0] * self.pool_ratio)
-            perm = torch.randperm(x.shape[0])[:num_to_keep]
-            batch = batch[perm]
-            x, pos, edge_index, edge_weights, _, _, _ = self.knn_edge_transform[i](
-                x, pos, edge_index, edge_weights, batch, perm, None, i
-            )
-            x = x[perm]
-            all_pos.append(pos)
-            edge_indices.append(edge_index)
-            all_edge_weights.append(edge_weights)
-            all_batch.append(batch)
-
-        # Upward pass
-        for i in range(self.depth):
-            x = knn_interpolate(
-                x,
-                all_pos[-i - 1],
-                all_pos[-i - 2],
-                k=6,
-                batch_x=all_batch[-i - 1],
-                batch_y=all_batch[-i - 2],
-            )
-            x = self.up_convs[i](x, edge_indices[-i - 2], all_edge_weights[-i - 2])
-            x = torch.relu(x)
-
-        x = self.lin(x)
-        return x
