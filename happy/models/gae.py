@@ -49,11 +49,12 @@ class GAE(torch.nn.Module):
 
     def forward(self, batch):
         if not self.use_edge_weights:
-            batch.edge_weights = None
+            edge_weights = None
+        else:
+            edge_weights = batch.edge_weights
         x = batch.x
         pos = batch.pos
         edge_index = batch.edge_index
-        edge_weights = batch.edge_weights
         batch = batch.batch
 
         # Save for reconstruction
