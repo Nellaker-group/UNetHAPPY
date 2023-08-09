@@ -14,6 +14,7 @@ from happy.graph.utils.visualise_points import visualize_points
 from happy.organs import get_organ
 from happy.hdf5 import get_embeddings_file
 from happy.graph.graph_creation.get_and_process import get_hdf5_data
+from projects.placenta.graphs.processing.process_knots import process_knts
 from happy.utils.utils import get_project_dir
 from happy.graph.graph_creation.create_graph import (
     make_k_graph,
@@ -44,6 +45,7 @@ def main(
     height: int = -1,
     top_conf: bool = False,
     plot_edges: bool = False,
+    group_knts: bool = False,
     single_cell: Optional[str] = None,
     percent_to_keep: float = 0.0,
     custom_save_dir: Optional[str] = None,
@@ -61,6 +63,7 @@ def main(
         height: height for defining a subsection/patch of the WSI. -1 for all
         top_conf: filter the nodes to only those >90% network confidence
         plot_edges: whether to plot edges or just points
+        group_knts: whether to group knts into a single node
         single_cell: filter the nodes to only those of a single cell type
         percent_to_keep: percent of nodes to random remove down to
         custom_save_dir: custom directory to save the graph visualisation
@@ -75,6 +78,8 @@ def main(
     embeddings_path = get_embeddings_file(project_name, run_id)
     hdf5_data = get_hdf5_data(project_name, run_id, x_min, y_min, width, height)
 
+    if group_knts:
+        hdf5_data, _ = process_knts(organ, hdf5_data)
     if top_conf:
         hdf5_data = hdf5_data.filter_by_confidence(0.9, 1.0)
     if single_cell:

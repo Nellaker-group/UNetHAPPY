@@ -9,7 +9,7 @@ from torch_geometric.loader import DataLoader
 import numpy as np
 
 from happy.graph.enums import AutoEncoderModelsArg
-from happy.models.gae import GAE
+from happy.models.gae import GAE, GAEOneHop
 from projects.placenta.graphs.graphs.lesion_dataset import LesionDataset
 
 
@@ -57,6 +57,8 @@ class Runner:
             AutoEncoderModelsArg.fps_cosine: FPSCosineRunner,
             AutoEncoderModelsArg.random: RandomRunner,
             AutoEncoderModelsArg.random_cosine: RandomCosineRunner,
+            AutoEncoderModelsArg.one_hop: OneHopRunner,
+
         }
         ModelClass = cls[params.model_type]
         return ModelClass(params, test)
@@ -290,4 +292,14 @@ class RandomCosineRunner(FPSCosineRunner):
             self.params.use_node_degree,
             "random",
             self.params.pooling_ratio,
+        )
+
+class OneHopRunner(FPSCosineRunner):
+    def setup_model(self):
+        return GAEOneHop(
+            next(iter(self.params.datasets.values())).num_node_features,
+            self.params.hidden_units,
+            self.params.depth,
+            self.params.use_edge_weights,
+            self.params.use_node_degree,
         )

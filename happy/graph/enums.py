@@ -37,3 +37,4 @@ class AutoEncoderModelsArg(str, Enum):
     fps_cosine = "fps_cosine"
     random = "random"
     random_cosine = "random_cosine"
+    one_hop = "one_hop"

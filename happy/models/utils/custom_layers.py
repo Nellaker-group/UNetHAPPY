@@ -1,4 +1,6 @@
 from typing import List, Optional, Tuple, Union
+
+import torch
 import torch.nn.functional as F
 from torch import nn as nn
 from torch import Tensor
@@ -10,6 +12,7 @@ from torch_geometric.data import Data
 from torch_geometric.nn.aggr import Aggregation
 from torch_geometric.typing import Adj, OptPairTensor, Size, SparseTensor
 from torch_geometric.utils import spmm
+from tqdm import tqdm
 
 
 class WeightedSAGEConv(SAGEConv):
@@ -114,3 +117,33 @@ class KnnEdges(nn.Module):
         if edge_attr is not None:
             edge_attr = temp_data.edge_attr
         return x, pos, edge_index, edge_attr, batch, perm, score
+
+
+def pool_one_hop(edge_index, num_nodes, iteration_size):
+    device = edge_index.device
+    perm = []  # This will store our super nodes
+    node_mask = torch.ones(num_nodes, dtype=torch.bool, device=device)
+
+    while node_mask.any():  # While there are nodes left
+        # Randomly select iteration_size nodes which are still available
+        available_nodes = torch.where(node_mask)[0]
+        if available_nodes.size(0) > iteration_size:
+            supernodes = available_nodes[
+                torch.randint(0, available_nodes.size(0), (iteration_size,))
+            ]
+        else:
+            supernodes = available_nodes
+
+        # Append supernodes to perm
+        perm.extend(supernodes.tolist())
+
+        # Remove the neighbors of supernodes from the selection pool
+        rows, cols = edge_index
+        neighbors = torch.unique(cols[torch.isin(rows, supernodes)])
+        # Exclude supernodes from the neighbors list to account for self-loops
+        neighbors = neighbors[~torch.isin(neighbors, supernodes)]
+
+        node_mask[supernodes] = False
+        node_mask[neighbors] = False
+
+    return torch.tensor(perm, dtype=torch.long)
