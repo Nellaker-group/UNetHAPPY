@@ -40,7 +40,7 @@ def main(
 ):
     db.init()
     set_seed(seed)
-    device = get_device()
+    device = "cpu"
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
 
@@ -75,7 +75,7 @@ def main(
         / model_weights_dir
         / model_name
     )
-    model = torch.load(pretrained_path)
+    model = torch.load(pretrained_path, map_location=device)
 
     # Setup save path
     save_dir = pretrained_path.parent / "eval" / f"run_{run_id}"

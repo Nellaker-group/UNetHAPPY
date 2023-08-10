@@ -114,6 +114,7 @@ class GAEOneHop(torch.nn.Module):
         depth,
         use_edge_weights,
         use_node_degree,
+        use_interpolation,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -121,6 +122,7 @@ class GAEOneHop(torch.nn.Module):
         self.depth = depth
         self.use_edge_weights = use_edge_weights
         self.use_node_degree = use_node_degree
+        self.use_interpolation = use_interpolation
 
         self.down_convs = torch.nn.ModuleList()
         self.knn_edge_transform = torch.nn.ModuleList()
@@ -158,6 +160,7 @@ class GAEOneHop(torch.nn.Module):
         edge_indices = [edge_index]
         all_edge_weights = [edge_weights]
         all_batch = [batch]
+        perms = []
 
         # Downward pass
         for i in range(self.depth):
@@ -173,17 +176,26 @@ class GAEOneHop(torch.nn.Module):
             edge_indices.append(edge_index)
             all_edge_weights.append(edge_weights)
             all_batch.append(batch)
+            perms.append(perm)
 
         # Upward pass
         for i in range(self.depth):
-            x = knn_interpolate(
-                x,
-                all_pos[-i - 1],
-                all_pos[-i - 2],
-                k=6,
-                batch_x=all_batch[-i - 1],
-                batch_y=all_batch[-i - 2],
-            )
+            if self.use_interpolation:
+                x = knn_interpolate(
+                    x,
+                    all_pos[-i - 1],
+                    all_pos[-i - 2],
+                    k=6,
+                    batch_x=all_batch[-i - 1],
+                    batch_y=all_batch[-i - 2],
+                )
+            else:
+                up = torch.zeros(
+                    (all_pos[-i - 2].shape[0], x.shape[1]), device=x.device
+                )
+                up[perms[-i - 1]] = x
+                x = up
+
             if self.use_node_degree:
                 node_degree = (
                     edge_index.flatten().bincount(minlength=x.shape[0]).unsqueeze(1)
@@ -194,4 +206,3 @@ class GAEOneHop(torch.nn.Module):
 
         x = self.lin(x)
         return x
-

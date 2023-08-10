@@ -11,8 +11,8 @@ from torch_geometric.transforms import Distance
 from torch_geometric.data import Data
 from torch_geometric.nn.aggr import Aggregation
 from torch_geometric.typing import Adj, OptPairTensor, Size, SparseTensor
-from torch_geometric.utils import spmm
-from tqdm import tqdm
+from torch_geometric.nn import MessagePassing, GINConv, knn
+from torch_geometric.utils import spmm, subgraph
 
 
 class WeightedSAGEConv(SAGEConv):
@@ -147,3 +147,71 @@ def pool_one_hop(edge_index, num_nodes, iteration_size):
         node_mask[neighbors] = False
 
     return torch.tensor(perm, dtype=torch.long)
+
+
+def pool_subgraph(pos, pool_ratio):
+    # Randomly select super nodes.
+    num_to_keep = int(pos.shape[0] * pool_ratio)
+    super_node_indices = torch.randperm(pos.shape[0], device=pos.device)[:num_to_keep]
+
+    # Assign nodes to the nearest supernode based on their positions.
+    nearest_super_node = knn(pos[super_node_indices], pos, k=1)[1]
+    print("knn complete")
+
+    from happy.graph.utils.visualise_points import visualize_points
+    from happy.organs import get_organ
+
+    organ = get_organ("placenta")
+    pos = pos.to("cpu").numpy()
+    visualize_points(
+        organ,
+        "nearest_super_node.png",
+        pos,
+        colours=nearest_super_node[1].to("cpu").numpy(),
+        width=int(pos[:, 0].max()) - int(pos[:, 0].min()),
+        height=int(pos[:, 1].max()) - int(pos[:, 1].min()),
+    )
+
+
+class SubgraphPool(MessagePassing):
+    def __init__(self, in_channels, out_channels, pool_ratio, **kwargs):
+        super(SubgraphPool, self).__init__(aggr="add", **kwargs)
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.pool_ratio = pool_ratio
+
+        self.mlp = torch.nn.Sequential(
+            torch.nn.Linear(in_channels, 2 * in_channels),
+            torch.nn.ReLU(),
+            torch.nn.Linear(2 * in_channels, out_channels),
+        )
+        self.conv = GINConv(self.mlp)
+
+    def forward(self, x, edge_index, pos):
+        # Randomly select super nodes
+        num_to_keep = int(pos.shape[0] * self.pool_ratio)
+        supernode_indices = torch.randperm(pos.shape[0])[:num_to_keep]
+
+        # Assign remaining nodes to the nearest supernode based on their positions
+        nearest_supernode = knn(pos[supernode_indices], pos, k=1)[1]
+
+        pooled_features = []
+        # Iterate through each super node
+        for idx in supernode_indices:
+            # Get nodes that have been assigned to this super node
+            child_nodes = torch.where(nearest_supernode.eq(idx))[0]
+
+            # if no child nodes, continue to the next super node
+            if child_nodes.size(0) == 0:
+                continue
+
+            # Extract child subgraph and apply GINConv on the subgraph
+            child_edge_index = subgraph(child_nodes, edge_index)
+            child_x = self.conv(x[child_nodes], child_edge_index)
+
+            # Extract the feature of the super node
+            super_node_feature = child_x[x[child_nodes] == idx]
+            pooled_features.append(super_node_feature)
+
+        pooled_features = torch.cat(pooled_features, dim=0)
+        return pooled_features

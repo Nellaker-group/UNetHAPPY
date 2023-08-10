@@ -25,6 +25,7 @@ class Params:
     hidden_units: int
     use_edge_weights: bool
     use_node_degree: bool
+    use_interpolation: bool
     pooling_ratio: float
     subsample_ratio: float
     learning_rate: float
@@ -302,4 +303,5 @@ class OneHopRunner(FPSCosineRunner):
             self.params.depth,
             self.params.use_edge_weights,
             self.params.use_node_degree,
+            self.params.use_interpolation,
         )

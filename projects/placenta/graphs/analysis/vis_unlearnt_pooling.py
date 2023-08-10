@@ -195,34 +195,34 @@ def main(
         )
 
     # Calculate similarity between interpolated nodes and their neighbours
-    # x = x.to("cpu").numpy()
-    # similarity_sums = defaultdict(float)
-    # neighbor_counts = defaultdict(int)
-    # edge_index = data.edge_index.to("cpu").numpy()
-    # for node1, node2 in edge_index.reshape(-1, 2):
-    #     if node1 <= node2:
-    #         similarity = cosine_similarity([x[node1]], [x[node2]])[0][0]
-    #         similarity_sums[node1] += similarity
-    #         similarity_sums[node2] += similarity
-    #         neighbor_counts[node1] += 1
-    #         neighbor_counts[node2] += 1
-    # average_similarities = {
-    #     node: similarity_sums[node] / neighbor_counts[node] for node in neighbor_counts
-    # }
-    # similarities = np.array(
-    #     [average_similarities[node] for node in sorted(average_similarities.keys())]
-    # )
-    # print(f"Finished calculating neighbour similarities")
-    #
-    # visualize_points(
-    #     organ,
-    #     save_path / f"avg_neighbour_similarity.png",
-    #     data.pos.to("cpu"),
-    #     colours=similarities,
-    #     width=int(data.pos.to("cpu")[:, 0].max()) - int(data.pos.to("cpu")[:, 0].min()),
-    #     height=int(data.pos.to("cpu")[:, 1].max())
-    #     - int(data.pos.to("cpu")[:, 1].min()),
-    # )
+    x = x.to("cpu").numpy()
+    similarity_sums = defaultdict(float)
+    neighbor_counts = defaultdict(int)
+    edge_index = data.edge_index.to("cpu").numpy()
+    for node1, node2 in edge_index.reshape(-1, 2):
+        if node1 <= node2:
+            similarity = cosine_similarity([x[node1]], [x[node2]])[0][0]
+            similarity_sums[node1] += similarity
+            similarity_sums[node2] += similarity
+            neighbor_counts[node1] += 1
+            neighbor_counts[node2] += 1
+    average_similarities = {
+        node: similarity_sums[node] / neighbor_counts[node] for node in neighbor_counts
+    }
+    similarities = np.array(
+        [average_similarities[node] for node in sorted(average_similarities.keys())]
+    )
+    print(f"Finished calculating neighbour similarities")
+
+    visualize_points(
+        organ,
+        save_path / f"avg_neighbour_similarity.png",
+        data.pos.to("cpu"),
+        colours=similarities,
+        width=int(data.pos.to("cpu")[:, 0].max()) - int(data.pos.to("cpu")[:, 0].min()),
+        height=int(data.pos.to("cpu")[:, 1].max())
+        - int(data.pos.to("cpu")[:, 1].min()),
+    )
 
 
 def _get_similarity_of_interpolation(interp_x, real_x):
