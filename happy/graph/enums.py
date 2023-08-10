@@ -38,3 +38,8 @@ class AutoEncoderModelsArg(str, Enum):
     random = "random"
     random_cosine = "random_cosine"
     one_hop = "one_hop"
+
+class GCNLayerArg(str, Enum):
+    gcn = "gcn"
+    gine = "gine"
+    gat = "gat"

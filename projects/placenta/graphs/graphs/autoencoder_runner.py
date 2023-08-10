@@ -8,7 +8,7 @@ import torch.nn as nn
 from torch_geometric.loader import DataLoader
 import numpy as np
 
-from happy.graph.enums import AutoEncoderModelsArg
+from happy.graph.enums import AutoEncoderModelsArg, GCNLayerArg
 from happy.models.gae import GAE, GAEOneHop
 from projects.placenta.graphs.graphs.lesion_dataset import LesionDataset
 
@@ -19,6 +19,7 @@ class Params:
     device: str
     pretrained: Optional[str]
     model_type: AutoEncoderModelsArg
+    layer_type: GCNLayerArg
     batch_size: int
     epochs: int
     depth: int
@@ -301,6 +302,7 @@ class OneHopRunner(FPSCosineRunner):
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.params.depth,
+            self.params.layer_type,
             self.params.use_edge_weights,
             self.params.use_node_degree,
             self.params.use_interpolation,

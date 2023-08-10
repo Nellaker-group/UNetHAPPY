@@ -1,5 +1,6 @@
 import torch
-from torch_geometric.nn.conv import GCNConv
+from torch_geometric.nn.conv import GCNConv, GINEConv, GATv2Conv, GATConv
+from torch_geometric.nn import MLP
 from torch_geometric.nn.pool import fps
 from torch_geometric.nn.unpool import knn_interpolate
 
@@ -112,6 +113,7 @@ class GAEOneHop(torch.nn.Module):
         in_channels,
         hidden_channels,
         depth,
+        layer_type,
         use_edge_weights,
         use_node_degree,
         use_interpolation,
@@ -120,6 +122,7 @@ class GAEOneHop(torch.nn.Module):
         self.in_channels = in_channels
         self.hidden_channels = hidden_channels
         self.depth = depth
+        self.layer_type = layer_type.value
         self.use_edge_weights = use_edge_weights
         self.use_node_degree = use_node_degree
         self.use_interpolation = use_interpolation
@@ -131,25 +134,18 @@ class GAEOneHop(torch.nn.Module):
 
         for i in range(depth):
             in_channels = in_channels if i == 0 else hidden_channels
-            self.down_convs.append(GCNConv(in_channels, hidden_channels, improved=True))
+            self.down_convs.append(self._set_layer_type(i, direction="down"))
             self.knn_edge_transform.append(
                 KnnEdges(start_k=6, k_increment=1, no_op=False)
             )
         for i in range(depth):
-            if self.use_node_degree:
-                self.up_convs.append(
-                    GCNConv(hidden_channels + 1, hidden_channels, improved=True)
-                )
-            else:
-                self.up_convs.append(
-                    GCNConv(hidden_channels, hidden_channels, improved=True)
-                )
+            self.up_convs.append(self._set_layer_type(i, direction="up"))
 
     def forward(self, batch):
         if not self.use_edge_weights:
             edge_weights = None
         else:
-            edge_weights = batch.edge_weights
+            edge_weights = batch.edge_weights.unsqueeze(dim=1)
         x = batch.x
         pos = batch.pos
         edge_index = batch.edge_index
@@ -206,3 +202,22 @@ class GAEOneHop(torch.nn.Module):
 
         x = self.lin(x)
         return x
+
+    def _set_layer_type(self, i, direction):
+        hidden_channels = self.hidden_channels
+        if i == 0 and direction == "down":
+            in_channels = self.in_channels
+        elif self.use_node_degree and direction == "up":
+            in_channels = hidden_channels + 1
+        else:
+            in_channels = hidden_channels
+
+        if self.layer_type == "gcn":
+            return GCNConv(in_channels, hidden_channels, improved=True)
+        elif self.layer_type == "gine":
+            mlp = MLP([in_channels, hidden_channels * 2, hidden_channels])
+            return GINEConv(mlp, edge_dim=1)
+        elif self.layer_type == "gat":
+            return GATv2Conv(
+                in_channels, hidden_channels, heads=1, edge_dim=1, concat=False
+            )

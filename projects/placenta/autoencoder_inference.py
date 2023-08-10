@@ -40,7 +40,7 @@ def main(
 ):
     db.init()
     set_seed(seed)
-    device = "cpu"
+    device = get_device()
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
 

@@ -9,7 +9,7 @@ from happy.organs import get_organ
 from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir, set_seed
-from happy.graph.enums import AutoEncoderModelsArg
+from happy.graph.enums import AutoEncoderModelsArg, GCNLayerArg
 from projects.placenta.graphs.graphs.autoencoder_runner import Params, Runner
 from projects.placenta.graphs.graphs.graph_classification_utils import (
     setup_lesion_datasets,
@@ -23,6 +23,7 @@ def main(
     exp_name: str = typer.Option(...),
     pretrained: Optional[str] = None,
     model_type: AutoEncoderModelsArg = AutoEncoderModelsArg.fps,
+    layer_type: GCNLayerArg = GCNLayerArg.gcn,
     batch_size: int = 1,
     epochs: int = 2,
     depth: int = 3,
@@ -85,6 +86,7 @@ def main(
         device,
         pretrained_path,
         model_type,
+        layer_type,
         batch_size,
         epochs,
         depth,
