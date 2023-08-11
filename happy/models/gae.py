@@ -13,8 +13,10 @@ class GAE(torch.nn.Module):
         in_channels,
         hidden_channels,
         depth,
+        layer_type,
         use_edge_weights,
         use_node_degree,
+        use_interpolation,
         pool_method,
         pool_ratio=0.25,
     ):
@@ -22,8 +24,10 @@ class GAE(torch.nn.Module):
         self.in_channels = in_channels
         self.hidden_channels = hidden_channels
         self.depth = depth
+        self.layer_type = layer_type
         self.use_edge_weights = use_edge_weights
         self.use_node_degree = use_node_degree
+        self.use_interpolation = use_interpolation
         self.pool_method = pool_method
         self.pool_ratio = pool_ratio
 
@@ -34,19 +38,12 @@ class GAE(torch.nn.Module):
 
         for i in range(depth):
             in_channels = in_channels if i == 0 else hidden_channels
-            self.down_convs.append(GCNConv(in_channels, hidden_channels, improved=True))
+            self.down_convs.append(self._set_layer_type(i, direction="down"))
             self.knn_edge_transform.append(
                 KnnEdges(start_k=6, k_increment=1, no_op=False)
             )
         for i in range(depth):
-            if self.use_node_degree:
-                self.up_convs.append(
-                    GCNConv(hidden_channels + 1, hidden_channels, improved=True)
-                )
-            else:
-                self.up_convs.append(
-                    GCNConv(hidden_channels, hidden_channels, improved=True)
-                )
+            self.up_convs.append(self._set_layer_type(i, direction="up"))
 
     def forward(self, batch):
         if not self.use_edge_weights:
@@ -63,6 +60,7 @@ class GAE(torch.nn.Module):
         edge_indices = [edge_index]
         all_edge_weights = [edge_weights]
         all_batch = [batch]
+        perms = []
 
         # Downward pass
         for i in range(self.depth):
@@ -84,17 +82,25 @@ class GAE(torch.nn.Module):
             edge_indices.append(edge_index)
             all_edge_weights.append(edge_weights)
             all_batch.append(batch)
+            perms.append(perm)
 
         # Upward pass
         for i in range(self.depth):
-            x = knn_interpolate(
-                x,
-                all_pos[-i - 1],
-                all_pos[-i - 2],
-                k=6,
-                batch_x=all_batch[-i - 1],
-                batch_y=all_batch[-i - 2],
-            )
+            if self.use_interpolation:
+                x = knn_interpolate(
+                    x,
+                    all_pos[-i - 1],
+                    all_pos[-i - 2],
+                    k=6,
+                    batch_x=all_batch[-i - 1],
+                    batch_y=all_batch[-i - 2],
+                )
+            else:
+                up = torch.zeros(
+                    (all_pos[-i - 2].shape[0], x.shape[1]), device=x.device
+                )
+                up[perms[-i - 1]] = x
+                x = up
             if self.use_node_degree:
                 node_degree = (
                     edge_index.flatten().bincount(minlength=x.shape[0]).unsqueeze(1)

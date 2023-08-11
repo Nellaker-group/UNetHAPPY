@@ -60,6 +60,7 @@ class Runner:
             AutoEncoderModelsArg.random: RandomRunner,
             AutoEncoderModelsArg.random_cosine: RandomCosineRunner,
             AutoEncoderModelsArg.one_hop: OneHopRunner,
+            AutoEncoderModelsArg.one_hop_cosine: OneHopCosineRunner,
 
         }
         ModelClass = cls[params.model_type]
@@ -198,8 +199,10 @@ class FPSRunner(Runner):
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.params.depth,
+            self.params.layer_type,
             self.params.use_edge_weights,
             self.params.use_node_degree,
+            self.params.use_interpolation,
             "fps",
             self.params.pooling_ratio,
         )
@@ -214,8 +217,10 @@ class FPSCosineRunner(Runner):
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.params.depth,
+            self.params.layer_type,
             self.params.use_edge_weights,
             self.params.use_node_degree,
+            self.params.use_interpolation,
             "fps",
             self.params.pooling_ratio,
         )
@@ -274,8 +279,10 @@ class RandomRunner(Runner):
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.params.depth,
+            self.params.layer_type,
             self.params.use_edge_weights,
             self.params.use_node_degree,
+            self.params.use_interpolation,
             "random",
             self.params.pooling_ratio,
         )
@@ -290,13 +297,32 @@ class RandomCosineRunner(FPSCosineRunner):
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.params.depth,
+            self.params.layer_type,
             self.params.use_edge_weights,
             self.params.use_node_degree,
+            self.params.use_interpolation,
             "random",
             self.params.pooling_ratio,
         )
 
-class OneHopRunner(FPSCosineRunner):
+
+class OneHopRunner(Runner):
+    def setup_model(self):
+        return GAEOneHop(
+            next(iter(self.params.datasets.values())).num_node_features,
+            self.params.hidden_units,
+            self.params.depth,
+            self.params.layer_type,
+            self.params.use_edge_weights,
+            self.params.use_node_degree,
+            self.params.use_interpolation,
+        )
+
+    def setup_criterion(self):
+        return torch.nn.MSELoss()
+
+
+class OneHopCosineRunner(FPSCosineRunner):
     def setup_model(self):
         return GAEOneHop(
             next(iter(self.params.datasets.values())).num_node_features,
