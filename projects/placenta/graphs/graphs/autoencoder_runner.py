@@ -5,6 +5,7 @@ import time
 
 import torch
 import torch.nn as nn
+from torch.nn.functional import normalize
 from torch_geometric.loader import DataLoader
 import numpy as np
 
@@ -24,6 +25,7 @@ class Params:
     epochs: int
     depth: int
     hidden_units: int
+    norm_inputs: bool
     use_edge_weights: bool
     use_node_degree: bool
     use_interpolation: bool
@@ -33,9 +35,7 @@ class Params:
     num_workers: int
 
     def save(self, seed, exp_name, run_path):
-        to_save = {
-            k: v for k, v in asdict(self).items() if k not in ("datasets")
-        }
+        to_save = {k: v for k, v in asdict(self).items() if k not in ("datasets")}
         to_save["seed"] = seed
         to_save["exp_name"] = exp_name
         with open(run_path / "train_params.json", "w") as f:
@@ -61,7 +61,6 @@ class Runner:
             AutoEncoderModelsArg.random_cosine: RandomCosineRunner,
             AutoEncoderModelsArg.one_hop: OneHopRunner,
             AutoEncoderModelsArg.one_hop_cosine: OneHopCosineRunner,
-
         }
         ModelClass = cls[params.model_type]
         return ModelClass(params, test)
@@ -151,6 +150,9 @@ class Runner:
             batch = batch.to(self.params.device)
             self.optimiser.zero_grad()
 
+            if self.params.norm_inputs:
+                batch.x = normalize(batch.x, p=2, dim=1)
+
             out = self.model(batch)
             loss = self.criterion(out, batch.x)
             loss.backward()
@@ -172,6 +174,9 @@ class Runner:
                 batch = self._subsample(batch)
 
             batch = batch.to(self.params.device)
+
+            if self.params.norm_inputs:
+                batch.x = normalize(batch.x, p=2, dim=1)
 
             out = self.model(batch)
             loss = self.criterion(out, batch.x)

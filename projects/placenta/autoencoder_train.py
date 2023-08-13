@@ -28,6 +28,7 @@ def main(
     epochs: int = 2,
     depth: int = 3,
     hidden_units: int = 128,
+    norm_inputs: bool = False,
     use_edge_weights: bool = False,
     use_node_degree: bool = False,
     use_interpolation: bool = True,
@@ -50,6 +51,7 @@ def main(
         epochs: number of epochs to train for
         depth: number of pooling and unpooling layers
         hidden_units: number of hidden units in each layer
+        norm_inputs: whether to normalise (L2 norm) the input features
         use_edge_weights: whether to use edge weights in the model
         use_node_degree: whether to use node degree as an up conv node feature
         use_interpolation: whether to use interpolation in the decoder layers
@@ -91,6 +93,7 @@ def main(
         epochs,
         depth,
         hidden_units,
+        norm_inputs,
         use_edge_weights,
         use_node_degree,
         use_interpolation,

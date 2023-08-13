@@ -8,7 +8,6 @@ from torch.nn.functional import (
     mse_loss,
     cosine_embedding_loss,
     huber_loss,
-    normalize,
 )
 import numpy as np
 
@@ -52,8 +51,6 @@ def main(
 
     data = trainval_dataset.get_data_by_run_id(run_id)
     data.batch = torch.zeros(data.num_nodes, dtype=torch.long)
-    if norm_inputs:
-        data.x = normalize(data.x, p=2, dim=1)
 
     # Subsample data
     if subsample > 0.0:
@@ -62,6 +59,11 @@ def main(
             np.arange(data.num_nodes), num_to_keep, replace=False
         )
         data = data.subgraph(torch.LongTensor(keep_indices))
+
+    # Normalise the input features using L2 norm
+    if norm_inputs:
+        magnitudes = torch.linalg.vector_norm(data.x, ord=2, dim=1, keepdim=True)
+        data.x = data.x / magnitudes
 
     data = data.to(device)
 
@@ -89,6 +91,11 @@ def main(
         out = model(data)
     timer_end = time.time()
     print(f"total inference time: {timer_end - timer_start:.4f} s")
+
+    # Undo reconstructed L2 norm so that it can be pass to cell/tissue output layers
+    if norm_inputs:
+        data.x = data.x * magnitudes.to(device)
+        out = out * magnitudes.to(device)
 
     # Evaluate over cell, tissue features or both together
     for features in ["cell", "tissue", "both"]:
