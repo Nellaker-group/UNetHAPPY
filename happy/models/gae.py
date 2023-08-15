@@ -168,7 +168,7 @@ class GAEOneHop(torch.nn.Module):
         for i in range(self.depth):
             x = self.down_convs[i](x, edge_index, edge_weights)
             x = torch.relu(x)
-            perm = pool_one_hop(edge_index, pos.shape[0], 1000)
+            perm = pool_one_hop(edge_index, pos.shape[0], 1000, 0.75, i)
             batch = batch[perm]
             x, pos, edge_index, edge_weights, _, _, _ = self.knn_edge_transform[i](
                 x, pos, edge_index, edge_weights, batch, perm, None, i
