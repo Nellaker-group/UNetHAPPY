@@ -1,5 +1,5 @@
 import torch
-from torch_geometric.nn.conv import GCNConv, GINEConv, GATv2Conv, GATConv
+from torch_geometric.nn.conv import GCNConv, GINEConv, GATv2Conv
 from torch_geometric.nn import MLP
 from torch_geometric.nn.pool import fps
 from torch_geometric.nn.unpool import knn_interpolate

@@ -112,8 +112,15 @@ def _augmentations(nuclei):
         al.Flip(p=0.5),
         al.RandomRotate90(p=0.5),
         StainAugment(get_rgb_matrices(), p=0.9, variance=0.4),
-        al.CLAHE(clip_limit=3.0, tile_grid_size=(8, 8), p=0.8),
+        al.CLAHE(clip_limit=3.0, tile_grid_size=(8, 8), p=0.7),
+        al.RandomToneCurve(scale=0.2, p=0.8),
+        al.RandomBrightnessContrast(
+            brightness_limit=(-0.1, 0.2),
+            contrast_limit=(0.0, 0.0),
+            brightness_by_max=False,
+            p=0.8,
+        ),
         al.GaussNoise(var_limit=(10.0, 200.0), p=0.8),
-        al.Blur(blur_limit=5, p=0.8),
+        al.Blur(blur_limit=(3, 7), p=0.8),
     ]
     return AlbAugmenter(list_of_albumentations=alb, bboxes=nuclei)

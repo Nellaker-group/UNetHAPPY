@@ -3,7 +3,6 @@ from typing import Optional
 import typer
 import numpy as np
 
-import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device
 from happy.organs import get_organ
 from happy.logger.logger import Logger
@@ -62,7 +61,6 @@ def main(
         local: a flag to extract one local graph for testing locally
     """
     # general setup
-    db.init()
     device = get_device()
     set_seed(seed)
 
