@@ -128,10 +128,11 @@ for j in range(i1,i2+1):
     max_run_id = EvalRun.select(fn.MAX(EvalRun.id)).scalar()
 
     for i in range(1,max_run_id,2):
-
+        
         sc_list = []
         vc_list = []
-        below750_list = []
+        below750_vc_list = []
+        below750_sc_list = []
 
         seg_preds = db.get_all_merged_seg_preds(i,i+1)
         slide_name = db.get_slide_name(i)
@@ -152,14 +153,6 @@ for j in range(i1,i2+1):
             indi_id2 = indi_id.split("vc")[0]
         else:
             indi_id2 = indi_id
-
-        if indi_id2 in merged_dict:
-            continue
-        else:
-            merged_dict[indi_id2] = "1"
-
-        print(indi_id2)
-
 
         if len(seg_preds) == 0:
             continue
@@ -188,21 +181,31 @@ for j in range(i1,i2+1):
                     sc_list.append(poly.area*pixels[whichPixel]**2)
                 else:
                     vc_list.append(poly.area*pixels[whichPixel]**2)
-            else:
-                if poly.area*pixels[whichPixel]**2 < 750:
-                    below750_list.append(poly.area*pixels[whichPixel]**2)
+                
+                if sub and poly.area*pixels[whichPixel]**2 < 750:
+                    below750_sc_list.append(poly.area*pixels[whichPixel]**2)
+                elif poly.area*pixels[whichPixel]**2 < 750:
+                    below750_vc_list.append(poly.area*pixels[whichPixel]**2)
 
         if len(sc_list) > 0:
             # Convert the numbers in the list to strings and join them with commas
+            fracBelow750 = len(below750_sc_list) / len(sc_list)
             line = ",".join(str(num) for num in sc_list)
             # Write the line to the file
-            file1.write(whichPixel+","+slide_name+","+str(len(sc_list))+","+line + "\n")
+            file1.write(whichPixel+","+slide_name+","+str(len(sc_list))+","+str(fracBelow750)+","+line + "\n")
+        else:
+            fracBelow750 = 0
+            file1.write(whichPixel+","+slide_name+","+str(len(sc_list))+","+str(fracBelow750)+"," + "" + "\n")
 
         if len(vc_list) > 0:
             # Convert the numbers in the list to strings and join them with commas
+            fracBelow750 = len(below750_vc_list) / len(vc_list)
             line = ",".join(str(num) for num in vc_list)
             # Write the line to the file
-            file2.write(whichPixel+","+slide_name+","+str(len(vc_list))+","+line + "\n")
+            file2.write(whichPixel+","+slide_name+","+str(len(vc_list))+","+str(fracBelow750)+","+line + "\n")
+        else:
+            fracBelow750 = 0
+            file2.write(whichPixel+","+slide_name+","+str(len(vc_list))+","+str(fracBelow750)+","+ "" + "\n")
         
 
 file1.close()
