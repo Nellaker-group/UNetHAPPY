@@ -116,7 +116,7 @@ def _get_transformations(boxes=True):
     alb = [
         al.Flip(p=0.5),
         al.RandomRotate90(p=0.5),
-        StainAugment(get_rgb_matrices(), p=1.9, variance=0.4),
+        StainAugment(get_rgb_matrices(), p=0.9, variance=0.4),
         al.CLAHE(clip_limit=3.0, tile_grid_size=(8, 8), p=0.7),
         al.RandomToneCurve(scale=0.2, p=0.8),
         al.RandomBrightnessContrast(
