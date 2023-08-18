@@ -3,13 +3,12 @@ from typing import Optional
 import typer
 import numpy as np
 
-import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device
 from happy.organs import get_organ
 from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir, set_seed
-from happy.graph.enums import AutoEncoderModelsArg
+from happy.graph.enums import AutoEncoderModelsArg, GCNLayerArg
 from projects.placenta.graphs.graphs.autoencoder_runner import Params, Runner
 from projects.placenta.graphs.graphs.graph_classification_utils import (
     setup_lesion_datasets,
@@ -23,12 +22,15 @@ def main(
     exp_name: str = typer.Option(...),
     pretrained: Optional[str] = None,
     model_type: AutoEncoderModelsArg = AutoEncoderModelsArg.fps,
+    layer_type: GCNLayerArg = GCNLayerArg.gcn,
     batch_size: int = 1,
     epochs: int = 2,
     depth: int = 3,
     hidden_units: int = 128,
+    norm_inputs: bool = False,
     use_edge_weights: bool = False,
     use_node_degree: bool = False,
+    use_interpolation: bool = True,
     pooling_ratio: float = 0.25,
     subsample_ratio: float = 0.5,
     learning_rate: float = 0.001,
@@ -48,8 +50,10 @@ def main(
         epochs: number of epochs to train for
         depth: number of pooling and unpooling layers
         hidden_units: number of hidden units in each layer
+        norm_inputs: whether to normalise (L2 norm) the input features
         use_edge_weights: whether to use edge weights in the model
         use_node_degree: whether to use node degree as an up conv node feature
+        use_interpolation: whether to use interpolation in the decoder layers
         pooling_ratio: the ratio of nodes to pool down to in each pooling layer
         subsample_ratio: the ratio of node to first subsample each graph down to
         learning_rate: the learning rate of the model
@@ -57,7 +61,6 @@ def main(
         local: a flag to extract one local graph for testing locally
     """
     # general setup
-    db.init()
     device = get_device()
     set_seed(seed)
 
@@ -83,12 +86,15 @@ def main(
         device,
         pretrained_path,
         model_type,
+        layer_type,
         batch_size,
         epochs,
         depth,
         hidden_units,
+        norm_inputs,
         use_edge_weights,
         use_node_degree,
+        use_interpolation,
         pooling_ratio,
         subsample_ratio,
         learning_rate,

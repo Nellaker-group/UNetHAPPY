@@ -48,7 +48,7 @@ class LesionDataset(Dataset):
 
     def get_data_by_run_id(self, run_id):
         idx = (self.run_ids == run_id).nonzero()[0][0]
-        return torch.load(self.data_paths[idx])
+        return self.get(idx)
 
     def get_lesion_by_run_id(self, run_id):
         idx = (self.run_ids == run_id).nonzero()[0][0]

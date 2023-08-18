@@ -14,6 +14,7 @@ def visualize_points(
     edge_weight=None,
     colours=None,
     point_size=None,
+    colour_map="viridis",
 ):
     if labels is not None:
         if isinstance(labels[0], torch.Tensor):
@@ -51,7 +52,7 @@ def visualize_points(
         s=point_size,
         zorder=1000,
         c=colours,
-        cmap="viridis",
+        cmap=colour_map,
     )
     plt.gca().invert_yaxis()
     plt.axis("off")

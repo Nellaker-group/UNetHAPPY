@@ -14,9 +14,11 @@ from happy.data.transforms.agumentations import AlbAugmenter, StainAugment
 from happy.data.transforms.transforms import Normalizer, Resizer, unnormalise_image
 from happy.data.transforms.utils.color_conversion import get_rgb_matrices
 from happy.data.datasets.nuclei_dataset import NucleiDataset
+from happy.data.datasets.cell_dataset import CellDataset
 from happy.data.setup_dataloader import get_dataloader
-from happy.data.transforms.collaters import collater
+from happy.data.transforms.collaters import collater, cell_collater
 from happy.data.utils import draw_centre
+from happy.organs import get_organ
 
 
 def main(
@@ -26,6 +28,7 @@ def main(
     dataset_name: str = typer.Option(...),
     num_images: int = 10,
     plot_groundtruth: bool = True,
+    use_cells: bool = False,
 ):
     """Visualises the effect of augmentations across nuclei datasets
 
@@ -33,25 +36,46 @@ def main(
         project_name: name of the project dir to save visualisations to
         annot_dir: relative path to annotations
         split: the datasets split to run over
-        dataset_name: the datasets who's validation set to evaluate over
+        dataset_name: the datasets of which validation set to evaluate over
         num_images: the number of images to evaluate
-        plot_groundtruth: whether to overlay groundtruth points on image after aug
+        plot_groundtruth: whether to overlay nuc groundtruth points on image after aug
+        use_cells: whether to use the cell dataset instead of nuclei dataset
     """
     project_dir = (
         Path(__file__).absolute().parent.parent.parent / "projects" / project_name
     )
     os.chdir(str(project_dir))
 
-    transform = transforms.Compose(
-        [_get_transformations(), Normalizer(), Resizer(padding=False)]
-    )
-    dataset = NucleiDataset(
-        annotations_dir=project_dir / annot_dir,
-        dataset_names=[dataset_name],
-        split=split,
-        transform=transform,
-    )
-    dataloader = get_dataloader(split, dataset, collater, 1, True, 1)
+    if not use_cells:
+        transform = transforms.Compose(
+            [_get_transformations(), Normalizer(), Resizer(padding=False)]
+        )
+        dataset = NucleiDataset(
+            annotations_dir=project_dir / annot_dir,
+            dataset_names=[dataset_name],
+            split=split,
+            transform=transform,
+        )
+        dataloader = get_dataloader(split, dataset, collater, 1, True, 1)
+    else:
+        organ = get_organ("placenta")
+        transform = transforms.Compose(
+            [
+                _get_transformations(boxes=False),
+                Normalizer(),
+                Resizer(
+                    min_side=224, max_side=224, padding=False, scale_annotations=False
+                ),
+            ]
+        )
+        dataset = CellDataset(
+            organ=organ,
+            annotations_dir=project_dir / annot_dir,
+            dataset_names=[dataset_name],
+            split=split,
+            transform=transform,
+        )
+        dataloader = get_dataloader(split, dataset, cell_collater, 1, False, 1)
 
     with torch.no_grad():
         for idx, data in enumerate(tqdm(dataloader)):
@@ -74,10 +98,11 @@ def main(
                     label = "nucleus"
                     draw_centre(img, x1, y1, x2, y2, label, None, False, (0, 255, 255))
 
+            type_dir = "nuclei" if not use_cells else "cells"
             save_dir = (
                 project_dir
                 / "visualisations"
-                / "nuclei"
+                / type_dir
                 / "augmentations"
                 / f"{dataset_name}_aug"
             )
@@ -87,16 +112,23 @@ def main(
             cv2.imwrite(str(save_path), img)
 
 
-def _get_transformations():
+def _get_transformations(boxes=True):
     alb = [
         al.Flip(p=0.5),
         al.RandomRotate90(p=0.5),
         StainAugment(get_rgb_matrices(), p=0.9, variance=0.4),
-        al.CLAHE(clip_limit=3.0, tile_grid_size=(8, 8), p=0.8),
+        al.CLAHE(clip_limit=3.0, tile_grid_size=(8, 8), p=0.7),
+        al.RandomToneCurve(scale=0.2, p=0.8),
+        al.RandomBrightnessContrast(
+            brightness_limit=(-0.1, 0.2),
+            contrast_limit=(0.0, 0.0),
+            brightness_by_max=False,
+            p=0.8,
+        ),
         al.GaussNoise(var_limit=(10.0, 200.0), p=0.8),
-        al.Blur(blur_limit=5, p=0.8),
+        al.Blur(blur_limit=(3, 7), p=0.8),
     ]
-    return AlbAugmenter(list_of_albumentations=alb, bboxes=True)
+    return AlbAugmenter(list_of_albumentations=alb, bboxes=boxes)
 
 
 if __name__ == "__main__":
