@@ -142,6 +142,10 @@ def setup_node_splits(
                 data.test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
             data.val_mask = val_mask
             data.train_mask = train_mask
+            if mask_unlabelled and tissue_class is not None:
+                data.val_mask[unlabelled_inds] = False
+                data.train_mask[unlabelled_inds] = False
+                data.test_mask[unlabelled_inds] = False
         if verbose:
             print(
                 f"Graph split into {data.train_mask.sum().item()} train nodes "
