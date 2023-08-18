@@ -221,6 +221,7 @@ def validate_model(
     if val_accuracy > prev_best_accuracy:
         name = f"cell_model_accuracy_{round(val_accuracy, 4)}.pt"
         torch.save(model.state_dict(), run_path / name)
+        logger.to_csv(run_path / "cell_train_stats.csv")
         print("Best model saved")
 
         # Generate confusion matrix for all the validation sets

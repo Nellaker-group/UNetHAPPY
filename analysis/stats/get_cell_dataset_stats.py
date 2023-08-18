@@ -27,8 +27,8 @@ def main(
         annot_files = [
             f for f in os.listdir(dataset_path) if os.path.isfile(dataset_path / f)
         ]
-        if '.DS_Store' in annot_files:
-            annot_files.remove('.DS_Store')
+        if ".DS_Store" in annot_files:
+            annot_files.remove(".DS_Store")
         for annot_file in annot_files:
             print(f"Split file: {annot_file}")
             df = pd.read_csv(dataset_path / annot_file, names=["path", "cell_class"])
@@ -36,10 +36,10 @@ def main(
             missing_cells = list(set(all_cell_types) - set(grouped_df["cell_class"]))
             missing_cells.sort()
             for cell in missing_cells:
-                grouped_df = grouped_df.append(
-                    pd.Series({"cell_class": cell, "counts": 0}), ignore_index=True
+                grouped_df.loc[len(grouped_df)] = pd.Series(
+                    {"cell_class": cell, "counts": 0}
                 )
-            grouped_df.sort_values('cell_class', inplace=True, ignore_index=True)
+            grouped_df.sort_values("cell_class", inplace=True, ignore_index=True)
 
             print(grouped_df)
 
@@ -52,7 +52,9 @@ def main(
 
     print("Combined Datasets")
     for annot_file in grouped_dfs:
-        grouped_dfs[annot_file].sort_values('cell_class', inplace=True, ignore_index=True)
+        grouped_dfs[annot_file].sort_values(
+            "cell_class", inplace=True, ignore_index=True
+        )
         print(f"Split file: {annot_file}")
         print(grouped_dfs[annot_file])
 
@@ -79,6 +81,7 @@ def _colour_bars(cell_colours):
     cell_colours[8], cell_colours[10] = cell_colours[10], cell_colours[8]
     cell_colours[9], cell_colours[10] = cell_colours[10], cell_colours[9]
     return cell_colours
+
 
 if __name__ == "__main__":
     typer.run(main)

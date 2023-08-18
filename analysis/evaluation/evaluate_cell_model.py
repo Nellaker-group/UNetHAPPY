@@ -28,7 +28,9 @@ from happy.train.utils import (
     plot_cell_pr_curves,
 )
 from happy.organs import get_organ
-from happy.train.cell_train import setup_data, setup_model
+from happy.train.cell_train import setup_model
+from happy.data.setup_data import setup_cell_datasets
+from happy.data.setup_dataloader import setup_dataloaders
 
 
 def main(
@@ -73,18 +75,18 @@ def main(
     model.eval()
 
     multiple_val_sets = True if len(dataset_names) > 1 else False
-    dataloaders = setup_data(
+    datasets = setup_cell_datasets(
         organ,
         project_dir / annot_dir,
-        hp,
+        hp.dataset_names,
         image_size,
-        3,
         multiple_val_sets,
-        hp.batch,
         use_test_set,
     )
     if not use_test_set:
-        dataloaders.pop("train")
+        datasets.pop("train")
+    dataloaders = setup_dataloaders(False, datasets, 3, hp.batch, hp.batch)
+
 
     print("Running inference across datasets")
     predictions = {}
