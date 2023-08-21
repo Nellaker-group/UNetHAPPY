@@ -146,10 +146,10 @@ for j in range(i1,i2+1):
 
         sub = False
 
-        if "sc" in indi_id or "Subcutaneous" in indi_id:
+        if "[0-9]sc[0-9]" in indi_id or "Subcutaneous" in indi_id:
             indi_id2 = indi_id.split("sc")[0]
             sub = True
-        elif "vc" in indi_id or "Visceral" in indi_id:
+        elif "[0-9]vc[0-9]" in indi_id or "Visceral" in indi_id:
             indi_id2 = indi_id.split("vc")[0]
         else:
             indi_id2 = indi_id
