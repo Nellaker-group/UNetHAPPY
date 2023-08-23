@@ -14,6 +14,7 @@ import db.eval_runs_interface as db
 import data.geojsoner as gj
 import data.merge_polygons as mp
 import argparse
+import re
 from peewee import fn
 from db.eval_runs import EvalRun, TileState, Prediction, UnvalidatedPrediction, MergedPrediction
 
@@ -146,10 +147,10 @@ for j in range(i1,i2+1):
 
         sub = False
 
-        if "[0-9]sc[0-9]" in indi_id or "Subcutaneous" in indi_id:
+        if re.search(r"\dsc\d", indi_id) or "Subcutaneous" in indi_id:
             indi_id2 = indi_id.split("sc")[0]
             sub = True
-        elif "[0-9]vc[0-9]" in indi_id or "Visceral" in indi_id:
+        elif re.search(r"\dvc\d", indi_id) or "Visceral" in indi_id:
             indi_id2 = indi_id.split("vc")[0]
         else:
             indi_id2 = indi_id
@@ -195,7 +196,7 @@ for j in range(i1,i2+1):
             file1.write(whichPixel+","+slide_name+","+str(len(sc_list))+","+str(fracBelow750)+","+line + "\n")
         else:
             fracBelow750 = 0
-            file1.write(whichPixel+","+slide_name+","+str(len(sc_list))+","+str(fracBelow750)+"," + "" + "\n")
+            file1.write(whichPixel+","+slide_name+","+str(len(sc_list))+","+str(fracBelow750)+"," + "NA" + "\n")
 
         if len(vc_list) > 0:
             # Convert the numbers in the list to strings and join them with commas
@@ -205,7 +206,7 @@ for j in range(i1,i2+1):
             file2.write(whichPixel+","+slide_name+","+str(len(vc_list))+","+str(fracBelow750)+","+line + "\n")
         else:
             fracBelow750 = 0
-            file2.write(whichPixel+","+slide_name+","+str(len(vc_list))+","+str(fracBelow750)+","+ "" + "\n")
+            file2.write(whichPixel+","+slide_name+","+str(len(vc_list))+","+str(fracBelow750)+","+ "NA" + "\n")
         
 
 file1.close()
