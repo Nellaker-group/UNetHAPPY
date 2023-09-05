@@ -279,5 +279,17 @@ def _plot_all_slides(
     )
 
 
+TISSUE_EXPECTATION = [
+    (0.0, 0.009),
+    (0.30, 0.60),
+    (0.17, 0.32),
+    (None, None),
+    (0.09, 0.25),
+    (None, None),
+    (None, None),
+    (0.0, 0.10),
+    (0.0, 0.0249),
+]
+
 if __name__ == "__main__":
     typer.run(main)
