@@ -17,6 +17,8 @@ def main(
     organ_name: str = typer.Option(...),
     single_cell: Optional[str] = None,
     custom_save_dir: Optional[str] = None,
+    cell=True,
+    tissue=True,
 ):
     """Saves cell predictions coloured by cell type across whole slide
 
@@ -26,6 +28,8 @@ def main(
         organ_name: name of the organ to get the cell colours
         single_cell: if specified, only this cell type will be plotted
         custom_save_dir: if specified, the visualisation will be saved to this directory
+        cell: whether to plot cell predictions
+        tissue: whether to plot tissue predictions
     """
     # Create database connection
     db.init()
@@ -35,7 +39,7 @@ def main(
 
     # Get path to embeddings hdf5 files
     embeddings_path = get_embeddings_file(project_name, run_id)
-    hdf5_data = get_hdf5_data(project_name, run_id, 0, 0, -1, -1)
+    hdf5_data = get_hdf5_data(project_name, run_id, 0, 0, -1, -1, tissue=True)
 
     if single_cell:
         hdf5_data = hdf5_data.filter_by_cell_type(single_cell, organ)
@@ -46,18 +50,34 @@ def main(
     lab = Path(embeddings_path.parts[-3])
     save_dir = save_dir / lab
     save_dir.mkdir(parents=True, exist_ok=True)
-    plot_name = f"{embeddings_path.parts[-2].split('.')[0]}.png"
+    plot_name = f"{embeddings_path.parts[-2].split('.')[0]}"
     plot_name = f"{plot_name}_{single_cell}" if single_cell else plot_name
 
-    visualize_points(
-        organ,
-        save_dir / plot_name,
-        hdf5_data.coords.astype("int32"),
-        labels=hdf5_data.cell_predictions,
-        width=-1,
-        height=-1,
-    )
-    print(f"Plot saved to {save_dir / plot_name}")
+    if cell:
+        curr_plot_name = f"{plot_name}_cells.png"
+        visualize_points(
+            organ,
+            save_dir / curr_plot_name,
+            hdf5_data.coords.astype("int32"),
+            labels=hdf5_data.cell_predictions,
+            width=-1,
+            height=-1,
+        )
+        print(f"Plot saved to {save_dir / curr_plot_name}")
+    if tissue:
+        curr_plot_name = f"{plot_name}_tissues.png"
+        colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
+        colours = [colours_dict[label] for label in hdf5_data.tissue_predictions]
+        visualize_points(
+            organ,
+            save_dir / curr_plot_name,
+            hdf5_data.coords.astype("int32"),
+            labels=hdf5_data.tissue_predictions,
+            colours=colours,
+            width=-1,
+            height=-1,
+        )
+        print(f"Plot saved to {save_dir / curr_plot_name}")
 
 
 if __name__ == "__main__":

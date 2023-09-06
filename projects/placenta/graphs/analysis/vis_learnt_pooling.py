@@ -127,9 +127,9 @@ def main(
         perm = pooled_output[5].to("cpu")
         scores = pooled_output[6]
         if scores is None:
-            scores = np.ones(len(pos))
+            scores = ["black" for _ in range(len(pos))]
         else:
-            scores = scores.to("cpu").numpy()
+            scores = scores.numpy()
         if not plot_edges:
             edge_index = None
 

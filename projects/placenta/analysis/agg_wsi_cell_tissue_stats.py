@@ -20,10 +20,6 @@ def main(
     model_weights_dir: str = typer.Option(...),
     model_name: str = typer.Option(...),
     model_type: str = "sup_clustergcn",
-    x_min: int = 0,
-    y_min: int = 0,
-    width: int = -1,
-    height: int = -1,
     villus_only: bool = True,
     line_plot: bool = False,
 ):
@@ -53,7 +49,7 @@ def main(
     for run_id in run_ids:
         # this will load in cell and tissue data with already grouped knots
         hdf5_data = get_hdf5_data(
-            project_name, run_id, x_min, y_min, width, height, tissue=True
+            project_name, run_id, 0, 0, -1, -1, tissue=True
         )
 
         # get number of cell types within each tissue type

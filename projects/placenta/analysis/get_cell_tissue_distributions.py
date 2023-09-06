@@ -112,7 +112,7 @@ def main(
 
             if include_counts:
                 tissue_counts = [count / tile_area * 1000000 for count in tissue_counts]
-                all_tissue_counts = dict(zip(unique_tissues, tissue_counts))
+                all_tissue_counts = dict(zip(unique_tissue_labels, tissue_counts))
                 tissue_counts_df.append(pd.DataFrame([all_tissue_counts]))
 
     cell_df = _reorder_cell_columns(pd.concat(cell_prop_dfs), organ)

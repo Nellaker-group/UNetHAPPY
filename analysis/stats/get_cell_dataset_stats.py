@@ -13,6 +13,7 @@ def main(
     project_name: str = typer.Option(...),
     organ_name: str = typer.Option(...),
     dataset_names: List[str] = typer.Option([]),
+    plot_histogram: bool = True,
 ):
     project_dir = get_project_dir(project_name)
     cell_annot_dir = project_dir / "annotations" / "cell_class"
@@ -58,16 +59,21 @@ def main(
         print(f"Split file: {annot_file}")
         print(grouped_dfs[annot_file])
 
-        cell_colours = [cell.colour for cell in organ.cells]
-        custom_palette = sns.set_palette(sns.color_palette(_colour_bars(cell_colours)))
+        if plot_histogram:
+            cell_colours = [cell.colour for cell in organ.cells]
+            custom_palette = sns.set_palette(
+                sns.color_palette(_colour_bars(cell_colours))
+            )
 
-        plot = sns.barplot(
-            x=grouped_dfs[annot_file]["cell_class"],
-            y=grouped_dfs[annot_file]["counts"],
-            palette=custom_palette,
-        )
-        plot.figure.savefig(f"histograms/{annot_file.split('.csv')[0]}_histogram.png")
-        plot.figure.clf()
+            plot = sns.barplot(
+                x=grouped_dfs[annot_file]["cell_class"],
+                y=grouped_dfs[annot_file]["counts"],
+                palette=custom_palette,
+            )
+            plot.figure.savefig(
+                f"histograms/{annot_file.split('.csv')[0]}_histogram.png"
+            )
+            plot.figure.clf()
 
 
 # This is horrible but for the alphabetical cell order it makes the colours match..
