@@ -10,6 +10,10 @@ from projects.placenta.graphs.processing.process_knots import process_knts
 def get_and_process_raw_data(
     project_name, organ, project_dir, run_id, graph_params, tissue_label_tsv
 ):
+    graph_params["x_min"] = 0
+    graph_params["y_min"] = 0
+    graph_params["width"] = -1
+    graph_params["height"] = -1
     hdf5_data, tissue_class = get_raw_data(
         project_name, organ, project_dir, run_id, graph_params, tissue_label_tsv
     )

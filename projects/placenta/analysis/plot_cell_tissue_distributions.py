@@ -15,14 +15,14 @@ def main(
     project_name: str = "placenta",
     organ_name: str = "placenta",
     data_dir: str = typer.Option(...),
-    features_path: str = typer.Option(...),
+    features_path: Optional[str] = None,
     single_cell_tissue: Optional[str] = None,
+    plot_by_lesion: bool = False,
 ):
     """Plot the distribution of cell and tissue types across multiple WSIs."""
     organ = get_organ(organ_name)
     lesions = [lesion.label for lesion in organ.lesions]
     project_dir = get_project_dir(project_name)
-    features_df = pd.read_csv(project_dir / features_path)
 
     data_path = project_dir / data_dir
     cell_props = pd.read_csv(data_path / "cell_proportions.csv")
@@ -41,37 +41,40 @@ def main(
             data_path / "plots",
         )
 
-        # plot filtered by lesion
-        for lesion in lesions:
-            if lesion == "healthy":
-                lesion_run_ids = features_df[pd.isna(features_df["2nd_diagnosis"])][
-                    "run_id"
+        if plot_by_lesion:
+            # plot filtered by lesion
+            features_df = pd.read_csv(project_dir / features_path)
+            for lesion in lesions:
+                if lesion == "healthy":
+                    lesion_run_ids = features_df[pd.isna(features_df["2nd_diagnosis"])][
+                        "run_id"
+                    ]
+                else:
+                    lesion_run_ids = features_df[
+                        features_df["2nd_diagnosis"].str.contains(lesion).fillna(False)
+                    ]["run_id"]
+
+                lesion_cell_props = cell_props[cell_props["run_id"].isin(lesion_run_ids)]
+                lesion_tissue_props = tissue_props[
+                    tissue_props["run_id"].isin(lesion_run_ids)
                 ]
-            else:
-                lesion_run_ids = features_df[
-                    features_df["2nd_diagnosis"].str.contains(lesion).fillna(False)
-                ]["run_id"]
+                lesion_cell_counts = cell_counts[cell_counts["run_id"].isin(lesion_run_ids)]
+                lesion_tissue_counts = tissue_counts[
+                    tissue_counts["run_id"].isin(lesion_run_ids)
+                ]
 
-            lesion_cell_props = cell_props[cell_props["run_id"].isin(lesion_run_ids)]
-            lesion_tissue_props = tissue_props[
-                tissue_props["run_id"].isin(lesion_run_ids)
-            ]
-            lesion_cell_counts = cell_counts[cell_counts["run_id"].isin(lesion_run_ids)]
-            lesion_tissue_counts = tissue_counts[
-                tissue_counts["run_id"].isin(lesion_run_ids)
-            ]
-
-            lesion_save_dir = data_path / lesion / "plots"
-            lesion_save_dir.mkdir(exist_ok=True, parents=True)
-            _plot_all_slides(
-                lesion_cell_props,
-                lesion_tissue_props,
-                lesion_cell_counts,
-                lesion_tissue_counts,
-                organ,
-                lesion_save_dir,
-            )
+                lesion_save_dir = data_path / lesion / "plots"
+                lesion_save_dir.mkdir(exist_ok=True, parents=True)
+                _plot_all_slides(
+                    lesion_cell_props,
+                    lesion_tissue_props,
+                    lesion_cell_counts,
+                    lesion_tissue_counts,
+                    organ,
+                    lesion_save_dir,
+                )
     else:
+        features_df = pd.read_csv(project_dir / features_path)
         # filter the cell or tissue dfs by the single cell/tissue type
         if single_cell_tissue in cell_counts.columns:
             counts = cell_counts[["run_id", single_cell_tissue]]
@@ -146,7 +149,7 @@ def plot_distribution(
     if box:
         ax = sns.boxplot(data=df, palette=colours, fliersize=1)
         if swarm:
-            ax = sns.swarmplot(data=df, color=".5", size=1)
+            ax = sns.swarmplot(data=df, color=".5", size=3)
     elif swarm:
         ax = sns.swarmplot(data=df, palette=colours, size=1)
     elif violin:
@@ -236,7 +239,7 @@ def _plot_all_slides(
         data_path / "cell_proportions.png",
         "Cell",
         cell_colours,
-        ylim=0.82,
+        ylim=0.62,
         ylabel="Proportion of Cells Across WSIs",
         box=True,
         swarm=True,
@@ -247,7 +250,7 @@ def _plot_all_slides(
         data_path / "tissue_proportions.png",
         "Tissue",
         tissue_colours,
-        ylim=0.82,
+        ylim=0.72,
         ylabel="Proportion of Tissues Across WSIs",
         box=True,
         swarm=True,
@@ -271,7 +274,7 @@ def _plot_all_slides(
         data_path / "tissue_counts.png",
         "Tissue",
         tissue_colours,
-        ylim=6000.0,
+        ylim=3000.0,
         bottom=-200,
         ylabel="Number of Nuclei in Tissues / mm^2",
         box=True,
