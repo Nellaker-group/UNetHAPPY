@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 
 import typer
@@ -14,7 +14,8 @@ from happy.graph.graph_creation.get_and_process import get_hdf5_data
 
 
 def main(
-    run_ids: List[int] = typer.Option(...),
+    run_ids: Optional[List[int]] = typer.Option([]),
+    file_run_ids: Optional[str] = None,
     project_name: str = "placenta",
     exp_name: str = typer.Option(...),
     model_weights_dir: str = typer.Option(...),
@@ -44,6 +45,13 @@ def main(
         / "eval"
         / model_name
     )
+
+    if file_run_ids is not None:
+        run_ids = (
+            pd.read_csv(project_dir / file_run_ids, header=None)
+            .values.flatten()
+            .tolist()
+        )
 
     all_prop_dfs = []
     for run_id in run_ids:

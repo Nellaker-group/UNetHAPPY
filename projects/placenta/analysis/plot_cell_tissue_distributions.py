@@ -149,7 +149,7 @@ def plot_distribution(
     if box:
         ax = sns.boxplot(data=df, palette=colours, fliersize=1)
         if swarm:
-            ax = sns.swarmplot(data=df, color=".5", size=3)
+            ax = sns.swarmplot(data=df, linewidth=0.5, marker='x', size=3)
     elif swarm:
         ax = sns.swarmplot(data=df, palette=colours, size=1)
     elif violin:
@@ -239,7 +239,7 @@ def _plot_all_slides(
         data_path / "cell_proportions.png",
         "Cell",
         cell_colours,
-        ylim=0.62,
+        ylim=0.82,
         ylabel="Proportion of Cells Across WSIs",
         box=True,
         swarm=True,
@@ -250,7 +250,7 @@ def _plot_all_slides(
         data_path / "tissue_proportions.png",
         "Tissue",
         tissue_colours,
-        ylim=0.72,
+        ylim=0.82,
         ylabel="Proportion of Tissues Across WSIs",
         box=True,
         swarm=True,
@@ -261,7 +261,7 @@ def _plot_all_slides(
         data_path / "cell_counts.png",
         "Cell",
         cell_colours,
-        ylim=6000.0,
+        ylim=5000.0,
         bottom=-200,
         ylabel="Number of Cells / mm^2",
         box=True,
@@ -274,7 +274,7 @@ def _plot_all_slides(
         data_path / "tissue_counts.png",
         "Tissue",
         tissue_colours,
-        ylim=3000.0,
+        ylim=3500.0,
         bottom=-200,
         ylabel="Number of Nuclei in Tissues / mm^2",
         box=True,
