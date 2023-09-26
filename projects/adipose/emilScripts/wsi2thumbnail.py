@@ -30,7 +30,7 @@ slideName = args['slideName']
 
 
 slide = osl.OpenSlide(slideName)
-thumb = slide.get_thumbnail((1024,1024))
+thumb = slide.get_thumbnail((4096,4096))
 thumb.save(os.path.basename(slideName.replace(".svs","_thumbnail.png").replace(".scn","_thumbnail.png")))
 
 
