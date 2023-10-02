@@ -17,8 +17,8 @@ def main(
     organ_name: str = typer.Option(...),
     single_cell: Optional[str] = None,
     custom_save_dir: Optional[str] = None,
-    cell=True,
-    tissue=True,
+    cell: bool = True,
+    tissue: bool = True,
 ):
     """Saves cell predictions coloured by cell type across whole slide
 
