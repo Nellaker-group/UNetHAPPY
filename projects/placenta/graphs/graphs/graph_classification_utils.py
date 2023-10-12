@@ -9,6 +9,9 @@ def setup_lesion_datasets(
         datasets["train"] = LesionDataset(
             organ, project_dir, "single", "val", lesions_to_remove
         )
+        datasets["train"].data_paths = datasets["train"].data_paths[:2]
+        datasets["train"].lesions = datasets["train"].lesions[:2]
+        datasets["train"].run_ids = datasets["train"].run_ids[:2]
         datasets['val'] = datasets['train']
         return datasets
     if combine:

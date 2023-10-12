@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 
 import typer
@@ -14,16 +14,13 @@ from happy.graph.graph_creation.get_and_process import get_hdf5_data
 
 
 def main(
-    run_ids: List[int] = typer.Option(...),
+    run_ids: Optional[List[int]] = typer.Option([]),
+    file_run_ids: Optional[str] = None,
     project_name: str = "placenta",
     exp_name: str = typer.Option(...),
     model_weights_dir: str = typer.Option(...),
     model_name: str = typer.Option(...),
     model_type: str = "sup_clustergcn",
-    x_min: int = 0,
-    y_min: int = 0,
-    width: int = -1,
-    height: int = -1,
     villus_only: bool = True,
     line_plot: bool = False,
 ):
@@ -49,11 +46,18 @@ def main(
         / model_name
     )
 
+    if file_run_ids is not None:
+        run_ids = (
+            pd.read_csv(project_dir / file_run_ids, header=None)
+            .values.flatten()
+            .tolist()
+        )
+
     all_prop_dfs = []
     for run_id in run_ids:
         # this will load in cell and tissue data with already grouped knots
         hdf5_data = get_hdf5_data(
-            project_name, run_id, x_min, y_min, width, height, tissue=True
+            project_name, run_id, 0, 0, -1, -1, tissue=True
         )
 
         # get number of cell types within each tissue type

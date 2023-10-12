@@ -28,7 +28,9 @@ from happy.train.utils import (
     plot_cell_pr_curves,
 )
 from happy.organs import get_organ
-from happy.train.cell_train import setup_data, setup_model
+from happy.train.cell_train import setup_model
+from happy.data.setup_data import setup_cell_datasets
+from happy.data.setup_dataloader import setup_dataloaders
 
 
 def main(
@@ -73,18 +75,18 @@ def main(
     model.eval()
 
     multiple_val_sets = True if len(dataset_names) > 1 else False
-    dataloaders = setup_data(
+    datasets = setup_cell_datasets(
         organ,
         project_dir / annot_dir,
-        hp,
+        hp.dataset_names,
         image_size,
-        3,
         multiple_val_sets,
-        hp.batch,
         use_test_set,
     )
     if not use_test_set:
-        dataloaders.pop("train")
+        datasets.pop("train")
+    dataloaders = setup_dataloaders(False, datasets, 3, hp.batch, hp.batch)
+
 
     print("Running inference across datasets")
     predictions = {}
@@ -169,7 +171,7 @@ def main(
             sort_inds = [3, 10, 0, 9, 1, 6, 4, 8, 2, 7, 5]
             sorted_labels = [
                 cell_mapping[n]
-                for n in np.unique(ground_truth[dataset_name])[sort_inds]
+                for n in np.array(list(cell_mapping.keys()))[sort_inds]
             ]
 
             _plot_confusion_matrix(
@@ -180,54 +182,55 @@ def main(
                 reorder=sorted_labels,
             )
 
-            recalls = recall_score(
-                ground_truth[dataset_name], predictions[dataset_name], average=None
-            )[sort_inds]
-            precisions = precision_score(
-                ground_truth[dataset_name], predictions[dataset_name], average=None
-            )[sort_inds]
-            print("Plotting recall and precision bar plots")
-            plt.rcParams["figure.dpi"] = 600
-            r_df = pd.DataFrame(recalls)
-            plt.figure(figsize=(10, 3))
-            sns.set(style="white", font_scale=1.2)
-            colours = [
-                cell_colours[n]
-                for n in np.unique(ground_truth[dataset_name])[sort_inds]
-            ]
-            ax = sns.barplot(data=r_df.T, palette=colours)
-            ax.set(ylabel="Recall", xticklabels=[], ylim=[0.0, 1.0])
-            ax.tick_params(bottom=False)
-            sns.despine(bottom=True)
-            plt.savefig("../../analysis/evaluation/plots/recalls.png")
-            plt.close()
-            plt.clf()
+            if plot_pr:
+                recalls = recall_score(
+                    ground_truth[dataset_name], predictions[dataset_name], average=None
+                )[sort_inds]
+                precisions = precision_score(
+                    ground_truth[dataset_name], predictions[dataset_name], average=None
+                )[sort_inds]
+                print("Plotting recall and precision bar plots")
+                plt.rcParams["figure.dpi"] = 600
+                r_df = pd.DataFrame(recalls)
+                plt.figure(figsize=(10, 3))
+                sns.set(style="white", font_scale=1.2)
+                colours = [
+                    cell_colours[n]
+                    for n in np.unique(ground_truth[dataset_name])[sort_inds]
+                ]
+                ax = sns.barplot(data=r_df.T, palette=colours)
+                ax.set(ylabel="Recall", xticklabels=[], ylim=[0.0, 1.0])
+                ax.tick_params(bottom=False)
+                sns.despine(bottom=True)
+                plt.savefig("../../analysis/evaluation/plots/recalls.png")
+                plt.close()
+                plt.clf()
 
-            p_df = pd.DataFrame(precisions)
-            plt.rcParams["figure.dpi"] = 600
-            plt.figure(figsize=(3, 10))
-            sns.set(style="white", font_scale=1.2)
-            ax = sns.barplot(data=p_df.T, palette=colours, orient="h")
-            ax.set(xlabel="Precision", yticklabels=[], xlim=[0.0, 1.0])
-            ax.tick_params(left=False)
-            sns.despine(left=True)
-            plt.savefig("../../analysis/evaluation/plots/precisions.png")
-            plt.close()
-            plt.clf()
+                p_df = pd.DataFrame(precisions)
+                plt.rcParams["figure.dpi"] = 600
+                plt.figure(figsize=(3, 10))
+                sns.set(style="white", font_scale=1.2)
+                ax = sns.barplot(data=p_df.T, palette=colours, orient="h")
+                ax.set(xlabel="Precision", yticklabels=[], xlim=[0.0, 1.0])
+                ax.tick_params(left=False)
+                sns.despine(left=True)
+                plt.savefig("../../analysis/evaluation/plots/precisions.png")
+                plt.close()
+                plt.clf()
 
-            print("Plotting cell counts bar plot")
-            _, cell_counts = np.unique(ground_truth[dataset_name], return_counts=True)
-            l_df = pd.DataFrame(cell_counts[sort_inds])
-            plt.rcParams["figure.dpi"] = 600
-            plt.figure(figsize=(10, 3))
-            sns.set(style="white", font_scale=1.2)
-            ax = sns.barplot(data=l_df.T, palette=colours)
-            ax.set(ylabel="Count", xticklabels=[])
-            ax.tick_params(bottom=False)
-            sns.despine(bottom=True)
-            plt.savefig("../../analysis/evaluation/plots/cell_counts.png")
-            plt.close()
-            plt.clf()
+                print("Plotting cell counts bar plot")
+                _, cell_counts = np.unique(ground_truth[dataset_name], return_counts=True)
+                l_df = pd.DataFrame(cell_counts[sort_inds])
+                plt.rcParams["figure.dpi"] = 600
+                plt.figure(figsize=(10, 3))
+                sns.set(style="white", font_scale=1.2)
+                ax = sns.barplot(data=l_df.T, palette=colours)
+                ax.set(ylabel="Count", xticklabels=[])
+                ax.tick_params(bottom=False)
+                sns.despine(bottom=True)
+                plt.savefig("../../analysis/evaluation/plots/cell_counts.png")
+                plt.close()
+                plt.clf()
 
 
 def _convert_to_alt_label(organ, labels):

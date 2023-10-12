@@ -5,11 +5,12 @@ import time
 
 import torch
 import torch.nn as nn
+from torch.nn.functional import normalize
 from torch_geometric.loader import DataLoader
 import numpy as np
 
-from happy.graph.enums import AutoEncoderModelsArg
-from happy.models.gae import GAE
+from happy.graph.enums import AutoEncoderModelsArg, GCNLayerArg
+from happy.models.gae import GAE, GAEOneHop
 from projects.placenta.graphs.graphs.lesion_dataset import LesionDataset
 
 
@@ -19,19 +20,22 @@ class Params:
     device: str
     pretrained: Optional[str]
     model_type: AutoEncoderModelsArg
+    layer_type: GCNLayerArg
     batch_size: int
     epochs: int
     depth: int
     hidden_units: int
+    norm_inputs: bool
+    use_edge_weights: bool
+    use_node_degree: bool
+    use_interpolation: bool
     pooling_ratio: float
     subsample_ratio: float
     learning_rate: float
     num_workers: int
 
     def save(self, seed, exp_name, run_path):
-        to_save = {
-            k: v for k, v in asdict(self).items() if k not in ("datasets")
-        }
+        to_save = {k: v for k, v in asdict(self).items() if k not in ("datasets")}
         to_save["seed"] = seed
         to_save["exp_name"] = exp_name
         with open(run_path / "train_params.json", "w") as f:
@@ -52,6 +56,11 @@ class Runner:
     def new(params: Params, test: bool = False) -> "Runner":
         cls = {
             AutoEncoderModelsArg.fps: FPSRunner,
+            AutoEncoderModelsArg.fps_cosine: FPSCosineRunner,
+            AutoEncoderModelsArg.random: RandomRunner,
+            AutoEncoderModelsArg.random_cosine: RandomCosineRunner,
+            AutoEncoderModelsArg.one_hop: OneHopRunner,
+            AutoEncoderModelsArg.one_hop_cosine: OneHopCosineRunner,
         }
         ModelClass = cls[params.model_type]
         return ModelClass(params, test)
@@ -89,7 +98,7 @@ class Runner:
     @property
     def criterion(self):
         if self._criterion is None:
-            self._criterion = self._setup_criterion()
+            self._criterion = self.setup_criterion()
         return self._criterion
 
     def _setup_loaders(self):
@@ -100,9 +109,6 @@ class Runner:
             self.model.parameters(), lr=self.params.learning_rate
         )
 
-    def _setup_criterion(self):
-        return torch.nn.MSELoss()
-
     def _setup_dataloader(self):
         if not self.test:
             train_loader = DataLoader(
@@ -110,13 +116,11 @@ class Runner:
                 batch_size=self.params.batch_size,
                 num_workers=self.params.num_workers,
                 shuffle=True,
-                persistent_workers=True,
             )
             val_loader = DataLoader(
                 self.params.datasets["val"],
                 batch_size=self.params.batch_size,
                 num_workers=self.params.num_workers,
-                persistent_workers=True,
             )
         else:
             train_loader = None
@@ -126,6 +130,10 @@ class Runner:
                 num_workers=self.params.num_workers,
             )
         return train_loader, val_loader
+
+    @classmethod
+    def setup_criterion(cls):
+        raise NotImplementedError(f"setup_model not implemented for {cls.__name__}")
 
     @classmethod
     def setup_model(cls):
@@ -142,7 +150,10 @@ class Runner:
             batch = batch.to(self.params.device)
             self.optimiser.zero_grad()
 
-            out = self.model(batch.x, batch.pos, batch.edge_index, batch.batch)
+            if self.params.norm_inputs:
+                batch.x = normalize(batch.x, p=2, dim=1)
+
+            out = self.model(batch)
             loss = self.criterion(out, batch.x)
             loss.backward()
             self.optimiser.step()
@@ -164,6 +175,9 @@ class Runner:
 
             batch = batch.to(self.params.device)
 
+            if self.params.norm_inputs:
+                batch.x = normalize(batch.x, p=2, dim=1)
+
             out = self.model(batch)
             loss = self.criterion(out, batch.x)
 
@@ -174,7 +188,7 @@ class Runner:
         return total_loss / len(self.val_loader.dataset)
 
     def save_state(self, run_path, epoch):
-        torch.save(self.model, run_path / f"{epoch}_c_graph_model.pt")
+        torch.save(self.model, run_path / f"{epoch}_gae_model.pt")
 
     def _subsample(self, batch):
         num_to_keep = int(batch.num_nodes * self.params.subsample_ratio)
@@ -190,5 +204,137 @@ class FPSRunner(Runner):
             next(iter(self.params.datasets.values())).num_node_features,
             self.params.hidden_units,
             self.params.depth,
+            self.params.layer_type,
+            self.params.use_edge_weights,
+            self.params.use_node_degree,
+            self.params.use_interpolation,
+            "fps",
             self.params.pooling_ratio,
+        )
+
+    def setup_criterion(self):
+        return torch.nn.MSELoss()
+
+
+class FPSCosineRunner(Runner):
+    def setup_model(self):
+        return GAE(
+            next(iter(self.params.datasets.values())).num_node_features,
+            self.params.hidden_units,
+            self.params.depth,
+            self.params.layer_type,
+            self.params.use_edge_weights,
+            self.params.use_node_degree,
+            self.params.use_interpolation,
+            "fps",
+            self.params.pooling_ratio,
+        )
+
+    def setup_criterion(self):
+        return torch.nn.CosineEmbeddingLoss()
+
+    def train(self):
+        self.model.train()
+        total_loss = 0
+        for batch in self.train_loader:
+            start = time.time()
+            if self.params.subsample_ratio > 0.0:
+                batch = self._subsample(batch)
+
+            batch = batch.to(self.params.device)
+            self.optimiser.zero_grad()
+
+            out = self.model(batch)
+            cosine_target = torch.ones(out.shape[0]).to(self.params.device)
+            loss = self.criterion(out, batch.x, cosine_target)
+            loss.backward()
+            self.optimiser.step()
+
+            print(f"batch loss: {loss.item():.4f}")
+            total_loss += loss.item() * batch.num_graphs
+            timer_end = time.time()
+            print(f"time per batch: {timer_end - start:.4f}s ")
+        return total_loss / len(self.train_loader.dataset)
+
+    @torch.no_grad()
+    def validate(self):
+        self.model.eval()
+        total_loss = 0
+        for batch in self.val_loader:
+            start = time.time()
+            if self.params.subsample_ratio > 0.0:
+                batch = self._subsample(batch)
+
+            batch = batch.to(self.params.device)
+
+            out = self.model(batch)
+            cosine_target = torch.ones(out.shape[0]).to(self.params.device)
+            loss = self.criterion(out, batch.x, cosine_target)
+
+            print(f"batch loss: {loss.item():.4f}")
+            total_loss += loss.item() * batch.num_graphs
+            timer_end = time.time()
+            print(f"time per batch: {timer_end - start:.4f}s ")
+        return total_loss / len(self.val_loader.dataset)
+
+
+class RandomRunner(Runner):
+    def setup_model(self):
+        return GAE(
+            next(iter(self.params.datasets.values())).num_node_features,
+            self.params.hidden_units,
+            self.params.depth,
+            self.params.layer_type,
+            self.params.use_edge_weights,
+            self.params.use_node_degree,
+            self.params.use_interpolation,
+            "random",
+            self.params.pooling_ratio,
+        )
+
+    def setup_criterion(self):
+        return torch.nn.MSELoss()
+
+
+class RandomCosineRunner(FPSCosineRunner):
+    def setup_model(self):
+        return GAE(
+            next(iter(self.params.datasets.values())).num_node_features,
+            self.params.hidden_units,
+            self.params.depth,
+            self.params.layer_type,
+            self.params.use_edge_weights,
+            self.params.use_node_degree,
+            self.params.use_interpolation,
+            "random",
+            self.params.pooling_ratio,
+        )
+
+
+class OneHopRunner(Runner):
+    def setup_model(self):
+        return GAEOneHop(
+            next(iter(self.params.datasets.values())).num_node_features,
+            self.params.hidden_units,
+            self.params.depth,
+            self.params.layer_type,
+            self.params.use_edge_weights,
+            self.params.use_node_degree,
+            self.params.use_interpolation,
+        )
+
+    def setup_criterion(self):
+        return torch.nn.MSELoss()
+
+
+class OneHopCosineRunner(FPSCosineRunner):
+    def setup_model(self):
+        return GAEOneHop(
+            next(iter(self.params.datasets.values())).num_node_features,
+            self.params.hidden_units,
+            self.params.depth,
+            self.params.layer_type,
+            self.params.use_edge_weights,
+            self.params.use_node_degree,
+            self.params.use_interpolation,
         )

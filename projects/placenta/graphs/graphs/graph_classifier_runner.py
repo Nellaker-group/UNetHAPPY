@@ -115,13 +115,11 @@ class Runner:
                 batch_size=self.params.batch_size,
                 num_workers=self.params.num_workers,
                 shuffle=True,
-                persistent_workers=True,
             )
             val_loader = DataLoader(
                 self.params.datasets["val"],
                 batch_size=self.params.batch_size,
                 num_workers=self.params.num_workers,
-                persistent_workers=True,
             )
         else:
             train_loader = None

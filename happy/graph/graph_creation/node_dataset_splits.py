@@ -6,13 +6,13 @@ from happy.graph.graph_creation.create_graph import get_nodes_within_tiles
 
 
 # Split nodes into unlabelled, training and validation sets. So far, validation
-# and test sets are only defined for run_id 56 and 113. If there is training
+# and test sets are only defined for run_id 56, 113 and 466. If there is training
 # data in tissue_class for other listed runs, that data will also be used for training.
 def setup_splits_by_runid(
     data, run_id, tissue_class, include_validation, val_patch_files, test_patch_files
 ):
     # this option will split the nodes in train, val, test based on patch files
-    if run_id == 56 or run_id == 113:
+    if run_id == 56 or run_id == 113 or run_id == 466:
         data = setup_node_splits(
             data,
             tissue_class,
@@ -142,6 +142,10 @@ def setup_node_splits(
                 data.test_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
             data.val_mask = val_mask
             data.train_mask = train_mask
+            if mask_unlabelled and tissue_class is not None:
+                data.val_mask[unlabelled_inds] = False
+                data.train_mask[unlabelled_inds] = False
+                data.test_mask[unlabelled_inds] = False
         if verbose:
             print(
                 f"Graph split into {data.train_mask.sum().item()} train nodes "

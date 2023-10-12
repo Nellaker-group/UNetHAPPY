@@ -30,7 +30,7 @@ def main(
     cell_label_mapping = {cell.id: cell.label for cell in organ.cells}
 
     # Get hdf5 datasets contained in specified box/patch of WSI
-    predictions, embeddings, coords, confidence = get_hdf5_data(
+    hdf5_data = get_hdf5_data(
         project_name, run_id, x_min, y_min, width, height
     )
 
@@ -42,9 +42,14 @@ def main(
         tissues = None
 
     # Turn isolated knts into syn and group large knts into one point
-    predictions, embeddings, coords, confidence, inds_to_remove = process_knt_cells(
-        predictions, embeddings, coords, confidence, organ, 50, 3
+    grouped_hdf5_data, inds_to_remove = process_knt_cells(
+        hdf5_data, organ, 50, 3
     )
+    predictions = grouped_hdf5_data.cell_predictions
+    embeddings = grouped_hdf5_data.cell_embeddings
+    coords = grouped_hdf5_data.coords
+    confidence = grouped_hdf5_data.cell_confidence
+
     # Remove points from tissue ground truth as well
     if tissues is not None and len(inds_to_remove) > 0:
         tissues = np.delete(tissues, inds_to_remove, axis=0)

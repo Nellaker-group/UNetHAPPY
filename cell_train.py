@@ -111,6 +111,7 @@ def main(
 
     # Save each run by it's timestamp
     run_path = utils.setup_run(project_dir, exp_name, "cell_class")
+    hp.to_csv(run_path)
 
     # train!
     try:
@@ -133,9 +134,10 @@ def main(
             device,
         )
     except KeyboardInterrupt:
-        save_hp = input("Would you like to save the hyperparameters anyway? y/n: ")
-        if save_hp == "y":
-            hp.to_csv(run_path)
+        save = input("Would you like to save anyway? y/n: ")
+        if save == "y":
+            # Save hyperparameters, the logged train stats, and the final model
+            cell_train.save_state(logger, model, hp, run_path)
 
     # Save hyperparameters, the logged train stats, and the final model
     cell_train.save_state(logger, model, hp, run_path)

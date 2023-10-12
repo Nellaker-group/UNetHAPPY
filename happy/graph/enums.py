@@ -34,3 +34,13 @@ class GraphClassificationModelsArg(str, Enum):
 
 class AutoEncoderModelsArg(str, Enum):
     fps = "fps"
+    fps_cosine = "fps_cosine"
+    random = "random"
+    random_cosine = "random_cosine"
+    one_hop = "one_hop"
+    one_hop_cosine = "one_hop_cosine"
+
+class GCNLayerArg(str, Enum):
+    gcn = "gcn"
+    gine = "gine"
+    gat = "gat"

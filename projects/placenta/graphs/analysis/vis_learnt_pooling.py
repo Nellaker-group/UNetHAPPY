@@ -11,7 +11,7 @@ import happy.db.eval_runs_interface as db
 from happy.utils.utils import get_device, get_project_dir
 from happy.organs import get_organ
 from happy.utils.utils import set_seed
-from happy.graph.enums import GraphClassificationModelsArg
+from happy.graph.enums import AutoEncoderModelsArg
 from happy.graph.utils.visualise_points import visualize_points
 from happy.graph.utils.utils import get_model_eval_path
 from happy.graph.graph_creation.get_and_process import get_hdf5_data
@@ -26,7 +26,8 @@ def main(
     model_weights_dir: str = typer.Option(...),
     model_name: str = typer.Option(...),
     run_id: int = typer.Option(...),
-    model_type: GraphClassificationModelsArg = GraphClassificationModelsArg.top_k,
+    model_type: AutoEncoderModelsArg = AutoEncoderModelsArg.one_hop,
+    subsample_ratio: float = 0.25,
     plot_edges: bool = True,
     plot_scores: bool = True,
 ):
@@ -51,13 +52,21 @@ def main(
         data = torch.load(data_dir / "multi" / data_file_name)
     else:
         raise ValueError(f"Could not find data file {data_file_name}")
+    data.edge_weights = data.edge_attr[:, 0]
+    data.batch = torch.zeros(data.num_nodes, dtype=torch.long)
+    if subsample_ratio > 0.0:
+        num_to_keep = int(data.num_nodes * subsample_ratio)
+        keep_indices = np.random.choice(
+            np.arange(data.num_nodes), num_to_keep, replace=False
+        )
+        data = data.subgraph(torch.LongTensor(keep_indices))
     data = data.to(device)
 
     # Setup trained model
     pretrained_path = (
         project_dir
         / "results"
-        / "c_graph"
+        / "gae"
         / model_type.value
         / exp_name
         / model_weights_dir
@@ -96,7 +105,7 @@ def main(
             height=int(data.pos[:, 1].max()) - int(data.pos[:, 1].min()),
             edge_index=edge_index,
             point_size=0.05,
-        )
+            )
         plot_name = f"original_tissues.png"
         colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
         colours = [colours_dict[label] for label in hdf5_data.tissue_predictions]
@@ -109,14 +118,18 @@ def main(
         height=int(data.pos[:, 1].max()) - int(data.pos[:, 1].min()),
         edge_index=data.edge_index,
         point_size=0.05,
-    )
+        )
 
     # Visualise pooled graphs
     for i, pooled_output in enumerate(pooling_outputs):
         pos = pooled_output[1].to("cpu")
         edge_index = pooled_output[2].to("cpu")
         perm = pooled_output[5].to("cpu")
-        scores = pooled_output[6].to("cpu").numpy()
+        scores = pooled_output[6]
+        if scores is None:
+            scores = ["black" for _ in range(len(pos))]
+        else:
+            scores = scores.numpy()
         if not plot_edges:
             edge_index = None
 
@@ -138,7 +151,7 @@ def main(
                 height=int(pos[:, 1].max()) - int(pos[:, 1].min()),
                 edge_index=edge_index,
                 point_size=0.05,
-            )
+                )
             plot_name = f"pool_{i}_tissues.png"
             tissue_predictions = tissue_predictions[perm]
             colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
@@ -152,9 +165,10 @@ def main(
             height=int(pos[:, 1].max()) - int(pos[:, 1].min()),
             edge_index=edge_index,
             point_size=0.05,
-        )
+            )
 
 
+@torch.no_grad()
 def get_pooled_graph(model, data):
     pooling_outputs = []
 
