@@ -8,6 +8,7 @@ import happy.db.eval_runs_interface as db
 
 
 def main(
+    db_name: str = "main.db",
     path_to_model: Path = typer.Option(
         ..., exists=True, file_okay=True, dir_okay=False, resolve_path=True
     ),
