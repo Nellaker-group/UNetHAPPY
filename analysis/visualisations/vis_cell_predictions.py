@@ -39,7 +39,7 @@ def main(
 
     # Get path to embeddings hdf5 files
     embeddings_path = get_embeddings_file(project_name, run_id)
-    hdf5_data = get_hdf5_data(project_name, run_id, 0, 0, -1, -1, tissue=True)
+    hdf5_data = get_hdf5_data(project_name, run_id, 0, 0, -1, -1, tissue=tissue)
 
     if single_cell:
         hdf5_data = hdf5_data.filter_by_cell_type(single_cell, organ)
