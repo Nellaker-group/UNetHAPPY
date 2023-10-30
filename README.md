@@ -59,12 +59,12 @@ conda activate {envname}
 module load libvips/8.9.2-foss-2019a
 export PATH=/{PathToYourUserDirWithSpace}/conda_stuff/my_envs/{envname}/bin/:$PATH
 export JAVA_HOME=/usr/java/jdk1.8.0_112/
-make environment_cu117_torch2_py10
+make environment_cu117
 ```
 
 **Note:** if you are setting this up on rescomp with a teeny home directory, you will 
 need to make a `.condarc` file at your home which tells conda where to put the installed
-packages. Something like bellow:
+packages. Something like:
 
 ```
 envs_dirs:
@@ -82,9 +82,9 @@ The installation methods depends on your OS, for more info follow the instructio
 here: https://github.com/libvips/libvips/wiki
 
 ```bash
-conda create -n {envname} python=3.7.2
+conda create -n {envname} python=3.10
 conda activate {envname}
-make environment_cpu_torch2
+make environment_cpu
 ```
 
 I'm sure there will be some setup errors (state is a fickle beast) so let me know.
