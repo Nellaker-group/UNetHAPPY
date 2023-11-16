@@ -221,3 +221,12 @@ labelbox/*.png
 analysis/stats/histograms
 analysis/evaluation/plots
 **/analysis/plots
+*.sh
+*.sh~
+*.R
+*.R~
+*.list
+*.*~
+*.obj
+*.xlsx
+**/plots/*
