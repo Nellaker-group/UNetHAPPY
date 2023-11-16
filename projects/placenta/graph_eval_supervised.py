@@ -1,28 +1,25 @@
-from pathlib import Path
 from typing import Optional, List
+import time
 
 import typer
-import torch
-from torch_geometric.transforms import ToUndirected
-from torch_geometric.utils import add_self_loops
-from torch_geometric.loader import NeighborSampler, NeighborLoader
 import numpy as np
-import pandas as pd
 
-from happy.utils.utils import get_device, get_project_dir
-from happy.organs.organs import get_organ
-from graphs.graphs.create_graph import get_raw_data, setup_graph, process_knts
-from graphs.graphs.embeddings import fit_umap, plot_cell_graph_umap, plot_tissue_umap
-from graphs.graphs.utils import get_feature
-from graphs.graphs.enums import FeatureArg, MethodArg
-from graphs.analysis.vis_graph_patch import visualize_points
-from graphs.graphs.create_graph import get_groundtruth_patch
-from graphs.graphs.graph_supervised import inference, setup_node_splits, evaluate
-
-np.random.seed(2)
+import happy.db.eval_runs_interface as db
+from happy.organs import get_organ
+from happy.utils.utils import get_device, get_project_dir, set_seed
+from happy.graph.embeddings_umap import fit_umap, plot_cell_graph_umap, plot_tissue_umap
+from happy.graph.graph_creation.get_and_process import get_and_process_raw_data
+from happy.graph.graph_creation.create_graph import setup_graph
+from happy.graph.enums import FeatureArg, MethodArg, SupervisedModelsArg
+from happy.graph.utils.utils import get_model_eval_path
+from happy.graph.utils.visualise_points import visualize_points
+from happy.graph.utils.evaluation import evaluate, evaluation_plots
+from happy.graph.runners.eval_runner import EvalParams, EvalRunner
+from happy.graph.graph_creation.node_dataset_splits import setup_node_splits
 
 
 def main(
+    seed: int = 0,
     project_name: str = "placenta",
     organ_name: str = "placenta",
     exp_name: str = typer.Option(...),
@@ -34,130 +31,138 @@ def main(
     width: int = -1,
     height: int = -1,
     val_patch_files: Optional[List[str]] = None,
-    k: int = 6,
+    k: int = 5,
     feature: FeatureArg = FeatureArg.embeddings,
-    group_knts: bool = False,
+    group_knts: bool = True,
+    random_remove: float = 0.0,
     top_conf: bool = False,
-    model_type: str = "graphsage",
+    model_type: SupervisedModelsArg = SupervisedModelsArg.sup_clustergcn,
     graph_method: MethodArg = MethodArg.k,
     plot_umap: bool = True,
     remove_unlabelled: bool = True,
-    label_type: str = "full",
     tissue_label_tsv: Optional[str] = None,
+    compress_labels: bool = False,
+    verbose: bool = True,
 ):
+    """ Runs inference over a WSI or a region of a WSI. If ground truth data is
+    provided, it will produce evaluation metrics and plots.
+
+    Args:
+        seed: set the random seed for reproducibility
+        project_name: name of the project dir to save results to
+        organ_name: name of organ for getting the cells and tissues
+        exp_name: name of the experiment directory to get the model weights from
+        model_weights_dir: timestamp directory containing model weights
+        model_name: name of the pickle file containing the model weights
+        run_id: run_id cells to evaluate over
+        x_min: bottom left x coordinate of the region to evaluate over (0 for full WSI)
+        y_min: bottom left y coordinate of the region to evaluate over (0 for full WSI)
+        width: width of the region to evaluate over (-1 for full WSI)
+        height: height of the region to evaluate over (-1 for full WSI)
+        val_patch_files: list of files containing validation or test regions
+        k: value of k for kNN graph edge construction method
+        feature: one of 'embeddings' or 'predictions'
+        group_knts: whether to first group knt predictions into one node
+        random_remove: what proportion of the nodes to randomly remove
+        top_conf: whether to filter cells by top confidence predictions only
+        model_type: which type of supervised graph model the weights are from
+        graph_method: which type of edge construction to use
+        plot_umap: whether to plot the UMAP of the cell and tissue embeddings (slow)
+        remove_unlabelled: whether to remove unlabelled nodes from the evaluation
+        tissue_label_tsv: tsv file containing ground truth tissue labels for each cell
+        compress_labels: whether to compress the labels into fewer classes (in organ)
+        verbose: whether to print graph setup
+    """
+    db.init()
+    set_seed(seed)
     device = get_device()
     project_dir = get_project_dir(project_name)
     organ = get_organ(organ_name)
-    patch_files = [project_dir / "config" / file for file in val_patch_files]
+    patch_files = [project_dir / "graph_splits" / file for file in val_patch_files]
 
-    predictions, embeddings, coords, confidence = get_raw_data(
-        project_name, run_id, x_min, y_min, width, height, top_conf
+    # Graph params for saving
+    graph_params = {
+        "run_ids": run_id,
+        "x_min": x_min,
+        "y_min": y_min,
+        "width": width,
+        "height": height,
+        "edge_method": graph_method,
+        "k": k,
+        "feature": feature,
+        "group_knts": group_knts,
+        "random_remove": random_remove,
+        "top_conf": top_conf,
+    }
+    # Get and process raw and ground truth data
+    hdf5_data, tissue_class = get_and_process_raw_data(
+        project_name, organ, project_dir, run_id, graph_params, tissue_label_tsv
     )
-    # Get ground truth manually annotated data
-    _, _, tissue_class = get_groundtruth_patch(
-        organ,
-        project_dir,
-        x_min,
-        y_min,
-        width,
-        height,
-        tissue_label_tsv,
-        label_type,
-    )
-    # Covert isolated knts into syn and turn groups into a single knt point
-    if group_knts:
-        predictions, embeddings, coords, confidence, tissue_class = process_knts(
-            organ, predictions, embeddings, coords, confidence, tissue_class
-        )
+
     # Covert input cell data into a graph
-    feature_data = get_feature(feature, predictions, embeddings)
-    data = setup_graph(coords, k, feature_data, graph_method, loop=False)
-    data = ToUndirected()(data)
-    data.edge_index, data.edge_attr = add_self_loops(
-        data["edge_index"], data["edge_attr"], fill_value="mean"
-    )
-    pos = data.pos
-    x = data.x.to(device)
+    data = setup_graph(hdf5_data, organ, feature, k, graph_method, tissue_class)
 
-    data = setup_node_splits(data, tissue_class, remove_unlabelled, True, patch_files)
+    # Split data into validation or test set based on val_patch_files
+    data = setup_node_splits(
+        data, tissue_class, remove_unlabelled, True, patch_files, verbose=verbose
+    )
 
     # Setup trained model
     pretrained_path = (
         project_dir
         / "results"
         / "graph"
-        / model_type
+        / model_type.value
         / exp_name
         / model_weights_dir
         / model_name
     )
-    model = torch.load(pretrained_path, map_location=device)
-    model_epochs = (
-        "model_final"
-        if model_name == "graph_model.pt"
-        else f"model_{model_name.split('_')[0]}"
-    )
+    eval_params = EvalParams(data, device, pretrained_path, model_type, 512, organ)
+    eval_runner = EvalRunner.new(eval_params)
 
-    # Setup paths
-    save_path = (
-        Path(*pretrained_path.parts[:-1]) / "eval" / model_epochs / f"run_{run_id}"
-    )
-    save_path.mkdir(parents=True, exist_ok=True)
-    conf_str = "_top_conf" if top_conf else ""
-    plot_name = f"{val_patch_files[0].split('.csv')[0]}_{conf_str}"
-
-    # Dataloader for eval, feeds in whole graph
-    if model_type == "sup_graphsage":
-        eval_loader = NeighborLoader(
-            data,
-            num_neighbors=[-1],
-            batch_size=512,
-            shuffle=False,
-        )
-        eval_loader.data.num_nodes = data.num_nodes
-        eval_loader.data.n_id = torch.arange(data.num_nodes)
-    else:
-        eval_loader = NeighborSampler(
-            data.edge_index,
-            node_idx=None,
-            sizes=[-1],
-            batch_size=512,
-            shuffle=False,
-        )
-
+    timer_start = time.time()
     # Run inference and get predicted labels for nodes
-    out, graph_embeddings, predicted_labels = inference(model, x, eval_loader, device)
+    print("Running inference")
+    out, graph_embeddings, predicted_labels = eval_runner.inference()
+    timer_end = time.time()
+    print(f"total inference time: {timer_end - timer_start:.4f} s")
+
+    # Setup path to save results
+    save_path = get_model_eval_path(model_name, pretrained_path, run_id)
+    conf_str = "_top_conf" if top_conf else ""
+    plot_name = f"{val_patch_files[0].split('.csv')[0]}{conf_str}"
 
     # restrict to only data in patch_files using val_mask
     val_nodes = data.val_mask
     predicted_labels = predicted_labels[val_nodes]
-    graph_embeddings = graph_embeddings[val_nodes]
     out = out[val_nodes]
-    pos = pos[val_nodes]
+    pos = data.pos[val_nodes]
+    graph_embeddings = graph_embeddings[val_nodes]
     tissue_class = (
         tissue_class[val_nodes] if tissue_label_tsv is not None else tissue_class
     )
 
+    predictions = hdf5_data.cell_predictions
     # Remove unlabelled (class 0) ground truth points
     if remove_unlabelled and tissue_label_tsv is not None:
         unlabelled_inds, tissue_class, predicted_labels, pos, out = _remove_unlabelled(
             tissue_class, predicted_labels, pos, out
         )
+        graph_embeddings = graph_embeddings[unlabelled_inds]
+        predictions = predictions[unlabelled_inds]
 
-        if plot_umap:
-            graph_embeddings = graph_embeddings[unlabelled_inds]
-            predictions = predictions[unlabelled_inds]
-            # fit and plot umap with cell classes
-            fitted_umap = fit_umap(graph_embeddings)
-            plot_cell_graph_umap(
-                organ, predictions, fitted_umap, save_path, f"eval_{plot_name}.png"
+    if plot_umap:
+        # fit and plot umap with cell classes
+        fitted_umap = fit_umap(graph_embeddings)
+        plot_cell_graph_umap(
+            organ, predictions, fitted_umap, save_path, f"cell_{plot_name}_umap.png"
+        )
+        # Plot the predicted labels onto the umap of the graph embeddings
+        plot_tissue_umap(organ, fitted_umap, plot_name, save_path, predicted_labels)
+        if tissue_label_tsv is not None:
+            plot_tissue_umap(
+                organ, fitted_umap, f"gt_{plot_name}", save_path, tissue_class
             )
-            # Plot the predicted labels onto the umap of the graph embeddings
-            plot_tissue_umap(organ, fitted_umap, plot_name, save_path, predicted_labels)
-            if tissue_label_tsv is not None:
-                plot_tissue_umap(
-                    organ, fitted_umap, f"gt_{plot_name}", save_path, tissue_class
-                )
 
     # Print some prediction count info
     tissue_label_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
@@ -165,18 +170,13 @@ def main(
 
     # Evaluate against ground truth tissue annotations
     if tissue_label_tsv is not None:
-        evaluate(
-            tissue_class,
-            predicted_labels,
-            out,
-            organ,
-            save_path,
-            remove_unlabelled,
-        )
+        _print_prediction_stats(tissue_class, tissue_label_mapping)
+        evaluate(tissue_class, predicted_labels, out, organ, compress_labels)
+        evaluation_plots(tissue_class, predicted_labels, out, organ, save_path)
 
     # Visualise cluster labels on graph patch
     print("Generating image")
-    colours_dict = {tissue.id: tissue.colourblind_colour for tissue in organ.tissues}
+    colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
     colours = [colours_dict[label] for label in predicted_labels]
     visualize_points(
         organ,
@@ -186,12 +186,6 @@ def main(
         width=int(data.pos[:, 0].max()) - int(data.pos[:, 0].min()),
         height=int(data.pos[:, 1].max()) - int(data.pos[:, 1].min()),
     )
-
-    # make tsv if the whole graph was used
-    if len(data.pos) == len(data.pos[data.val_mask]):
-        label_dict = {tissue.id: tissue.label for tissue in organ.tissues}
-        predicted_labels = [label_dict[label] for label in predicted_labels]
-        _save_tissue_preds_as_tsv(predicted_labels, pos, save_path)
 
 
 def _remove_unlabelled(tissue_class, predicted_labels, pos, out):
@@ -210,18 +204,7 @@ def _print_prediction_stats(predicted_labels, tissue_label_mapping):
     for label in unique:
         unique_labels.append(tissue_label_mapping[label])
     unique_counts = dict(zip(unique_labels, counts))
-    print(f"Predictions per label: {unique_counts}")
-
-
-def _save_tissue_preds_as_tsv(predicted_labels, coords, save_path):
-    tissue_preds_df = pd.DataFrame(
-        {
-            "x": coords[:, 0].numpy().astype(int),
-            "y": coords[:, 1].numpy().astype(int),
-            "class": predicted_labels,
-        }
-    )
-    tissue_preds_df.to_csv(save_path / "tissue_preds.tsv", sep="\t", index=False)
+    print(f"Counts per label: {unique_counts}")
 
 
 if __name__ == "__main__":

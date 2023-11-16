@@ -191,12 +191,13 @@ out/
 # Custom
 **/annotations
 **/annotatedImages
-**/datasets
 **/pretrained_models
 **/placenta/visualisations
 **/results
 **/trained_models
-**/config
+**/graph_splits
+**/datasets
+!happy/data/datasets
 *.pth
 *.pt
 *.csv
@@ -222,11 +223,18 @@ analysis/stats/histograms
 analysis/evaluation/plots
 **/analysis/plots
 *.sh
-*.sh~
 *.R
-*.R~
 *.list
 *.*~
 *.obj
 *.xlsx
 **/plots/*
+.vscode
+slurm_logs
+qsub_logs
+qsub_scripts
+notebooks
+relink*
+Relink*
+post_merge.py
+

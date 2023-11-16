@@ -13,26 +13,26 @@ from projects.placenta.results.labelbox.path_mapping import PATHOLOGIST_MAPPING
 
 
 ALL_LABELBOX_LABELS = [
-    "villus_sprout",
     "terminal_villi",
     "mature_intermediary_villi",
-    "anchoring_villi",
     "stem_villi",
+    "villus_sprout",
+    "anchoring_villi",
     "chorion_amnion",
     "basal_plate_septa",
     "fibrin",
     "avascular_villi",
 ]
 MODEL_LABELS = [
-    "Sprout",
-    "TVilli",
-    "MIVilli",
-    "AVilli",
-    "SVilli",
-    "Chorion",
-    "Maternal",
+    "Terminal Villi",
+    "Mature Intermediate Villi",
+    "Stem Villi",
+    "Villus Sprout",
+    "Anchoring Villi",
+    "Chorionic Plate",
+    "Basal Plate/Septum",
     "Fibrin",
-    "Avascular",
+    "Avascular Villi",
 ]
 
 
@@ -70,7 +70,7 @@ def main(
     combined_majority_df = combine_path_with_original(path_majority_df, original_df)
 
     if path_to_patches_file is not None:
-        all_new_annots = pd.read_csv(project_dir / "config" / path_to_patches_file)
+        all_new_annots = pd.read_csv(project_dir / "graph_splits" / path_to_patches_file)
         all_new_annots.new_annot = _map_to_labelbox_classes(all_new_annots.new_annot)
         xs = []
         ys = []
@@ -260,7 +260,7 @@ def pathologist_confusion(combined_majority_df):
         .fillna(0)
         .astype(float)
     )
-    plt.figure(figsize=(10, 8))
+    plt.figure(figsize=(10, 10))
     sns.set(font_scale=1.1)
     plt.rcParams["figure.dpi"] = 600
     ax = sns.heatmap(

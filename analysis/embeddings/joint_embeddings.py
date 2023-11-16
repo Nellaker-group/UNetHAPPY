@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import happy.db.eval_runs_interface as db
-from happy.hdf5.utils import get_embeddings_file, get_hdf5_datasets
-from happy.organs.organs import get_organ
+from happy.hdf5 import get_embeddings_file, get_hdf5_datasets
+from happy.organs import get_organ
 from utils import setup, embeddings_results_path
 from plots import plot_3d
 

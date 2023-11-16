@@ -1,20 +1,3 @@
-"""
-Class for saving model predictions on a whole slide image (WSI).
-Data is saved and read from a DB by the public interface.
-Saves coordinates which match the original WSI.
-This means predictions are scaled down.
-Before getting predictions, coords are scaled up to match model pixel sizes.
-
-Public functionality (listed in order) includes:
-- saving empty tiles
-- saving nuclei from tile data and box predictions
-- removing nuclei clusters from overlapped model predictions
-- saving these valid nuclei into final storage
-- saving cell classification at (x,y) from model predictions
-
-Parameters:
-file: MicroscopeFile object
-"""
 import numpy as np
 import sklearn.neighbors as sk
 
@@ -22,6 +5,13 @@ import happy.db.eval_runs_interface as db
 
 
 class PredictionSaver:
+    """Class for saving model predictions on a whole slide image (WSI).
+
+    Data is saved and read from a DB by the public interface. Saved coordinates match
+    the original WSI. This means predictions are scaled to the pixel size of the
+    original WSI. Before getting predictions, coords are scaled up to model pixel sizes.
+    """
+
     def __init__(self, microscopefile):
         self.file = microscopefile
         self.id = self.file.id
@@ -36,7 +26,7 @@ class PredictionSaver:
         tile_x = str(self.file.tile_xy_list[tile_index][0])
         tile_y = str(self.file.tile_xy_list[tile_index][1])
 
-        cell_tile_size = 200 * self.file.rescale_ratio
+        cell_tile_size = 200 * self.rescale_ratio
 
         coords = []
         if boxes.size == 0:
@@ -63,20 +53,22 @@ class PredictionSaver:
             db.save_pred_workings(self.id, coords)
             db.mark_finished_tiles(self.id, [tile_index])
 
-    # TODO: depreciated warning fix
-    # Cluster overlapped tiles. Overlap value results in multiple predictions for same nuc, this removes them.
-    def cluster_multi_detections(self, nuclei_preds, dist_threshold=4):
+    # Cluster duplicate nuclei from overlapped tiles
+    @staticmethod
+    def cluster_multi_detections(nuclei_preds, dist_threshold=9):
         print("finding duplicate nuclei clusters to cluster into one")
         tree = sk.KDTree(nuclei_preds, metric="euclidean")
 
-        # each element contains index of point and index of neighbours within radius if there are any
+        # each element contains index of point and index of neighbours within radius
         all_nn_indices = tree.query_radius(nuclei_preds, r=dist_threshold)
 
         # find all inds with at least one neighbour within radius and fewer than 5
         dup_det_inds = [x for x in all_nn_indices if 1 < len(x) < 5]
 
-        # remove some identical entries (if there are two neighbours there will be 2 entries)
-        unique_dup_det_inds = np.unique([tuple(row) for row in dup_det_inds])
+        # remove identical entries (if there are two neighbours there will be 2 entries)
+        unique_dup_det_inds = np.unique(
+            np.array([tuple(row) for row in dup_det_inds], dtype=object)
+        )
 
         # if all elements of dup_det_inds were size 2, then you need a different unique
         if not isinstance(unique_dup_det_inds[0], tuple):
@@ -106,7 +98,6 @@ class PredictionSaver:
         max_w = self.file.max_slide_width
         max_h = self.file.max_slide_height
         nuc_loc = nuclei_predictions
-
         mask = np.logical_and(
             (np.logical_and((nuc_loc[:, 0] - l) > 0, ((nuc_loc[:, 1] - l) > 0))),
             (
@@ -115,9 +106,7 @@ class PredictionSaver:
                 )
             ),
         )
-
         valid_nuclei = nuc_loc[mask]
-
         print(
             f"edge nuclei: {len(nuc_loc) - len(valid_nuclei)} "
             f"edge nuclei found and marked as invalid"
@@ -136,7 +125,7 @@ class PredictionSaver:
         db.validate_pred_workings(self.id, nuclei_preds)
         self.file.mark_finished_nuclei()
 
-    # Inserts valid/non duplicate predictions into Predictions table
+    # Inserts valid/non-duplicate predictions into Predictions table
     def commit_valid_nuclei_predictions(self):
         db.commit_pred_workings(self.id)
 
@@ -157,30 +146,5 @@ class PredictionSaver:
             scores_sort = np.argsort(-scores)[:max_detections]
             # select detections
             return boxes[indices[scores_sort], :]
-        else:
-            return np.array([])
-
-    @staticmethod
-    def filter_by_box_size(min_size, max_size, boxes):
-        # removes boxes outside of a mix and max size
-        indices = np.where(
-            np.logical_and(
-                (
-                    np.logical_and(
-                        ((boxes[:, 2] - boxes[:, 0]) < max_size),
-                        ((boxes[:, 3] - boxes[:, 1]) < max_size),
-                    )
-                ),
-                (
-                    np.logical_and(
-                        ((boxes[:, 2] - boxes[:, 0]) > min_size),
-                        ((boxes[:, 3] - boxes[:, 1]) > min_size),
-                    )
-                ),
-            )
-        )[0]
-
-        if indices.shape[0] > 0:
-            return boxes[indices]
         else:
             return np.array([])

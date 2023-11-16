@@ -6,8 +6,8 @@ import umap.plot
 from bokeh.plotting import show, save
 
 import happy.db.eval_runs_interface as db
-from happy.hdf5.utils import filter_hdf5, get_embeddings_file
-from happy.organs.organs import get_organ
+from happy.hdf5 import HDF5Dataset, get_embeddings_file
+from happy.organs import get_organ
 from utils import embeddings_results_path, setup
 from plots import plot_interactive, plot_cell_umap
 
@@ -44,14 +44,10 @@ def main(
     print(f"Filtering by confidence ranges: {min_confidence}-{max_confidence}")
 
     embeddings_file = get_embeddings_file(project_name, run_id)
-    predictions, embeddings, coords, confidence, start, end, num_filtered = filter_hdf5(
-        organ,
-        embeddings_file,
-        start=subset_start,
-        num_points=num_points,
-        metric_type="confidence",
-        metric_start=min_confidence,
-        metric_end=max_confidence,
+    hdf5_data = HDF5Dataset(embeddings_file, subset_start, num_points)
+
+    predictions, embeddings, coords, confidence = hdf5_data.filter_by_confidence(
+        min_confidence, max_confidence
     )
 
     reducer = umap.UMAP(random_state=42, verbose=True, min_dist=0.1, n_neighbors=15)
@@ -62,7 +58,9 @@ def main(
     save_dir.mkdir(exist_ok=True)
 
     if interactive:
-        plot_name = f"{start}-{end}_{min_confidence}-{max_confidence}.html"
+        plot_name = (
+            f"{hdf5_data.start}-{hdf5_data.end}_{min_confidence}-{max_confidence}.html"
+        )
         plot = plot_interactive(
             plot_name, slide_name, organ, predictions, confidence, coords, mapper
         )
@@ -70,7 +68,9 @@ def main(
         print(f"saving interactive to {save_dir / plot_name}")
         save(plot, save_dir / plot_name)
     else:
-        plot_name = f"{start}-{end}_{min_confidence}-{max_confidence}.png"
+        plot_name = (
+            f"{hdf5_data.start}-{hdf5_data.end}_{min_confidence}-{max_confidence}.png"
+        )
         plot = plot_cell_umap(organ, predictions, mapper)
         print(f"saving plot to {save_dir / plot_name}")
         plot.figure.savefig(save_dir / plot_name)

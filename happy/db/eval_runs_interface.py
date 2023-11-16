@@ -9,8 +9,7 @@ from happy.db.models_training import Model
 from happy.db.base import database, init_db
 
 
-def init():
-    db_name = "main.db"
+def init(db_name="main.db"):
     db_path = Path(__file__).parent.absolute() / db_name
     init_db(db_path)
 
@@ -19,6 +18,7 @@ def init():
 def get_slide_path_by_id(slide_id):
     slide = Slide.get_by_id(slide_id)
     return Path(slide.lab.slides_dir) / slide.slide_name
+
 
 # returns a slide
 def get_slide_by_id(slide_id):
@@ -37,7 +37,7 @@ def get_eval_run_by_id(run_id):
     return eval_run
 
 
-# TODO: change this to always return a Path object
+# returns the path to the embeddings file for that run
 def get_embeddings_path(run_id, embeddings_dir=None):
     eval_run = EvalRun.get_by_id(run_id)
     if not eval_run.embeddings_path:
@@ -51,9 +51,9 @@ def get_embeddings_path(run_id, embeddings_dir=None):
 
         eval_run.embeddings_path = path_with_file
         eval_run.save()
-        return str(path_with_file)
+        return path_with_file
     else:
-        return eval_run.embeddings_path
+        return Path(eval_run.embeddings_path)
 
 
 # Updates temporary run tile state table with a new tiles run state
@@ -237,3 +237,12 @@ def get_nuclei_in_range(run_id, min_x, min_y, max_x, max_y):
         )
         .tuples()
     )
+
+
+def get_slide_pixel_size_by_evalrun(run_id):
+    slide = Slide.select().join(EvalRun).where(EvalRun.id == run_id).get()
+    return slide.pixel_size
+
+
+def get_all_eval_runs():
+    return EvalRun.select()

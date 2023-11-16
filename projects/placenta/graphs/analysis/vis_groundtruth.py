@@ -1,10 +1,10 @@
 import typer
 import numpy as np
 
-from projects.placenta.graphs.graphs.create_graph import get_groundtruth_patch
-from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
+from happy.graph.graph_creation.get_and_process import get_groundtruth_patch
+from happy.graph.utils.visualise_points import visualize_points
 from happy.utils.utils import get_project_dir
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 
 
 def main(
@@ -14,7 +14,6 @@ def main(
     y_min: int = 0,
     width: int = -1,
     height: int = -1,
-    label_type: str = "full",
     tissue_label_tsv: str = "139_tissue_points.tsv",
     remove_unlabelled: bool = False,
     slide_name: str = "slide_139-2019-09-09 11.15.35.ndpi",
@@ -23,7 +22,7 @@ def main(
     organ = get_organ(organ_name)
 
     xs, ys, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
+        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv
     )
 
     if remove_unlabelled:
@@ -42,7 +41,7 @@ def main(
     plot_name = f"x{x_min}_y{y_min}_w{width}_h{height}"
     save_path = save_dir / plot_name
 
-    colours_dict = {tissue.id: tissue.colourblind_colour for tissue in organ.tissues}
+    colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
     colours = [colours_dict[label] for label in tissue_class]
     visualize_points(
         organ,

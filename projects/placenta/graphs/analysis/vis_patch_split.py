@@ -1,23 +1,21 @@
 from typing import List
-import csv
 import time
 
 import typer
 import numpy as np
 import pandas as pd
 
-from projects.placenta.graphs.graphs.create_graph import get_groundtruth_patch
-from projects.placenta.graphs.analysis.vis_graph_patch import visualize_points
-from projects.placenta.graphs.graphs.create_graph import get_nodes_within_tiles
+from happy.graph.graph_creation.get_and_process import get_groundtruth_patch
+from happy.graph.utils.visualise_points import visualize_points
+from happy.graph.graph_creation.create_graph import get_nodes_within_tiles
 from happy.utils.utils import get_project_dir
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 
 
 def main(
     project_name: str = "placenta",
     organ_name: str = "placenta",
     dataset_patch_files: List[str] = typer.Option([]),
-    label_type: str = "full",
     tissue_label_tsv: str = "96_tissue_points.tsv",
     slide_name: str = "slide_96-2019-09-05 22.47.40.ndpi",
 ):
@@ -25,14 +23,14 @@ def main(
     organ = get_organ(organ_name)
 
     xs, ys, tissue_class = get_groundtruth_patch(
-        organ, project_dir, 0, 0, -1, -1, tissue_label_tsv, label_type
+        organ, project_dir, 0, 0, -1, -1, tissue_label_tsv
     )
     tissue_class = np.zeros(tissue_class.shape)
 
     timer_start = time.time()
     print("Creating groundtruth patches from files")
     for file in dataset_patch_files:
-        patches_df = pd.read_csv(project_dir / "config" / file)
+        patches_df = pd.read_csv(project_dir / "graph_splits" / file)
         for row in patches_df.itertuples(index=False):
             patch_node_inds = get_nodes_within_tiles(
                 (row.x, row.y), row.width, row.height, xs, ys
@@ -45,7 +43,6 @@ def main(
                 row.width,
                 row.height,
                 tissue_label_tsv,
-                label_type,
             )
             tissue_class[patch_node_inds] = patch_tissue_class
     timer_end = time.time()
@@ -58,7 +55,7 @@ def main(
     plot_name = f"patches.png"
     save_path = save_dir / plot_name
 
-    colours_dict = {tissue.id: tissue.colourblind_colour for tissue in organ.tissues}
+    colours_dict = {tissue.id: tissue.colour for tissue in organ.tissues}
     colours = [colours_dict[label] for label in tissue_class]
     print("Visualising patches")
     visualize_points(

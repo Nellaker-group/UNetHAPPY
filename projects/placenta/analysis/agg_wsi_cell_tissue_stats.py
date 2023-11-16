@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 
 import typer
@@ -7,34 +7,31 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.utils.utils import get_project_dir
 import happy.db.eval_runs_interface as db
-from happy.hdf5.utils import get_datasets_in_patch, get_embeddings_file
-from projects.placenta.graphs.analysis.knot_nuclei_to_point import process_knt_cells
+from happy.graph.graph_creation.get_and_process import get_hdf5_data
 
 
 def main(
-    run_ids: List[int] = typer.Option(...),
+    run_ids: Optional[List[int]] = typer.Option([]),
+    file_run_ids: Optional[str] = None,
     project_name: str = "placenta",
     exp_name: str = typer.Option(...),
     model_weights_dir: str = typer.Option(...),
     model_name: str = typer.Option(...),
     model_type: str = "sup_clustergcn",
-    x_min: int = 0,
-    y_min: int = 0,
-    width: int = -1,
-    height: int = -1,
-    group_knts: bool = False,
-    trained_with_grouped_knts: bool = False,
     villus_only: bool = True,
     line_plot: bool = False,
 ):
+    """Plot cell type proportions within each tissue type for many aggregated WSIs."""
+
     # Create database connection
     db.init()
     organ = get_organ("placenta")
     cell_label_mapping = {cell.id: cell.label for cell in organ.cells}
-    cell_colours = {cell.label: cell.colourblind_colour for cell in organ.cells}
+    tissue_label_mapping = {tissue.id: tissue.label for tissue in organ.tissues}
+    cell_colours = {cell.label: cell.colour for cell in organ.cells}
     project_dir = get_project_dir(project_name)
 
     # print tissue predictions from tsv file
@@ -49,41 +46,39 @@ def main(
         / model_name
     )
 
-    all_prop_dfs = []
-    for run_id in run_ids:
-        # Get path to embeddings hdf5 files
-        embeddings_path = get_embeddings_file(project_name, run_id)
-        # Get hdf5 datasets contained in specified box/patch of WSI
-        predictions, embeddings, cell_coords, confidence = get_datasets_in_patch(
-            embeddings_path, x_min, y_min, width, height
+    if file_run_ids is not None:
+        run_ids = (
+            pd.read_csv(project_dir / file_run_ids, header=None)
+            .values.flatten()
+            .tolist()
         )
 
-        if group_knts:
-            (
-                predictions,
-                embeddings,
-                cell_coords,
-                confidence,
-                inds_to_remove,
-            ) = process_knt_cells(
-                predictions, embeddings, cell_coords, confidence, organ, 50, 3
-            )
-        tissue_pred_path = pretrained_path / f"run_{run_id}"
-        tissue_df = pd.read_csv(
-            tissue_pred_path / "tissue_preds.tsv", sep="\t", names=["x", "y", "Tissues"]
+    all_prop_dfs = []
+    for run_id in run_ids:
+        # this will load in cell and tissue data with already grouped knots
+        hdf5_data = get_hdf5_data(
+            project_name, run_id, 0, 0, -1, -1, tissue=True
         )
-        # remove rows where knots were removed
-        if group_knts and not trained_with_grouped_knts:
-            tissue_df = tissue_df.loc[
-                ~tissue_df.index.isin(inds_to_remove)
-            ].reset_index(drop=True)
 
         # get number of cell types within each tissue type
         cell_df = pd.DataFrame(
-            {"x": cell_coords[:, 0], "y": cell_coords[:, 1], "Cells": predictions}
+            {
+                "x": hdf5_data.coords[:, 0],
+                "y": hdf5_data.coords[:, 1],
+                "Cells": hdf5_data.cell_predictions,
+            }
         )
         cell_df["Cells"] = cell_df["Cells"].map(cell_label_mapping)
         cell_df.sort_values(by=["x", "y"], inplace=True, ignore_index=True)
+
+        tissue_df = pd.DataFrame(
+            {
+                "x": hdf5_data.coords[:, 0],
+                "y": hdf5_data.coords[:, 1],
+                "Tissues": hdf5_data.tissue_predictions,
+            }
+        )
+        tissue_df["Tissues"] = tissue_df["Tissues"].map(tissue_label_mapping)
         tissue_df.sort_values(by=["x", "y"], inplace=True, ignore_index=True)
 
         combined_df = pd.merge(cell_df, tissue_df)

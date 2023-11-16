@@ -31,14 +31,14 @@ def main(
     num_images: int = 10,
     plot_groundtruth: bool = False,
 ):
-    """Visualises network predictions as boxes or points for one dataset
+    """Visualises network predictions as boxes or points for one datasets
 
     Args:
         project_name: name of the project dir to save visualisations to
         annot_dir: relative path to annotations
         pre_trained: relative path to pretrained model
         shape: one of 'box' or 'point' for visualising the prediction
-        dataset_name: the dataset who's validation set to evaluate over
+        dataset_name: the datasets who's validation set to evaluate over
         score_threshold: the confidence threshold below which to discard predictions
         max_detections: number of maximum detections to save, ordered by score
         num_images: the number of images to evaluate

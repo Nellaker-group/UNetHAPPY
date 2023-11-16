@@ -6,14 +6,19 @@ import os
 import typer
 import torch
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import seaborn as sns
 from scipy.special import softmax
 from sklearn.metrics import (
     accuracy_score,
     top_k_accuracy_score,
     cohen_kappa_score,
     matthews_corrcoef,
+    roc_auc_score,
+    recall_score,
+    precision_score,
 )
 
 from happy.utils.utils import get_device
@@ -22,8 +27,10 @@ from happy.train.utils import (
     plot_confusion_matrix,
     plot_cell_pr_curves,
 )
-from happy.organs.organs import get_organ
-from happy.train.cell_train import setup_data, setup_model
+from happy.organs import get_organ
+from happy.train.cell_train import setup_model
+from happy.data.setup_data import setup_cell_datasets
+from happy.data.setup_dataloader import setup_dataloaders
 
 
 def main(
@@ -68,19 +75,18 @@ def main(
     model.eval()
 
     multiple_val_sets = True if len(dataset_names) > 1 else False
-    dataloaders = setup_data(
+    datasets = setup_cell_datasets(
         organ,
         project_dir / annot_dir,
-        hp,
+        hp.dataset_names,
         image_size,
-        3,
         multiple_val_sets,
-        hp.batch,
-        False,
         use_test_set,
     )
     if not use_test_set:
-        dataloaders.pop("train")
+        datasets.pop("train")
+    dataloaders = setup_dataloaders(False, datasets, 3, hp.batch, hp.batch)
+
 
     print("Running inference across datasets")
     predictions = {}
@@ -117,10 +123,18 @@ def main(
             k=2,
             labels=list(cell_mapping.keys()),
         )
-        print(f"Accuracy: {accuracy:.3f}")
-        print(f"Top 2 accuracy: {top_2_accuracy:.3f}")
-        print(f"Cohen's Kappa: {cohen_kappa:.3f}")
-        print(f"MCC: {mcc:.3f}")
+        roc_auc = roc_auc_score(
+            ground_truth[dataset_name],
+            softmax(outs[dataset_name], axis=-1),
+            average="macro",
+            multi_class="ovo",
+            labels=list(cell_mapping.keys()),
+        )
+        print(f"Accuracy: {accuracy:.6f}")
+        print(f"Top 2 accuracy: {top_2_accuracy:.6f}")
+        print(f"Cohen's Kappa: {cohen_kappa:.6f}")
+        print(f"MCC: {mcc:.6f}")
+        print(f"ROC AUC macro: {roc_auc:.6f}")
 
         alt_ground_truth = _convert_to_alt_label(organ, ground_truth[dataset_name])
         alt_predictions = _convert_to_alt_label(organ, predictions[dataset_name])
@@ -150,12 +164,73 @@ def main(
             )
 
         if plot_cm:
+            cell_mapping = {cell.id: cell.name for cell in organ.cells}
+            cell_colours = {cell.id: cell.colour for cell in organ.cells}
+
+            # Order by counts and category
+            sort_inds = [3, 10, 0, 9, 1, 6, 4, 8, 2, 7, 5]
+            sorted_labels = [
+                cell_mapping[n]
+                for n in np.array(list(cell_mapping.keys()))[sort_inds]
+            ]
+
             _plot_confusion_matrix(
                 organ,
                 predictions[dataset_name],
                 ground_truth[dataset_name],
                 dataset_name,
+                reorder=sorted_labels,
             )
+
+            if plot_pr:
+                recalls = recall_score(
+                    ground_truth[dataset_name], predictions[dataset_name], average=None
+                )[sort_inds]
+                precisions = precision_score(
+                    ground_truth[dataset_name], predictions[dataset_name], average=None
+                )[sort_inds]
+                print("Plotting recall and precision bar plots")
+                plt.rcParams["figure.dpi"] = 600
+                r_df = pd.DataFrame(recalls)
+                plt.figure(figsize=(10, 3))
+                sns.set(style="white", font_scale=1.2)
+                colours = [
+                    cell_colours[n]
+                    for n in np.unique(ground_truth[dataset_name])[sort_inds]
+                ]
+                ax = sns.barplot(data=r_df.T, palette=colours)
+                ax.set(ylabel="Recall", xticklabels=[], ylim=[0.0, 1.0])
+                ax.tick_params(bottom=False)
+                sns.despine(bottom=True)
+                plt.savefig("../../analysis/evaluation/plots/recalls.png")
+                plt.close()
+                plt.clf()
+
+                p_df = pd.DataFrame(precisions)
+                plt.rcParams["figure.dpi"] = 600
+                plt.figure(figsize=(3, 10))
+                sns.set(style="white", font_scale=1.2)
+                ax = sns.barplot(data=p_df.T, palette=colours, orient="h")
+                ax.set(xlabel="Precision", yticklabels=[], xlim=[0.0, 1.0])
+                ax.tick_params(left=False)
+                sns.despine(left=True)
+                plt.savefig("../../analysis/evaluation/plots/precisions.png")
+                plt.close()
+                plt.clf()
+
+                print("Plotting cell counts bar plot")
+                _, cell_counts = np.unique(ground_truth[dataset_name], return_counts=True)
+                l_df = pd.DataFrame(cell_counts[sort_inds])
+                plt.rcParams["figure.dpi"] = 600
+                plt.figure(figsize=(10, 3))
+                sns.set(style="white", font_scale=1.2)
+                ax = sns.barplot(data=l_df.T, palette=colours)
+                ax.set(ylabel="Count", xticklabels=[])
+                ax.tick_params(bottom=False)
+                sns.despine(bottom=True)
+                plt.savefig("../../analysis/evaluation/plots/cell_counts.png")
+                plt.close()
+                plt.clf()
 
 
 def _convert_to_alt_label(organ, labels):
@@ -165,11 +240,18 @@ def _convert_to_alt_label(organ, labels):
     return [alt_id_mapping[label] for label in labels]
 
 
-def _plot_confusion_matrix(organ, pred, truth, dataset_name):
-    cm = get_cell_confusion_matrix(organ, pred, truth, proportion_label=True)
+def _plot_confusion_matrix(organ, pred, truth, dataset_name, reorder=None):
+    cm = get_cell_confusion_matrix(organ, pred, truth, proportion_label=False)
     plt.clf()
+    plt.rcParams["figure.dpi"] = 600
+    plt.figure(figsize=(10, 8))
+    sns.set(font_scale=1)
     plot_confusion_matrix(
-        cm, dataset_name, Path(f"../../analysis/evaluation/plots/"), fmt="d"
+        cm,
+        dataset_name,
+        Path(f"../../analysis/evaluation/plots/"),
+        fmt="d",
+        reorder=reorder,
     )
 
 

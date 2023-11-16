@@ -4,15 +4,18 @@ import typer
 import matplotlib.pyplot as plt
 import torch
 
-from graphs.graphs.create_graph import get_raw_data, setup_graph, get_groundtruth_patch
+import happy.db.eval_runs_interface as db
+from happy.graph.graph_creation.create_graph import construct_graph
+from happy.graph.graph_creation.get_and_process import get_groundtruth_patch
+from happy.graph.graph_creation.get_and_process import get_hdf5_data
 from happy.utils.utils import get_device
-from happy.organs.organs import get_organ
+from happy.organs import get_organ
 from happy.logger.logger import Logger
 from happy.train.utils import setup_run
 from happy.utils.utils import get_project_dir
-from graphs.graphs.embeddings import generate_umap
-from graphs.graphs.enums import FeatureArg, MethodArg
-from graphs.graphs.utils import get_feature, send_graph_to_device, save_model
+from happy.graph.embeddings_umap import generate_umap
+from happy.graph.enums import FeatureArg, MethodArg
+from happy.graph.utils.utils import get_feature, send_graph_to_device
 from graphs.graphs import graph_unsupervised
 
 device = get_device()
@@ -42,9 +45,9 @@ def main(
     plot_pre_embeddings: bool = False,
     num_curriculum: int = 0,
     simple_curriculum: bool = False,
-    label_type: str = "full",
     tissue_label_tsv: Optional[str] = None,
 ):
+    db.init()
     project_dir = get_project_dir(project_name)
     pretrained_path = project_dir / pretrained if pretrained else None
     organ = get_organ(organ_name)
@@ -53,16 +56,16 @@ def main(
     logger = Logger(list(["train"]), ["loss"], vis=vis, file=True)
 
     # Get data from hdf5 files
-    predictions, embeddings, coords, confidence = get_raw_data(
+    predictions, embeddings, coords, confidence = get_hdf5_data(
         project_name, run_id, x_min, y_min, width, height, top_conf
     )
-    feature_data = get_feature(feature.value, predictions, embeddings)
+    feature_data = get_feature(feature.value, predictions, embeddings, organ)
     _, _, tissue_class = get_groundtruth_patch(
-        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv, label_type
+        organ, project_dir, x_min, y_min, width, height, tissue_label_tsv
     )
 
     # Create the graph from the raw data
-    data = setup_graph(coords, k, feature_data, graph_method.value)
+    data = construct_graph(coords, k, feature_data, graph_method.value)
 
     # Setup the dataloader which minibatches the graph
     train_loader = graph_unsupervised.setup_dataloader(
@@ -122,7 +125,7 @@ def main(
                 logger.log_accuracy("train", epoch - 1, accuracy)
 
             if epoch % 50 == 0 and epoch != epochs:
-                save_model(model, run_path / f"{epoch}_graph_model.pt")
+                torch.save(model, run_path / f"{epoch}_graph_model.pt")
 
             if num_curriculum > 0:
                 save_dir = run_path / "neg_loss_plots"

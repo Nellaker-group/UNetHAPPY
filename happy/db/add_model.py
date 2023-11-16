@@ -8,13 +8,14 @@ import happy.db.eval_runs_interface as db
 
 
 def main(
+    db_name: str = "main.db",
     path_to_model: Path = typer.Option(
         ..., exists=True, file_okay=True, dir_okay=False, resolve_path=True
     ),
     model_performance: float = typer.Option(...),
     run_name: str = typer.Option(...),
     run_type: str = typer.Option(...),
-    path_to_pretrained_model: str = typer.Option(...),
+    path_to_pretrained_model: Optional[str] = None,
     num_epochs: int = typer.Option(...),
     batch_size: int = typer.Option(...),
     init_lr: float = typer.Option(...),
@@ -29,7 +30,7 @@ def main(
         slides_dir: absolute path to the dir containing the slides
         run_name: name of the training run which generated the model
         run_type: one of "Nuclei" or "Cell"
-        path_to_pretrained_model: path from results/run_type to pretrained model
+        path_to_pretrained_model: path from results/run_type to pretrained model if used
         num_epochs: number of epochs trained for
         batch_size: batch size during training
         init_lr: initial learning rate

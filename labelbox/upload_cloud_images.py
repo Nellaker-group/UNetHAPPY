@@ -12,14 +12,14 @@ def main(
     dataset_name: str = typer.Option(...),
     include_polygon_layer: bool = True,
 ):
-    """Links images in a google cloud container to a LabelBox dataset. Adds
+    """Links images in a google cloud container to a LabelBox datasets. Adds
     the specified text attachment to the image and an image layer with polygon drawing
     if specified.
 
     Args:
         bucket_name: Name of the container in google cloud
         dir_names: Paths to directories containing the images you want to link
-        dataset_name: Name of an existing or new dataset in LabelBox
+        dataset_name: Name of an existing or new datasets in LabelBox
         include_polygon_layer: Include an image layer with drawn polygon
     """
     storage_client = storage.Client()
@@ -32,7 +32,7 @@ def main(
     try:
         dataset = next(datasets)
     except StopIteration:
-        print(f"Creating new dataset: {dataset_name}")
+        print(f"Creating new datasets: {dataset_name}")
         dataset = lb.create_dataset(name=dataset_name)
     print(dataset)
 
