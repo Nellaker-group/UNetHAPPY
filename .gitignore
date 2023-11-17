@@ -237,4 +237,14 @@ notebooks
 relink*
 Relink*
 post_merge.py
-
+**/pickledFiles/*
+**/listFiles/*
+**/csvs/*
+*.sql
+task_dbs_finalRun24aprBACKUP.tar.gz
+**/finalResults/*
+**/geojson/*
+**/logs/*
+**/polygonsFiltered_forHistPerIndividualPlot/*
+**/vc_thumbnail/*
+**/sc_thumbnail/*
