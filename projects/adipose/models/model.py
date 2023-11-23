@@ -1,24 +1,6 @@
-from collections import defaultdict
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, datasets, models
-import torch.optim as optim
-from torch.optim import lr_scheduler
-import time
-import copy
-import numpy as np
-import cv2
-import sys
-import os
-import math
-import matplotlib
-import matplotlib.pyplot as plt
-import random
-from torch.utils.data.sampler import Sampler
 
-from models.loss import dice_loss
 
 def double_conv(in_channels, out_channels):
     return nn.Sequential(

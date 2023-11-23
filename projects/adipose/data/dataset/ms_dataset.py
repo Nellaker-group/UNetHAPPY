@@ -4,7 +4,8 @@ import numpy as np
 import torch
 from torch.utils.data import IterableDataset
 
-from happy.utils.image_utils import process_image
+from happy.utils.utils import process_image
+
 
 class MSDataset(IterableDataset, ABC):
     def __init__(self, microscopefile, remaining_data, transform=None):

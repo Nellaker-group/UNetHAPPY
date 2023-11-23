@@ -3,15 +3,12 @@ from typing import Optional
 
 import typer
 
-from happy.organs.organs import get_organ
 from happy.utils.utils import get_device
-import eval_adipose 
 import db.eval_runs_interface as db
+import eval.eval_adipose
 
 
 def main(
-    project_name: str = typer.Option(...),
-    organ_name: str = typer.Option(...),
     seg_model_id: Optional[int] = None,
     run_id: Optional[int] = None,
     slide_id: Optional[int] = None,
@@ -24,7 +21,7 @@ def main(
     run_segment_pipeline: bool = True,
     get_cuda_device_num: bool = False,
     write_geojson: bool = False,
-    db_name: str = "",
+    db_name: str = "main.db",
 ):
     """Runs inference over a WSI where it does semantic segmentation.
 
@@ -40,7 +37,6 @@ def main(
         seg_num_workers: number of workers for parallel processing of segment inference
         score_threshold: segment network confidence cutoff for saving predictions
         max_detections: max segment detections for saving predictions
-        nuc_batch_size: batch size for segment inference
         seg_batch_size: batch size for segmentation
         run_segment_pipeline: True if you want to run the segmentation pipeline
         get_cuda_device_num: if you want the code to choose a gpu
@@ -51,10 +47,7 @@ def main(
     print(device)
 
     # Create database connection
-    if db_name != "":
-        db.init(db_name)
-    else:
-        db.init()
+    db.init(db_name)
 
     if run_segment_pipeline:
         # Start timer for segment evaluation
