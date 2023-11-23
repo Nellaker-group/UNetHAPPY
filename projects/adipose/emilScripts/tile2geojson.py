@@ -130,7 +130,7 @@ gj.writeToGeoJSON(new_in_list, used_slide_name+"_DBid"+str(whichDB)+"_evalID"+st
 new_in_list_area = [poly.area*pixels[whichPixel]**2 for poly in new_in_list]
 
 print("After filter (size > 316.23, PP > 0.6):")
-print("mean="+str(round(stats.mean(new_in_list_area),2))+", med="+str(round(stats.median(new_in_list_area),2))+", sd="+str(round(stats.stdev(new_in_list_area),2))+", N="+str(len(new_in_list_area)))
+print(used_slide_name+", mean="+str(round(stats.mean(new_in_list_area),2))+", med="+str(round(stats.median(new_in_list_area),2))+", sd="+str(round(stats.stdev(new_in_list_area),2))+", N="+str(len(new_in_list_area)))
 
 
 
