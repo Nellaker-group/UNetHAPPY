@@ -1,8 +1,8 @@
 ## emil to get importing to work properly
-import sys
-import os
+# import sys
+# import os
 
-sys.path.append(os.getcwd())
+# sys.path.append(os.getcwd())
 
 from typing import Optional
 from pathlib import Path
@@ -26,7 +26,7 @@ def main(
     init_lr: float = typer.Option(...),
     lr_step: Optional[int] = None,
     model_architecture: str = typer.Option(...),
-    db_name: str = "",
+    db_name: str = "main.db",
 ):
     """Add a trained model to the database
 
@@ -44,10 +44,7 @@ def main(
         model_architecture: Type of model used (e.g. retinanet)
         db_name: name of the database or .db file being written to
     """
-    if db_name != "":
-        db.init(db_name)
-    else:
-        db.init()
+    db.init(db_name)
 
     train_run = TrainRun.create(
         run_name=run_name,

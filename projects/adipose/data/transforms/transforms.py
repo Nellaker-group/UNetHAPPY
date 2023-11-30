@@ -92,7 +92,7 @@ class Normalizer(object):
     def __init__(
         self,
         # emil - changed to normalisation values from my PyTorchUnet respository
-        mean = 220.70493876783155 ,
+        mean = 220.70493876783155,
         std = 21.15594532104987,
         #mean=np.array([[[0.485, 0.456, 0.406]]]),
         #std=np.array([[[0.229, 0.224, 0.225]]]),

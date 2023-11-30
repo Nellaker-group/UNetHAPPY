@@ -91,9 +91,6 @@ def run_seg_eval(
                         batch["img"].cpu().numpy()[~empty_mask]
                     )
 
-                    # Get scale factor
-                    scale = np.array(batch["scale"])[~empty_mask][0]
-
                     # Network can't be fed batches of images
                     # as it returns predictions in one array
                     for i, non_empty_ind in enumerate(non_empty_inds):
@@ -103,17 +100,10 @@ def run_seg_eval(
                             np.expand_dims(non_empty_imgs[i], axis=0)
                         ).to(device)
 
-                        label = torch.from_numpy(
-                            np.expand_dims(np.zeros(batch['dim'][i]), axis=0)
-                        ).to(device)
-
                         # Predict
                         pred = model(input)
                         pred = torch.sigmoid(pred)
                         pred = pred.data.cpu().numpy()
-
-                        # Correct predictions from resizing of img.
-                        # boxes /= scale
 
                         # creates binary mask of entries with a score above the threshold
                         pred_filtered = pred_saver.filter_by_score(

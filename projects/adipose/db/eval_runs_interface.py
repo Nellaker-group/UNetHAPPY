@@ -1,7 +1,6 @@
 from pathlib import Path
-from collections import defaultdict
 
-from peewee import Tuple, ValuesList, EnclosedNodeList, chunked
+from peewee import chunked
 
 from db.slides import Slide
 from db.eval_runs import EvalRun, TileState, Prediction, UnvalidatedPrediction, MergedPrediction

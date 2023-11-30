@@ -78,7 +78,3 @@ class MergedPrediction(BaseModel):
 
     class Meta:
         primary_key = CompositeKey("run1", "run2", "poly_id", "point_id", "X", "Y")
-
-
-
-

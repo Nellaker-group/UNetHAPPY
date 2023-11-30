@@ -1,9 +1,8 @@
-import sys
+# import sys
 import os
-
-sys.path.append(os.getcwd())
-
 from pathlib import Path
+
+# sys.path.append(os.getcwd())
 
 import typer
 
@@ -21,7 +20,7 @@ def main(
     pixel_size: float = typer.Option(...),
     has_notes: bool = False,
     has_clinical_data: bool = False,
-    db_name: str = "",
+    db_name: str = "main.db",
     avoid_keyword: str = "",
 
 ):
@@ -38,10 +37,7 @@ def main(
         has_clinical_data: if the slides came with associated clinical data/history
         db_name: name of the database or .db file being written to
     """
-    if db_name != "":
-        db.init(db_name)
-    else:
-        db.init()
+    db.init(db_name)
 
     lab = Lab.create(
         country=lab_country,

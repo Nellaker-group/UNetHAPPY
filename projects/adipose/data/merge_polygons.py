@@ -2,7 +2,6 @@ import pandas as pd
 from shapely.ops import unary_union
 from shapely.geometry import Polygon
 from shapely.strtree import STRtree
-from data.geojsoner import writeToGeoJSON
 
 
 # new faster version of the polygon merger - written by Emil (with inspiration from Phil and Chris's code) using STRtree from shapely
