@@ -5,10 +5,12 @@ import typer
 
 from happy.utils.utils import get_device
 import db.eval_runs_interface as db
-import eval.eval_adipose
+import eval.eval_adipose as eval_adipose
 
 
 def main(
+    project_name: str = typer.Option(...),
+    organ_name: str = typer.Option(...),
     seg_model_id: Optional[int] = None,
     run_id: Optional[int] = None,
     slide_id: Optional[int] = None,
