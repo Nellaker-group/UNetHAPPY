@@ -4,8 +4,8 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from happy.data.transforms.collaters import collater
-from happy.microscopefile import prediction_saver
 from happy.utils.utils import GracefulKiller
+from projects.adipose.microscopefile import prediction_saver
 from projects.adipose.data.transforms.transforms import Normalizer
 from projects.adipose.db.msfile_interface import get_msfile
 import projects.adipose.db.eval_runs_interface as db
