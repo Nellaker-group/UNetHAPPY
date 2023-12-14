@@ -4,8 +4,8 @@ from typing import Optional
 import typer
 
 from happy.utils.utils import get_device
-import db.eval_runs_interface as db
-import eval.eval_adipose
+import projects.adipose.db.eval_runs_interface as db
+import projects.adipose.eval.eval_adipose as eval_adipose
 
 
 def main(

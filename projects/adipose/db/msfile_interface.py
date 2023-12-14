@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from db.eval_runs import EvalRun
-from microscopefile.microscopefile import MicroscopeFile
-from microscopefile.reader import Reader
+from projects.adipose.db.eval_runs import EvalRun
+from projects.adipose.microscopefile.microscopefile import MicroscopeFile
+from happy.microscopefile.reader import Reader
 
 
 # returns an ms_file object with values from db if supplied with run_id

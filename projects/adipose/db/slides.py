@@ -1,6 +1,6 @@
 from peewee import TextField, IntegerField, FloatField, ForeignKeyField, BooleanField
 
-from db.base import BaseModel
+from projects.adipose.db.base import BaseModel
 
 
 class Patient(BaseModel):

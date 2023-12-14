@@ -8,9 +8,9 @@ from peewee import (
     CompositeKey,
 )
 
-from db.base import BaseModel
-from db.slides import Slide
-from db.models_training import TrainRun
+from projects.adipose.db.base import BaseModel
+from projects.adipose.db.slides import Slide
+from projects.adipose.db.models_training import TrainRun
 
 
 class TrainTile(BaseModel):

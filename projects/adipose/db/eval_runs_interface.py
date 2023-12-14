@@ -2,10 +2,10 @@ from pathlib import Path
 
 from peewee import chunked
 
-from db.slides import Slide
-from db.eval_runs import EvalRun, TileState, Prediction, UnvalidatedPrediction, MergedPrediction
-from db.models_training import Model
-from db.base import database, init_db
+from projects.adipose.db.slides import Slide
+from projects.adipose.db.eval_runs import EvalRun, TileState, Prediction, UnvalidatedPrediction, MergedPrediction
+from projects.adipose.db.models_training import Model
+from projects.adipose.db.base import database, init_db
 
 
 def init(db_name = "main.db"):

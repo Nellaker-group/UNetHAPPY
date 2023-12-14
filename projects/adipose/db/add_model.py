@@ -1,16 +1,10 @@
-## emil to get importing to work properly
-# import sys
-# import os
-
-# sys.path.append(os.getcwd())
-
 from typing import Optional
 from pathlib import Path
 
 import typer
 
-from db.models_training import Model, TrainRun
-import db.eval_runs_interface as db
+from projects.adipose.db.models_training import Model, TrainRun
+import projects.adipose.db.eval_runs_interface as db
 
 
 def main(

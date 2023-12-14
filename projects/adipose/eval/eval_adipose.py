@@ -6,11 +6,12 @@ from torchvision import transforms
 from happy.data.transforms.collaters import collater
 from happy.microscopefile import prediction_saver
 from happy.utils.utils import GracefulKiller
-from data.transforms.transforms import Normalizer
-from db.msfile_interface import get_msfile
-import db.eval_runs_interface as db
-from data.dataset.ms_dataset import SegDataset
-from models.model import UNet
+from projects.adipose.data.transforms.transforms import Normalizer
+from projects.adipose.db.msfile_interface import get_msfile
+import projects.adipose.db.eval_runs_interface as db
+from projects.adipose.data.dataset.ms_dataset import SegDataset
+from projects.adipose.models.model import UNet
+
 
 # Load model weights and push to device
 def setup_model(model_id, device, n_class, inputChannels, channelsMultiplier):

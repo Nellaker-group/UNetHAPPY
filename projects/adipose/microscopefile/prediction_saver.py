@@ -18,9 +18,9 @@ import numpy as np                                         # (pip install numpy)
 from skimage import measure                                # (pip install scikit-image)
 from shapely.geometry import Polygon, MultiPolygon, shape  # (pip install Shapely)
 
-import db.eval_runs_interface as db
-import data.geojsoner as gj
-import data.merge_polygons as mp
+import projects.adipose.db.eval_runs_interface as db
+import projects.adipose.data.geojsoner as gj
+import projects.adipose.data.merge_polygons as mp
 
 
 class PredictionSaver:

@@ -5,16 +5,16 @@ database = SqliteDatabase(None)
 
 def init_db(db_name):
     # Local imports need to create all the tables and avoid circular import of BaseModel
-    from db.slides import Slide, Patient, Lab
-    from db.eval_runs import (
+    from projects.adipose.db.slides import Slide, Patient, Lab
+    from projects.adipose.db.eval_runs import (
         EvalRun,
         Prediction,
         TileState,
         UnvalidatedPrediction,
         MergedPrediction,
     )
-    from db.models_training import Model, TrainRun
-    from db.tiles import (
+    from projects.adipose.db.models_training import Model, TrainRun
+    from projects.adipose.db.tiles import (
         TrainTile,
         Annotation,
         Feature,

@@ -2,7 +2,7 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-import db.eval_runs_interface as db
+import projects.adipose.db.eval_runs_interface as db
 
 
 class MicroscopeFile:

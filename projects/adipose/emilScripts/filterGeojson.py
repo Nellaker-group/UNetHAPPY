@@ -1,14 +1,9 @@
-import pickle
-import sys
 import argparse
 import math
-import os
 import geojson
 from shapely.geometry import Polygon, MultiPolygon, shape
 
-sys.path.append(os.getcwd())
-import db.eval_runs_interface as db
-from data.geojsoner import  writeToGeoJSON, geojson2polygon, readGeoJSON2list
+from projects.adipose.data.geojsoner import  writeToGeoJSON, readGeoJSON2list
 
 
 

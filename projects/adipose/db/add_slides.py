@@ -1,13 +1,10 @@
-# import sys
 import os
 from pathlib import Path
 
-# sys.path.append(os.getcwd())
-
 import typer
 
-from db.slides import Slide, Lab
-import db.eval_runs_interface as db
+from projects.adipose.db.slides import Slide, Lab
+import projects.adipose.db.eval_runs_interface as db
 
 
 def main(

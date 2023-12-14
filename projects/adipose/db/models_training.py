@@ -2,7 +2,7 @@ from datetime import datetime
 
 from peewee import TextField, IntegerField, FloatField, ForeignKeyField, DateTimeField
 
-from db.base import BaseModel
+from projects.adipose.db.base import BaseModel
 
 
 class TrainRun(BaseModel):
