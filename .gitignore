@@ -228,6 +228,7 @@ analysis/evaluation/plots
 *.*~
 *.obj
 *.xlsx
+**/plotScripts/*
 **/plots/*
 .vscode
 slurm_logs
