@@ -1,41 +1,32 @@
 from shapely.geometry import Polygon, MultiPolygon, shape  # (pip install Shapely)
+import typer
 
-import db.eval_runs_interface_oldVersion21feb as db
-#import db.eval_runs_interface as db
-import data.geojsoner as gj
-import data.merge_polygons as mp
-import argparse
+import projects.adipose.db.eval_runs_interface as db
+import projects.adipose.data.geojsoner as gj
+import projects.adipose.data.merge_polygons as mp
+from projects.adipose.analysis.db_to_list import db_to_list
 
 
-prs = argparse.ArgumentParser()
-prs.add_argument('--evalRun', help='EvalRun ID run whose polygons to be converted to a .geojson file', type=str)
-prs.add_argument('--database-id', help='EvalRun ID run whose polygons to be converted to a .geojson file', type=str)
-args = vars(prs.parse_args())
-assert args['evalRun'] != ""
-evalRun = args['evalRun']
-# emil
-database_id = args['database_id']
+def main(database_id: str = typer.Option(..., help='EvalRun ID run whose polygons to be converted to a .geojson file'), eval_run: int = typer.Option(..., help='EvalRun ID run whose polygons to be converted to a .geojson file')):
+    if database_id != None:
+        db.init(database_id)
+    else:
+        db.init()
 
-if database_id != None:
-    db.init(str(database_id))
-else:
-    db.init()
+    seg_preds = db.get_all_validated_seg_preds(eval_run)
+    polys = db_to_list(seg_preds)
 
-seg_preds = db.get_all_validated_seg_preds(evalRun)
-poly_list = []
+    print("this many merged polygons:")
+    print(len(polys))
 
-for seg in seg_preds:
-    poly=Polygon([(x,y) for x,y in db.stringListTuple2coordinates(seg)])
-    poly_list.append(poly)
+    slide_name = db.get_slide_name(eval_run)
+    write_name = slide_name.split(".")[0]
+    output_name = write_name+"_runID"+eval_run+".geojson"
 
-print("this many merged polygons:")
-print(len(poly_list))
+    print("output name of file is:")
+    print(output_name)
 
-slideName = db.get_slide_name(evalRun)
-writeName=slideName.split(".")[0]
-outputName=writeName+"_runID"+evalRun+".geojson"
+    gj.writeToGeoJSON(polys, output_name)
 
-print("output name of file is:")
-print(outputName)
-
-gj.writeToGeoJSON(poly_list, outputName)
+if __name__ == "__main__":
+    typer.run(main)
