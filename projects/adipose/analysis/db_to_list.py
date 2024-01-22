@@ -1,6 +1,5 @@
 from shapely.geometry import Polygon
 
-
 def db_to_list(seg_preds):
     seg_list = []
     poly_list = []
