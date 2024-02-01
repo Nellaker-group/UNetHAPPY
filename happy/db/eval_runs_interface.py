@@ -246,3 +246,9 @@ def get_slide_pixel_size_by_evalrun(run_id):
 
 def get_all_eval_runs():
     return EvalRun.select()
+
+
+def get_slide_name(run_id):
+    eval = EvalRun.get_by_id(run_id)
+    slide = Slide.get_by_id(eval.slide_id)
+    return slide.slide_name

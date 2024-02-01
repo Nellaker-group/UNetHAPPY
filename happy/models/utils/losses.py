@@ -84,7 +84,9 @@ class FocalLoss(nn.Module):
             cls_loss = focal_weight * bce
 
             cls_loss = torch.where(
-                torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape).to(device)
+                torch.ne(targets, -1.0),
+                cls_loss,
+                torch.zeros(cls_loss.shape).to(device),
             )
 
             classification_losses.append(
@@ -120,8 +122,6 @@ class FocalLoss(nn.Module):
 
                 targets = targets / torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).to(device)
 
-                # negative_indices = ~positive_indices
-
                 regression_diff = torch.abs(targets - regression[positive_indices, :])
 
                 regression_loss = torch.where(
@@ -141,27 +141,43 @@ class FocalLoss(nn.Module):
 
 def calc_iou(a, b):
     area = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
-
     iw = torch.min(torch.unsqueeze(a[:, 2], dim=1), b[:, 2]) - torch.max(
         torch.unsqueeze(a[:, 0], 1), b[:, 0]
     )
     ih = torch.min(torch.unsqueeze(a[:, 3], dim=1), b[:, 3]) - torch.max(
         torch.unsqueeze(a[:, 1], 1), b[:, 1]
     )
-
     iw = torch.clamp(iw, min=0)
     ih = torch.clamp(ih, min=0)
-
     ua = (
         torch.unsqueeze((a[:, 2] - a[:, 0]) * (a[:, 3] - a[:, 1]), dim=1)
         + area
         - iw * ih
     )
-
     ua = torch.clamp(ua, min=1e-8)
-
     intersection = iw * ih
-
     IoU = intersection / ua
-
     return IoU
+
+
+def dice_loss(pred, target, smooth=1.0):
+    pred = pred.contiguous()
+    target = target.contiguous()
+    intersection = (pred * target).sum(dim=2).sum(dim=2)
+    loss = 1 - (
+        (2.0 * intersection + smooth)
+        / (pred.sum(dim=2).sum(dim=2) + target.sum(dim=2).sum(dim=2) + smooth)
+    )
+    return loss.mean()
+
+
+def calc_loss(pred, target, metrics, bce_weight=0.5):
+    pred = torch.sigmoid(pred)
+    bce = F.binary_cross_entropy(pred, target)
+
+    dice = dice_loss(pred, target)
+    loss = bce * bce_weight + dice * (1 - bce_weight)
+    metrics["bce"] += bce.data.cpu().numpy() * target.size(0)
+    metrics["dice"] += dice.data.cpu().numpy() * target.size(0)
+    metrics["loss"] += loss.data.cpu().numpy() * target.size(0)
+    return loss

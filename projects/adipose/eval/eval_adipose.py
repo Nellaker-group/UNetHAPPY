@@ -10,7 +10,7 @@ from projects.adipose.data.transforms.transforms import Normalizer
 from projects.adipose.db.msfile_interface import get_msfile
 import projects.adipose.db.eval_runs_interface as db
 from projects.adipose.data.dataset.ms_dataset import SegDataset
-from projects.adipose.models.model import UNet
+from happy.models.unet import UNet
 
 
 # Load model weights and push to device
