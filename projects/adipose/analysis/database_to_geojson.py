@@ -9,7 +9,10 @@ from projects.adipose.analysis.db_to_list import db_to_list
 from projects.adipose.analysis.get_pixel_size import get_pixel_size, get_which_pixel
 
 
-def main(database_id: str = typer.Option(..., help='eval_run ID run whose polygons to be converted to a .geojson file'), eval_run: int = typer.Option(..., help='EvalRun ID run whose polygons to be converted to a .geojson file'), merge_runs: bool = False, help="To you want to merge polygons from the subsequent eval_run ID (e.g. 3 and 4) - has to be uneven number!", filter_polys: bool = True):
+def main(database_id: str = typer.Option(..., help='eval_run ID run whose polygons to be converted to a .geojson file'),
+         eval_run: int = typer.Option(..., help='EvalRun ID run whose polygons to be converted to a .geojson file'),
+         merge_runs: bool = False, help="To you want to merge polygons from the subsequent eval_run ID (e.g. 3 and 4) - has to be uneven number!",
+         filter_polys: bool = True):
     if database_id != None:
         db.init(database_id)
     else:
