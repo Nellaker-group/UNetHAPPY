@@ -24,7 +24,7 @@ def setup_model(model_id, device, n_class, inputChannels, channelsMultiplier):
         model.load_state_dict(torch.load(model_weights_path,map_location=device))
     else:
         raise ValueError(f"{model_architecture} not supported")
-    #  pushes model to specific GPU
+    # pushes model to specific GPU
     model = model.to(device)
     print("Pushed model to device")
     return model
