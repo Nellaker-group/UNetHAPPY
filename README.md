@@ -1,4 +1,6 @@
-# Histology Analysis Pipeline.py (HAPPY)
+# Histology Analysis Pipeline.py (HAPPY) - Adipocyte U-Net 2.0
+
+## The Adipocyte U-Net 2.0 method
 
 For performing semantic segmentation of adipocytes in whole slide images (WSI).
 
