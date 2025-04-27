@@ -4,9 +4,8 @@
 
 For performing semantic segmentation of adipocytes in whole slide images (WSI).
 
-Currently, a sqlite database (and Peewee orm) is used for the evaluation part of
+Currently, a sqlite database (and Peewee) is used for the evaluation part of
 the pipeline. The training part of the pipeline should be done using `https://github.com/Nellaker-group/PyTorchUnet`.
-database at some point.
 
 ## Setup
 
